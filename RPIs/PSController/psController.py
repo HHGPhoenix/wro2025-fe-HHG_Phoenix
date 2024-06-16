@@ -92,3 +92,6 @@ class PSController():
         else:
             # Map the value from 0.5-1 to 6.7-10
             return ((value - 0.5) * 2) * (self.servo_max_angle - self.servo_middle_angle) + self.servo_middle_angle
+        
+    def map_speed_value(self, value):
+        return (1 - value - 0.5) * 300
