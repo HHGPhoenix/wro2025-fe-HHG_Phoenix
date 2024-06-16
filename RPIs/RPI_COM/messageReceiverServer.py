@@ -33,6 +33,7 @@ class MessageReceiver:
         
         if command in self.message_handler_map:
             try:
+                print(f"Executing {command} with arguments {values}")
                 self.message_handler_map[command](*values)
                 return f"Success: {command} executed with arguments {values}"
             except Exception as e:
@@ -63,7 +64,8 @@ class MessageReceiver:
             if data:
                 print(f"Received message: {data}")
                 response = self.handle_message(data)
-                client_socket.sendall(response.encode('utf-8'))
+                print(f"Response: {response}")
+                # client_socket.sendall(response.encode('utf-8'))
         except Exception as e:
             print(f"Error handling client {client_address}: {e}")
         finally:

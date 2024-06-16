@@ -1,0 +1,8 @@
+{
+    "LOG_DEBUG": "self.log_debug",
+    "LOG_INFO": "self.log_info",
+    "LOG_WARNING": "self.log_warning",
+    "LOG_ERROR": "self.log_error",
+    "LOG_CRITICAL": "self.log_critical",
+    "LOG_EXCEPTION": "self.log_exception"
+}
