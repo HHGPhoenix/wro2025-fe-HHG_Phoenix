@@ -3,30 +3,7 @@ import threading
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.RPI_Logging.Logger import Logger
-
-
-class RemoteFunctions:
-    def __init__(self):
-        logger_obj = Logger()
-        self.logger = logger_obj.setup_log()
-
-    def execute_LOG_DEBUG(self, message):
-        self.logger.debug(message)
-
-    def execute_LOG_INFO(self, message):
-        self.logger.info(message)
-
-    def execute_LOG_WARNING(self, message):
-        self.logger.warning(message)
-
-    def execute_LOG_ERROR(self, message):
-        self.logger.error(message)
-
-    def execute_LOG_CRITICAL(self, message):
-        self.logger.critical(message)
-
-    def execute_LOG_EXCEPTION(self, message):
-        self.logger.exception(message)
+from RPIs.DataManager.DataManagerLib import RemoteFunctions
 
 
 # Start the server

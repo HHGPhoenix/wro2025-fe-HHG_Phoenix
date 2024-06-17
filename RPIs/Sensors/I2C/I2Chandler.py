@@ -1,4 +1,4 @@
-from ADCManager import AnalogDigitalConverter
+from ADC.ADCManager import AnalogDigitalConverter
 import threading
 
 class I2Chandler:

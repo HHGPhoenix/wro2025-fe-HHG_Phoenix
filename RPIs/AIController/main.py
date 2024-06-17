@@ -2,7 +2,7 @@ import time
 import threading
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
-from AICUtilityFunctions import AICU_Logger
+from RPIs.AIController.AICUtilityFunctions import AICU_Logger
 
 class RemoteFunctions:
     def __init__(self):

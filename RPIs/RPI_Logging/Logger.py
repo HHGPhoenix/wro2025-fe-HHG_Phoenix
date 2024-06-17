@@ -4,7 +4,7 @@ import platform
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
-class Logger:
+class LoggerTemplate:
     def __init__(self, log_dir='LOGS', log_file_prefix='app_log', max_files=10, max_file_size=50*1024*1024):
         """
         Initialize the Logger class.
@@ -117,6 +117,35 @@ class Logger:
 
         return None
 
+class Logger():
+    def __init__(self):
+        self.logger_template = LoggerTemplate()
+
+    def setup_log(self):
+        return self.logger_template.setup_log()
+    
+    def _manage_log_files(self, directory):
+        self.logger_template._manage_log_files(directory)
+
+    def _find_usb_log_dir(self):
+        return self.logger_template._find_usb_log_dir()
+    
+    def debug(self, message):
+        self.logger_template.logger.debug(f"--DataManager--: {message}")
+
+    def info(self, message):
+        self.logger_template.logger.info(f"--DataManager--: {message}")
+
+    def warning(self, message):
+        self.logger_template.logger.warning(f"--DataManager--: {message}")
+
+    def error(self, message):
+        self.logger_template.logger.error(f"--DataManager--: {message}")
+
+    def critical(self, message):
+        self.logger_template.logger.critical(f"--DataManager--: {message}")
+
+        
 # Usage
 if __name__ == "__main__":
     logger_obj = Logger()
