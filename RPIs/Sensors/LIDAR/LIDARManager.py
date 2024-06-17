@@ -20,7 +20,9 @@ class LidarSensor():
         return None
     
     def start_sensor(self):
-        self.ser_device.open()
+        if not self.ser_device.is_open:
+            self.ser_device.open()
+            
         self.ser_device.write(b'\xA5\x60')
         
     def stop_sensor(self):
