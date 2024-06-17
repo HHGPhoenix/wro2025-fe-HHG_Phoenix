@@ -2,3 +2,4 @@
 Delete
 __pycache__/
 /LOGS
+.env
