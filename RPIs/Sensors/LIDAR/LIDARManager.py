@@ -4,13 +4,13 @@ import serial
 class LidarSensor():
     def __init__(self, usb_address=None):
         if usb_address is not None:
-            self.ser_device = serial.Serial(usb_address, 115200)
+            self.ser_device = serial.Serial(usb_address, 460800)
         
         else:
             self.ser_device = self.find_usb_device(0x10c4, 0xea60)
             if self.ser_device is None:
                 raise Exception("Lidar sensor not found, try specifying the USB address manually.")
-            self.ser_device = serial.Serial(self.ser_device, 115200)
+            self.ser_device = serial.Serial(self.ser_device, 460800)
         
     def find_usb_device(self, vendor_id, product_id):
         # Find the device by vendor and product id
