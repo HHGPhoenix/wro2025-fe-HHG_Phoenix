@@ -1,5 +1,4 @@
 from ....Misc.functionLibrary import find_usb_device
-import usb
 import serial
 
 class LidarSensor():
@@ -12,8 +11,6 @@ class LidarSensor():
             if self.ser_device is None:
                 raise Exception("Lidar sensor not found, try specifying the USB address manually.")
             self.ser_device = serial.Serial(self.ser_device, 115200)
-        
-    
     
     def start_sensor(self):
         self.ser_device.open()

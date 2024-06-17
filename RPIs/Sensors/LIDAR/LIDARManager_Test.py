@@ -1,4 +1,4 @@
-from lidarManager import LidarSensor
+from LIDARManager import LidarSensor
 
 lidar = LidarSensor()
 

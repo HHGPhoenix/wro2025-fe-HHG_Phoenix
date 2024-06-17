@@ -1,5 +1,4 @@
 class AICU_Logger:
-
     def __init__(self, client):
         self.client = client
 
