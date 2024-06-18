@@ -1,0 +1,11 @@
+{
+    "SCAN": "\\xA5\\x20",
+    "FORCE_SCAN": "\\xA5\\x21",
+    "STOP": "\\xA5\\x25",
+    "RESET": "\\xA5\\x40",
+    "GET_INFO": "\\xA5\\x50",
+    "GET_HEALTH": "\\xA5\\x52",
+    "GET_SAMPLERATE": "\\xA5\\x59",
+    "EXPRESS_SCAN": "\\xA5\\x82",
+    "GET_LIDAR_CONF": "\\xA5\\x84"
+}
