@@ -32,6 +32,7 @@ with open("LIDAR_Data_Test\lidar_data.txt", "r") as f:
 
         # Filter out invalid points (distance and intensity zero)
         df = df[(df["distance"] != 0)]
+        df["angle"] = (df["angle"] - 90) % 360
 
         # # Remove outliers based on Z-score
         # df = df[(np.abs(stats.zscore(df)) < 3).all(axis=1)]
@@ -40,7 +41,7 @@ with open("LIDAR_Data_Test\lidar_data.txt", "r") as f:
         df = df.sort_values("angle")
 
         # Define the desired angles (one point per angle from 0 to 359)
-        desired_angles = np.arange(0, 360, 1)
+        desired_angles = np.arange(0, 360, 0.5)
 
         # Interpolate distance and intensity for missing angles, use nearest for fill_value
         interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value=(df["distance"].iloc[0], df["distance"].iloc[-1]))
@@ -52,5 +53,12 @@ with open("LIDAR_Data_Test\lidar_data.txt", "r") as f:
 
         # Create the new list with interpolated data
         interpolated_data = list(zip(desired_angles, interpolated_distances, interpolated_intensities))
-        
-        plot_polar(interpolated_data)
+
+        # Convert to DataFrame for easier manipulation
+        df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance", "intensity"])
+
+        # Remove data from 110 to 250 degrees
+        df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+
+        # Plot the filtered interpolated data
+        plot_polar(df_interpolated.values.tolist())

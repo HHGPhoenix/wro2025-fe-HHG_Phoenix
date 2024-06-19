@@ -17,6 +17,9 @@ class LidarSensor():
             Exception: When the auto-detect could not find the LIDAR sensor.
         """
         
+        self.data_arrays = []  # This will hold all the arrays of data
+        self.current_array = []  # This will hold the current array of data
+        
         with open(LIDAR_commands_path) as f:
             self.LIDAR_commands = json.load(f)
         
@@ -106,8 +109,6 @@ class LidarSensor():
         self.ser_device.close()
 
     def read_data(self):
-        self.data_arrays = []  # This will hold all the arrays of data
-        self.current_array = []  # This will hold the current array of data
         start_time = time.time()  # Start time for measuring the frequency
 
         while True:
