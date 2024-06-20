@@ -125,13 +125,15 @@ def start_training():
 
         # Define the model
         model = Sequential([
-            Conv2D(32, (3, 1), activation='relu', input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),  # Changed kernel size to (3, 1)
+            Conv2D(64, (3, 1), activation='relu', input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),  # Changed kernel size to (3, 1)
             MaxPooling2D((2, 1)),  # Changed pool size to (2, 1)
             Conv2D(64, (1, 1), activation='relu'),  
             MaxPooling2D((2, 1)),  # Changed pool size to (2, 1)
             Flatten(),
+            # Dense(256, activation='relu'),
+            # Dropout(0.3),
             Dense(128, activation='relu'),
-            Dropout(0.5),
+            Dropout(0.3),
             Dense(1, activation='linear')  # Assuming controller has one output
         ])
         
@@ -148,7 +150,7 @@ def start_training():
         history = model.fit(
             train_lidar, train_controller,
             validation_data=(val_lidar, val_controller),
-            epochs=50,
+            epochs=200,
             callbacks=[early_stopping, model_checkpoint],
             batch_size=32
         )
