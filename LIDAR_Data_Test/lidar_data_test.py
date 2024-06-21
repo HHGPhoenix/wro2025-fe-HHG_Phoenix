@@ -11,6 +11,8 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from multiprocessing import Process, Queue
 from queue import Empty
+import psutil
+import subprocess
 
 
 lidar = LidarSensor(usb_address="/dev/serial0", LIDAR_commands_path=r"LIDAR/LIDARCommands.json")
@@ -97,6 +99,16 @@ def run_model(queue):
             predicted_value = predict_servo_angle(lidar_data)
             queue.put(predicted_value)
             
+def get_cpu_usage():
+    return psutil.cpu_percent()
+
+def get_cpu_temp():
+    output = subprocess.check_output("vcgencmd measure_temp", shell=True)
+    temp_str = output.decode("utf-8")
+    temp = float(temp_str.split("=")[1].split("'")[0])
+    return temp
+
+            
 # Create a queue to share data between processes
 queue = Queue()
 
@@ -127,12 +139,16 @@ try:
         try:
             # Get the predicted value from the queue
             predicted_value = queue.get(False)[-1][0]
-            print(predicted_value)
+            # print(predicted_value)
         except Empty:
             continue
         
 
         servo_value = controller.map_servo_angle(predicted_value)
+
+        cpu_usage = get_cpu_usage()
+        cpu_temp = get_cpu_temp()
+        print("CPU Usage:", cpu_usage, "CPU Temperature:", cpu_temp)
         
         if servo_value < 5.5:
             servo_value = 5.5
