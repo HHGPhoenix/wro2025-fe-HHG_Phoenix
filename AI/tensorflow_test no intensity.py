@@ -69,6 +69,8 @@ def parse_data(file_path_lidar, file_path_controller):
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
+    print(f"Controller data: {controller_data[:10]}")
+
     return lidar_data, controller_data
 
 def plot_training_history(history, model_id):
