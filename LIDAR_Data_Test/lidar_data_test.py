@@ -9,12 +9,21 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
+from multiprocessing import Process, Queue
+from queue import Empty
+
+
+lidar = LidarSensor(usb_address="/dev/ttyUSB0", LIDAR_commands_path=r"LIDAR/LIDARCommands.json")
+lidar.start_sensor()
+
+# pLIDAR = mp.Process(target=lidar.read_data, args=(lidar_data_arrays,))
+# pLIDAR.start()
+
+tLIDAR = threading.Thread(target=lidar.read_data)
+tLIDAR.start()
 
 # Load your trained model
-steering_model = tf.keras.models.load_model('best_model_e9532d96-42f5-49e9-969e-efc6fcbaeb83.h5')
-
-# Initialize the LIDAR sensor
-lidar = LidarSensor(usb_address="/dev/ttyUSB0", LIDAR_commands_path=r"LIDAR/LIDARCommands.json")
+steering_model = tf.keras.models.load_model('best_model_605019d7-1080-49b5-ad60-971e86a3fce4.h5')
 
 # Connect to the available USB via serial
 ser = serial.Serial('/dev/ttyUSB1', 921600)
@@ -73,20 +82,31 @@ def predict_servo_angle(lidar_data):
     # Convert to DataFrame for easier manipulation
     df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance", "intensity"])
 
-    # Remove data from 110 to 250 degrees
-    df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+    # Reshape the DataFrame to match the input shape of the model
+    df_interpolated = df_interpolated.values.reshape(-1, 360, 3, 1)
 
     # Use the model to predict the servo angle
     predicted_angle = steering_model.predict(df_interpolated)
 
-    return predicted_angle        
+    return predicted_angle
+
+def run_model(queue):
+    while True:
+        if not queue.empty():
+            lidar_data = queue.get()
+            predicted_value = predict_servo_angle(lidar_data)
+            queue.put(predicted_value)
+            
+# Create a queue to share data between processes
+queue = Queue()
+
+# Create a new process for running the AI model
+pModel = Process(target=run_model, args=(queue,))
+
+# Start the new process
+pModel.start()
 
 try:
-    lidar.start_sensor()
-    
-    tLIDAR = threading.Thread(target=lidar.read_data)
-    tLIDAR.start()
-    
     # Create PSController instance
     controller = PSController(servo_middle_angle=6.7, servo_min_angle=5.5, servo_max_angle=8.4)
     controller.calibrate_analog_sticks()
@@ -95,22 +115,39 @@ try:
     tFileWriter = threading.Thread(target=write_data_to_file)
     tFileWriter.start()
     
+    while not lidar.data_arrays:
+        pass
+    
     while True:
         x, y, rx, ry = controller.get_analog_stick_values()
-        # print(f"x: {x:.2f}, y: {y:.2f}, rx: {rx:.2f}, ry: {ry:.2f}")
 
-        predicted_value = predict_servo_angle(lidar.data_arrays[-1])
+        # Put the lidar data in the queue
+        queue.put(lidar.data_arrays[-1])
+    
+        try:
+            # Get the predicted value from the queue
+            predicted_value = queue.get(False)[-1][0]
+            print(predicted_value)
+        except Empty:
+            continue
         
+
         servo_value = controller.map_servo_angle(predicted_value)
+        
+        if servo_value < 5.5:
+            servo_value = 5.5
+            
+        if servo_value > 8.4:
+            servo_value = 8.4
         
         # Write servo value
         servo_pwm.ChangeDutyCycle(servo_value)
         
         speed_value = controller.map_speed_value(ry)
         ser.write(f'SPEED {speed_value}\n'.encode())
-        # print(f"Speed value: {speed_value:.2f}")
 
         time.sleep(0.1)
     
 finally:
     lidar.stop_sensor()
+    pModel.terminate()
