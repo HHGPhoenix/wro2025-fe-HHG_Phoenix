@@ -3,6 +3,7 @@ import serial
 import json
 import time
 import struct
+import threading
 
 class LidarSensor():
     def __init__(self, usb_address=None, LIDAR_commands_path=r"RPIs\Sensors\LIDAR\LIDARCommands.json"):
@@ -16,9 +17,6 @@ class LidarSensor():
         Raises:
             Exception: When the auto-detect could not find the LIDAR sensor.
         """
-        
-        self.data_arrays = []  # This will hold all the arrays of data
-        self.current_array = []  # This will hold the current array of data
         
         with open(LIDAR_commands_path) as f:
             self.LIDAR_commands = json.load(f)
@@ -109,38 +107,55 @@ class LidarSensor():
         self.ser_device.close()
 
     def read_data(self):
+        self.data_arrays = []  # This will hold the arrays of data
+        self.current_array = []  # This will hold the current array of data
         start_time = time.time()  # Start time for measuring the frequency
 
         while True:
-            if self.ser_device.in_waiting >= 5:
-                data = self.ser_device.read(5)
+            if self.ser_device.in_waiting >= 200:
+                data = self.ser_device.read(200)
+                
+                # Ensure proper alignment by checking the start and stop bits
+                i = 0
+                while i <= len(data) - 5:
+                    chunk = data[i:i+5]
+                    
+                    # Extract the S and S_bar bits from the first byte
+                    S = (chunk[0]) & 0x01  # Bit 1 of the first byte
+                    S_bar = (chunk[0] >> 1) & 0x01  # Bit 2 of the first byte
+                    C = (chunk[1]) & 0x01  # Bit 3 of the first byte
+                    
+                    # print(C)
+                    
+                    # Check if the start and stop bits are correct (S and S_bar should complement each other)
+                    if C == 1 and S == (1 - S_bar):
+                        quality = chunk[0] >> 2  # Extracts the quality from the first byte
+                        angle = ((chunk[2] << 7) + (chunk[1] >> 1)) / 64.0  # Extracts the angle from the second and third bytes
+                        distance = ((chunk[3]) + (chunk[4] << 7)) / 4.0  # Extracts the distance from the fourth and fifth bytes
 
-                # Extract the S and \bar{S} bits from the first byte
-                S = (data[0] >> 1) & 0x01  # Bit 1 of the first byte
-                S_bar = (data[0] >> 2) & 0x01  # Bit 2 of the first byte
+                        self.current_array.append((angle, distance, quality))
 
-                # Check if the start and stop bits are correct (usually S and \bar{S} should complement each other)
-                if S == (1 - S_bar):
-                    quality = data[0] >> 2  # Extracts the quality from the first byte
-                    angle = ((data[2] << 7) + (data[1] >> 1)) / 64.0  # Extracts the angle from the second and third bytes
-                    distance = ((data[3]) + (data[4] << 7)) / 4.0  # Extracts the distance from the fourth and fifth bytes
+                        # If the angle has looped back to the start, save the current array and start a new one
+                        if len(self.current_array) > 1 and S == 1 and S_bar == 0:
+                            self.data_arrays.append(self.current_array[: -2])
+                            missing_data = self.current_array[-1]
+                            self.current_array = [missing_data]
 
-                    self.current_array.append((angle, distance, quality))
+                            # Calculate and print the frequency
+                            end_time = time.time()
+                            frequency = 1.0 / (end_time - start_time)
+                            print(f"Frequency: {frequency} Hz")
+                            start_time = end_time
 
-                    # If the angle has looped back to the start, save the current array and start a new one
-                    if len(self.current_array) > 1 and self.current_array[-1][0] < self.current_array[-2][0]:
-                        self.data_arrays.append(self.current_array)
-                        self.current_array = []
+                        if len(self.data_arrays) > 0 and len(self.data_arrays) > 100:
+                            self.data_arrays.pop(0)
 
-                        # Calculate and print the frequency
-                        end_time = time.time()
-                        frequency = 1.0 / (end_time - start_time)
-                        print(f"Frequency: {frequency} Hz")
-                        start_time = end_time
+                        i += 5  # Move to the next chunk
+                    else:
+                        # If not correctly aligned, check the next byte
+                        i += 1
+                        print("Not aligned: ", C, S, S_bar)
 
-                    # Remove the oldest data if the queue size exceeds 360
-                    if len(self.data_arrays) > 0 and len(self.data_arrays[0]) > 360:
-                        self.data_arrays.pop(0)    
                                     
     def set_motor_speed(self, rpm):
         if not (0 <= rpm <= 65535):
