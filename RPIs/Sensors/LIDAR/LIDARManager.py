@@ -3,7 +3,6 @@ import serial
 import json
 import time
 import struct
-import threading
 
 class LidarSensor():
     def __init__(self, usb_address=None, LIDAR_commands_path=r"RPIs\Sensors\LIDAR\LIDARCommands.json"):
@@ -107,6 +106,10 @@ class LidarSensor():
         self.ser_device.close()
 
     def read_data(self):
+        """
+        Read the data from the LIDAR sensor. This function is blocking and will run indefinitely.
+        """
+        
         self.data_arrays = []  # This will hold the arrays of data
         self.current_array = []  # This will hold the current array of data
         start_time = time.time()  # Start time for measuring the frequency
@@ -131,7 +134,7 @@ class LidarSensor():
                     if C == 1 and S == (1 - S_bar):
                         quality = chunk[0] >> 2  # Extracts the quality from the first byte
                         angle = ((chunk[2] << 7) + (chunk[1] >> 1)) / 64.0  # Extracts the angle from the second and third bytes
-                        distance = ((chunk[3]) + (chunk[4] << 7)) / 4.0  # Extracts the distance from the fourth and fifth bytes
+                        distance = ((chunk[3]) + (chunk[4] << 8)) / 4.0  # Extracts the distance from the fourth and fifth bytes
 
                         self.current_array.append((angle, distance, quality))
 

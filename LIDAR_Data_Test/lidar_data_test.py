@@ -13,7 +13,7 @@ from multiprocessing import Process, Queue
 from queue import Empty
 
 
-lidar = LidarSensor(usb_address="/dev/ttyUSB0", LIDAR_commands_path=r"LIDAR/LIDARCommands.json")
+lidar = LidarSensor(usb_address="/dev/serial0", LIDAR_commands_path=r"LIDAR/LIDARCommands.json")
 lidar.start_sensor()
 
 # pLIDAR = mp.Process(target=lidar.read_data, args=(lidar_data_arrays,))
@@ -26,7 +26,7 @@ tLIDAR.start()
 steering_model = tf.keras.models.load_model('best_model_605019d7-1080-49b5-ad60-971e86a3fce4.h5')
 
 # Connect to the available USB via serial
-ser = serial.Serial('/dev/ttyUSB1', 921600)
+ser = serial.Serial('/dev/ttyUSB0', 921600)
 ser.write('START\n'.encode())
 
 # Create a lock for thread-safe file writing
