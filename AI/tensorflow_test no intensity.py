@@ -131,6 +131,8 @@ def start_training():
             Conv2D(64, (1, 1), activation='relu'),
             MaxPooling2D((2, 1)),  # Adjusted pool size
             Flatten(),
+            Dense(256, activation='relu'),
+            Dropout(0.3),
             Dense(128, activation='relu'),
             Dropout(0.3),
             Dense(1, activation='linear')  # Output for the servo control
@@ -142,7 +144,7 @@ def start_training():
         model_id = str(uuid.uuid4())
 
         # Early stopping and model checkpoint
-        early_stopping = EarlyStopping(monitor='val_loss', patience=10)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=100)
         model_checkpoint = ModelCheckpoint(f'best_model_{model_id}.h5', monitor='val_loss', save_best_only=True)
 
         # Train the model
