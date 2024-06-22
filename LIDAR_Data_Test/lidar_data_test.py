@@ -55,7 +55,7 @@ def write_data_to_file():
         time.sleep(0.1)  # Sleep for 0.1 seconds to achieve 10Hz frequency
         
 def predict_servo_angle(lidar_data, steering_model):
-    df = pd.DataFrame(lidar_data, columns=["angle", "distance, intensity"])
+    df = pd.DataFrame(lidar_data, columns=["angle", "distance", "intensity"])
     df = df.drop(columns=["intensity"])
     df = df[df["distance"] != 0]  # Filter out invalid points
     df["angle"] = (df["angle"] - 90) % 360
@@ -71,6 +71,7 @@ def predict_servo_angle(lidar_data, steering_model):
     
     final_input = np.array(interpolated_data, dtype=np.float32)
     final_input = np.expand_dims(final_input, axis=0)
+    final_input = np.expand_dims(final_input, axis=-1)
 
     print("Final input shape:", final_input.shape)
     
