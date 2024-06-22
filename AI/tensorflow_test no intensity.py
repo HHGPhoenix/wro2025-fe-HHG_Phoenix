@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,8 +27,10 @@ def parse_data(file_path_lidar, file_path_controller):
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
         lidar_lines = lidar_file.readlines()
         controller_lines = controller_file.readlines()
+
+        total_lines = len(lidar_lines)
         
-        for lidar_line, controller_line in zip(lidar_lines, controller_lines):
+        for index, (lidar_line, controller_line) in enumerate(zip(lidar_lines, controller_lines)):
             data = eval(lidar_line.strip())
             
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
@@ -66,6 +68,11 @@ def parse_data(file_path_lidar, file_path_controller):
             
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
+            
+            progress = (index + 1) / total_lines * 100  # Calculate progress percentage
+            print(f"\rProgress: {progress:.2f}%", end="")
+
+        print("\nProcessing complete.")
             
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
@@ -124,16 +131,18 @@ def start_training():
         train_lidar, val_lidar = lidar_data[:split_idx], lidar_data[split_idx:]
         train_controller, val_controller = controller_data[:split_idx], controller_data[split_idx:]
 
+        lrelu = lambda x: tf.keras.activations.relu(x, alpha=0.1)
+
         # Define the model
         model = Sequential([
-            Conv2D(64, (3, 2), activation='relu', input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),  # Adjusted kernel size
-            MaxPooling2D((2, 1)),  # Adjusted pool size
-            Conv2D(64, (1, 1), activation='relu'),
-            MaxPooling2D((2, 1)),  # Adjusted pool size
+            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.1), input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),
+            BatchNormalization(),  # Added batch normalization
+            MaxPooling2D((2, 1)),
+            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.1)),
+            BatchNormalization(),  # Added batch normalization
+            MaxPooling2D((2, 1)),
             Flatten(),
-            Dense(256, activation='relu'),
-            Dropout(0.3),
-            Dense(128, activation='relu'),
+            Dense(64, activation=LeakyReLU(alpha=0.1)),
             Dropout(0.3),
             Dense(1, activation='linear')  # Output for the servo control
         ])
@@ -144,7 +153,7 @@ def start_training():
         model_id = str(uuid.uuid4())
 
         # Early stopping and model checkpoint
-        early_stopping = EarlyStopping(monitor='val_loss', patience=100)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=20)  # Reduced patience
         model_checkpoint = ModelCheckpoint(f'best_model_{model_id}.h5', monitor='val_loss', save_best_only=True)
 
         # Train the model
