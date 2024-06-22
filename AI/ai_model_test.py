@@ -94,9 +94,15 @@ def select_controller_file(data):
 def update_display(lidar_data, controller_data):
     global model, ax1, ax2, ax3, fig, canvas, root, text_output  # Assuming these are defined elsewhere
     index = 0
+    accuracy_list = []
+    model_output_list = []
+    expected_output_list = []
+    
     while index < len(lidar_data) and index < len(controller_data):
         
         expected_output = controller_data[index]
+
+        expected_output_list.append(expected_output)
         
         raw_data = lidar_data[index]
         
@@ -107,6 +113,22 @@ def update_display(lidar_data, controller_data):
         
         # Predict the model output
         model_output = model.predict(model_input)
+        current_output = model_output[0][0]  # Assuming single output, adjust as needed
+
+        model_output_list.append(current_output)
+        
+        # Calculate the accuracy as the difference percentage
+        current_accuracy = 100 * (1 - abs((current_output - expected_output) / expected_output))
+        accuracy_list.append(current_accuracy)
+        
+        # Calculate average accuracy over the last 100 runs
+        if len(accuracy_list) > 100:
+            accuracy_list.pop(0)
+        avg_accuracy = np.mean(accuracy_list)
+
+        if len(model_output_list) > 300:
+            model_output_list.pop(0)
+            expected_output_list.pop(0)
         
         def update_plots():
             ax1.clear()
@@ -116,8 +138,9 @@ def update_display(lidar_data, controller_data):
             ax1.grid(True)
 
             ax2.clear()
-            ax2.plot(model_output[0], label='Model Output', color='blue')
-            ax2.plot([expected_output] * len(model_output[0]), label='Expected Output', color='green')
+            ax2.plot(model_output_list, label='Model Output', color='blue')
+            ax2.plot(expected_output_list, label='Expected Output', color='green')
+            ax2.set_ylim(0, 1)  # Set y-axis limits from 0 to 1
             ax2.legend()
             ax2.set_title('Model vs Expected Output')
             ax2.grid(True)
@@ -126,15 +149,18 @@ def update_display(lidar_data, controller_data):
             text_output.config(state=tk.NORMAL)
             text_output.delete("1.0", tk.END)
             text_output.insert(tk.END, f"Controller Value: {expected_output}\n")
-            text_output.insert(tk.END, f"Model Output: {model_output[0].tolist()}\n")
+            text_output.insert(tk.END, f"Model Output: {current_output}\n")
+            text_output.insert(tk.END, f"Current Accuracy: {current_accuracy:.2f}%\n")
+            text_output.insert(tk.END, f"Average Accuracy (last 100): {avg_accuracy:.2f}%\n")
             text_output.config(state=tk.DISABLED)
             
             canvas.draw()
         
         root.after(0, update_plots)
+
         
         index += 1
-        time.sleep(0.5)  # Simulate the delay between readings
+        time.sleep(0.1)  # Simulate the delay between readings
 
 def process_and_display():
     global model
