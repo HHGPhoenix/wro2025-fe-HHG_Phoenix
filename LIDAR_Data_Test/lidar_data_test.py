@@ -55,28 +55,35 @@ def write_data_to_file():
         time.sleep(0.1)  # Sleep for 0.1 seconds to achieve 10Hz frequency
         
 def predict_servo_angle(lidar_data, steering_model):
-    df = pd.DataFrame(lidar_data, columns=["angle", "distance", "intensity"])
+    df = pd.DataFrame(lidar_data, columns=["angle", "distance, intensity"])
     df = df.drop(columns=["intensity"])
     df = df[df["distance"] != 0]  # Filter out invalid points
     df["angle"] = (df["angle"] - 90) % 360
     df = df.sort_values("angle")
+    
+    print("Predicting angle")
 
     desired_angles = np.arange(0, 360, 1)
     interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate")
     interpolated_distances = interp_distance(desired_angles)
 
-    interpolated_data = np.array(list(zip(interpolated_distances)))
-    interpolated_data = interpolated_data.reshape(1, 360, 1, 1)  # Reshape to (1, 360, 1, 1) to match the model's expected input shape
+    # Reshape interpolated distances to (1, 360, 1) to partially match the model's expected input shape
+    interpolated_distances = interpolated_distances.reshape(1, 360, 1)
 
-    # Assuming the model expects a second feature (e.g., angle), we replicate the angles as a feature
-    angles = np.arange(360).reshape(360, 1)
-    angles = np.expand_dims(angles, axis=-1)  # Reshape angles to (360, 1, 1)
-    angles = np.expand_dims(angles, axis=0)  # Add batch dimension, resulting in (1, 360, 1, 1)
+    # Prepare angles as a second feature, ensuring they are in the correct shape
+    angles = np.arange(360).reshape(1, 360, 1)
 
-    # Concatenate distances and angles to form the final input shape of (None, 360, 2, 1)
-    final_input = np.concatenate([interpolated_data, angles], axis=2)  # Concatenate along the features axis
+    # Concatenate distances and angles along the last dimension to form the final input shape of (1, 360, 2)
+    final_input = np.concatenate([interpolated_distances, angles], axis=-1)
 
+    # Add an extra dimension to match the model's expected input shape of (None, 360, 2, 1)
+    final_input = np.expand_dims(final_input, -1)
+
+    print("Final input shape:", final_input.shape)
+    
     predicted_angle = steering_model.predict(final_input)
+    
+    print("Predicted angle:", predicted_angle)
 
     return predicted_angle
 
