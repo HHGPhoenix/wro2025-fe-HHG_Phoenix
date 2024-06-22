@@ -2,15 +2,18 @@ import tkinter as tk
 from tkinter import filedialog
 import tensorflow as tf
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')  # Set the backend for matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import pandas as pd
 from scipy.interpolate import interp1d
-import json
 import time
 import threading
 import queue
-from tensorflow.keras.models import load_model  # type: ignore
+from tensorflow.keras.models import load_model
 
+# Set TensorFlow to allow memory growth on GPU
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
@@ -24,11 +27,8 @@ def parse_data(file_path_lidar, file_path_controller):
         
         for lidar_line, controller_line in zip(lidar_lines, controller_lines):
             data = eval(lidar_line.strip())
-
-            print(f"Data: {data[:3]}")
             
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
-            
             df = df.drop(columns=["intensity"])
 
             # Filter out invalid points (distance zero)
@@ -49,12 +49,6 @@ def parse_data(file_path_lidar, file_path_controller):
 
             # Create the new list with interpolated data
             interpolated_data = list(zip(desired_angles, interpolated_distances))
-
-            # # Convert to DataFrame for easier manipulation
-            # df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
-
-            # # Remove data from 110 to 250 degrees
-            # df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
             
             lidar_data.append(interpolated_data)
             
@@ -64,22 +58,12 @@ def parse_data(file_path_lidar, file_path_controller):
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
     
-    print(f"LiDAR data1: {lidar_data[:3]}")
-
-    print(f"Lidar data shape1: {lidar_data.shape}")
+    # Reshape for CNN input
+    lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  
     
-    # lidar_data = lidar_data / np.max(lidar_data) #######################SCHAU DISCORD ICH HAB DIE NOCH GEADDED FÜR NOMA AUS OARSCH
-    lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  # Reshape for CNN input
-    
-    print(f"LiDAR data2: {lidar_data[:3]}")
-
-    print(f"Lidar data shape2: {lidar_data.shape}")
-    
-    print(f"Controller data: {controller_data[:3]}")
-
     return lidar_data, controller_data
 
-# Initialize queue for data communication
+# Initialize queues for data communication
 data_queue = queue.Queue()
 controller_data_queue = queue.Queue()
 
@@ -100,52 +84,50 @@ def select_controller_file(data):
 
 # Function to update the display with new data
 def update_display(lidar_data, controller_data):
-    global model, ax1, ax2, fig, root  # Assuming these are defined elsewhere
+    global model, ax1, ax2, ax3, fig, canvas, root, text_output  # Assuming these are defined elsewhere
     index = 0
     while index < len(lidar_data) and index < len(controller_data):
-        
-        print("Lidar data: ", lidar_data[index][:3])
         
         expected_output = controller_data[index]
         
         raw_data = lidar_data[index]
         
-        # raw data shape (360, 2, 1) -> (None, 360, 2, 1)
-        
+        # Reshape raw data for model input (1, 360, 2, 1)
         model_input = np.expand_dims(raw_data, axis=0)
-        
-        print(f"Model input shape: {model_input.shape}", model_input[0][:3])
         
         processed_data = pd.DataFrame(raw_data[:, :, 0], columns=["angle", "distance"])
         
+        # Predict the model output
         model_output = model.predict(model_input)
         
-        print(f"Model output: {model_output[0]}")
+        def update_plots():
+            ax1.clear()
+            ax1.set_xlim(0, 2 * np.pi)  # Angular limits in radians
+            ax1.scatter(np.deg2rad(processed_data["angle"]), processed_data["distance"], s=3)
+            ax1.set_title('LIDAR Data (Polar Plot)')
+            ax1.grid(True)
 
-        # Visualization code (remains unchanged)
-        ax1.clear()
-        ax1.scatter(processed_data["angle"], processed_data["distance"], s=3)
-        ax1.set_title('LIDAR Data')
-        ax1.set_xlabel('Angle (degrees)')
-        ax1.set_ylabel('Distance')
-        ax1.grid(True)
+            ax2.clear()
+            ax2.plot(model_output[0], label='Model Output', color='blue')
+            ax2.plot([expected_output] * len(model_output[0]), label='Expected Output', color='green')
+            ax2.legend()
+            ax2.set_title('Model vs Expected Output')
+            ax2.grid(True)
 
-        ax2.clear()
-        ax2.plot(model_output[0], label='Model Output', color='blue')
-        ax2.plot([expected_output] * len(model_output[0]), label='Expected Output', color='green')
-        ax2.legend()
-        ax2.set_title('Model vs Expected Output')
-        ax2.set_xlabel('Sample Index')
-        ax2.set_ylabel('Output Value')
-        ax2.grid(True)
-
-        fig.canvas.draw()
-        root.update_idletasks()
-        root.update()
-
+            # Update the text output for the controller and model values
+            text_output.config(state=tk.NORMAL)
+            text_output.delete("1.0", tk.END)
+            text_output.insert(tk.END, f"Controller Value: {expected_output}\n")
+            text_output.insert(tk.END, f"Model Output: {model_output[0].tolist()}\n")
+            text_output.config(state=tk.DISABLED)
+            
+            canvas.draw()
+        
+        root.after(0, update_plots)
+        
         index += 1
         time.sleep(2)  # Simulate the delay between readings
-# Function to start processing and displaying data
+
 def process_and_display():
     global model
     model_file_path = model_file_path_var.get()
@@ -180,7 +162,16 @@ tk.Button(root, text="Browse Controller File", command=lambda data=controller_fi
 tk.Button(root, text="Start Display", command=process_and_display).grid(row=3, column=0, columnspan=3, pady=20)
 
 # Plot setup
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+fig = plt.figure(figsize=(12, 6))
+ax1 = fig.add_subplot(121, polar=True)  # Polar plot for LIDAR data
+ax2 = fig.add_subplot(122)  # Regular plot for model vs expected output
+
+# Text output for numerical values
+text_output = tk.Text(root, height=5, width=80, state=tk.DISABLED)
+text_output.grid(row=4, column=0, columnspan=3, padx=10, pady=10)
+
+canvas = FigureCanvasTkAgg(fig, master=root)  # Create a canvas
+canvas.get_tk_widget().grid(row=5, column=0, columnspan=3)
 plt.ion()
 
 root.mainloop()

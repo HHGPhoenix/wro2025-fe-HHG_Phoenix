@@ -59,8 +59,10 @@ def parse_data(file_path_lidar, file_path_controller):
 
             # Remove data from 110 to 250 degrees
             df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+
+            df_interpolated_list = df_interpolated.values.tolist()  
             
-            lidar_data.append(interpolated_data)
+            lidar_data.append(df_interpolated_list)
             
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
