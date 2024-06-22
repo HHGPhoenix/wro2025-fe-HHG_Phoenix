@@ -69,7 +69,15 @@ def predict_servo_angle(lidar_data, steering_model):
 
     interpolated_data = list(zip(desired_angles, interpolated_distances))
     
-    final_input = np.array(interpolated_data, dtype=np.float32)
+    # Convert to DataFrame for easier manipulation
+    df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
+
+    # Remove data from 110 to 250 degrees
+    df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+
+    df_interpolated_list = df_interpolated.values.tolist()
+    
+    final_input = np.array(df_interpolated_list, dtype=np.float32)
     final_input = np.expand_dims(final_input, axis=0)
     final_input = np.expand_dims(final_input, axis=-1)
 
