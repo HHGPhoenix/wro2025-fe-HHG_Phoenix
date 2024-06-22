@@ -11,7 +11,7 @@ from scipy.interpolate import interp1d
 import time
 import threading
 import queue
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model # type: ignore
 
 # Set TensorFlow to allow memory growth on GPU
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
