@@ -11,6 +11,58 @@ import threading
 import queue
 from tensorflow.keras.models import load_model  # type: ignore
 
+# Function to parse data from LiDAR and controller files
+def parse_data(file_path_lidar, file_path_controller):
+    lidar_data = []
+    controller_data = []
+    with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
+        lidar_lines = lidar_file.readlines()
+        controller_lines = controller_file.readlines()
+        
+        for lidar_line, controller_line in zip(lidar_lines, controller_lines):
+            data = eval(lidar_line.strip())
+            
+            df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
+            
+            df = df.drop(columns=["intensity"])
+
+            # Filter out invalid points (distance zero)
+            df = df[(df["distance"] != 0)]
+            df["angle"] = (df["angle"] - 90) % 360
+
+            # Sort the data by angle
+            df = df.sort_values("angle")
+
+            # Define the desired angles (one point per angle from 0 to 359)
+            desired_angles = np.arange(0, 360, 1)
+
+            # Interpolate distance for missing angles, use nearest for fill_value
+            interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value=(df["distance"].iloc[0], df["distance"].iloc[-1]))
+
+            # Generate the interpolated values
+            interpolated_distances = interp_distance(desired_angles)
+
+            # Create the new list with interpolated data
+            interpolated_data = list(zip(desired_angles, interpolated_distances))
+
+            # Convert to DataFrame for easier manipulation
+            df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
+
+            # Remove data from 110 to 250 degrees
+            df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+            
+            lidar_data.append(interpolated_data)
+            
+            controller_line = controller_line.strip()
+            controller_data.append(float(controller_line))
+            
+    lidar_data = np.array(lidar_data, dtype=np.float32)
+    controller_data = np.array(controller_data, dtype=np.float32)
+
+    print(f"Controller data: {controller_data[:10]}")
+
+    return lidar_data, controller_data
+
 # Initialize queue for data communication
 data_queue = queue.Queue()
 controller_data_queue = queue.Queue()
@@ -22,52 +74,23 @@ def select_model_file(data):
 
 # Function to select a LiDAR data file using file dialog
 def select_lidar_file(data):
-    path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+    path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
     data.set(path)
 
 # Function to select controller data file using file dialog
 def select_controller_file(data):
-    path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+    path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
     data.set(path)
 
-# Function to read LiDAR data from JSON file
-def read_lidar_data_from_file(file_path):
-    with open(file_path, 'r') as file:
-        data = json.load(file)
-        for entry in data:
-            data_queue.put(entry)
-            time.sleep(2)  # Simulate the delay between readings
-
-# Function to read controller data from JSON file
-def read_controller_data(file_path):
-    with open(file_path, 'r') as file:
-        data = json.load(file)
-        for entry in data:
-            controller_data_queue.put(entry)
-            time.sleep(2)  # Simulate the delay between readings
-
-# Function to interpolate and process LiDAR data
-def process_lidar_data(raw_data):
-    df = pd.DataFrame(raw_data, columns=["angle", "distance", "intensity"])
-    df = df.drop(columns=["intensity"])
-    df = df[(df["distance"] != 0)]
-    df["angle"] = (df["angle"] - 90) % 360
-    df = df.sort_values("angle")
-    desired_angles = np.arange(0, 360, 1)
-    interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value=(df["distance"].iloc[0], df["distance"].iloc[-1]))
-    interpolated_distances = interp_distance(desired_angles)
-    interpolated_data = list(zip(desired_angles, interpolated_distances))
-    df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
-    df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
-    return df_interpolated
-
 # Function to update the display with new data
-def update_display():
+def update_display(lidar_data, controller_data):
     global model
-    while not data_queue.empty() and not controller_data_queue.empty():
-        raw_data = data_queue.get()
-        expected_output = controller_data_queue.get()
-        processed_data = process_lidar_data(raw_data)
+    index = 0
+    while index < len(lidar_data) and index < len(controller_data):
+        raw_data = lidar_data[index]
+        expected_output = controller_data[index]
+        processed_data = pd.DataFrame(raw_data, columns=["angle", "distance"])
+        
         model_input = np.expand_dims(processed_data['distance'].values, axis=0)
         model_input = np.expand_dims(model_input, axis=-1)
         model_output = model.predict(model_input)
@@ -92,7 +115,8 @@ def update_display():
         root.update_idletasks()
         root.update()
 
-    root.after(2000, update_display)
+        index += 1
+        time.sleep(2)  # Simulate the delay between readings
 
 # Function to start processing and displaying data
 def process_and_display():
@@ -102,9 +126,9 @@ def process_and_display():
     lidar_file_path = lidar_file_path_var.get()
     model = load_model(model_file_path)
 
-    threading.Thread(target=read_controller_data, args=(controller_file_path,)).start()
-    threading.Thread(target=read_lidar_data_from_file, args=(lidar_file_path,)).start()
-    update_display()
+    lidar_data, controller_data = parse_data(lidar_file_path, controller_file_path)
+    
+    threading.Thread(target=update_display, args=(lidar_data, controller_data)).start()
 
 # Tkinter GUI setup
 root = tk.Tk()
@@ -118,13 +142,13 @@ tk.Label(root, text="Model File Path:").grid(row=0, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=model_file_path_var, width=50).grid(row=0, column=1, padx=10, pady=10)
 tk.Button(root, text="Browse Model", command=lambda data=model_file_path_var: select_model_file(data)).grid(row=0, column=2, padx=10, pady=10)
 
-tk.Label(root, text="Controller File Path:").grid(row=1, column=0, padx=10, pady=10)
-tk.Entry(root, textvariable=controller_file_path_var, width=50).grid(row=1, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse Controller File", command=lambda data=controller_file_path_var: select_controller_file(data)).grid(row=1, column=2, padx=10, pady=10)
+tk.Label(root, text="LiDAR File Path:").grid(row=1, column=0, padx=10, pady=10)
+tk.Entry(root, textvariable=lidar_file_path_var, width=50).grid(row=1, column=1, padx=10, pady=10)
+tk.Button(root, text="Browse LiDAR File", command=lambda data=lidar_file_path_var: select_lidar_file(data)).grid(row=1, column=2, padx=10, pady=10)
 
-tk.Label(root, text="LiDAR File Path:").grid(row=2, column=0, padx=10, pady=10)
-tk.Entry(root, textvariable=lidar_file_path_var, width=50).grid(row=2, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse LiDAR File", command=lambda data=lidar_file_path_var: select_lidar_file(data)).grid(row=2, column=2, padx=10, pady=10)
+tk.Label(root, text="Controller File Path:").grid(row=2, column=0, padx=10, pady=10)
+tk.Entry(root, textvariable=controller_file_path_var, width=50).grid(row=2, column=1, padx=10, pady=10)
+tk.Button(root, text="Browse Controller File", command=lambda data=controller_file_path_var: select_controller_file(data)).grid(row=2, column=2, padx=10, pady=10)
 
 tk.Button(root, text="Start Display", command=process_and_display).grid(row=3, column=0, columnspan=3, pady=20)
 
