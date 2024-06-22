@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import uuid
 import os
-import ast
 import pandas as pd
 from scipy.interpolate import interp1d
 
@@ -111,14 +110,12 @@ def start_training():
         print(f"Controller data shape: {controller_data.shape}")
 
         # print first ten data points
-
         print(f"LIDAR data: {lidar_data[:10]}")
 
         # Preprocess LIDAR data to fit the model input
-        # # Example preprocessing: Normalizing and reshaping (adjust as needed)
-        # lidar_data = np.array(lidar_data)
-        # lidar_data = lidar_data / np.max(lidar_data)  # Normalize
-        # lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], lidar_data.shape[2], 1))  # Reshape for CNN input
+        # Normalizing and reshaping the data
+        lidar_data = lidar_data / np.max(lidar_data)  # Normalize
+        lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  # Reshape for CNN input
 
         # Split data into training and validation sets
         split_idx = int(0.8 * len(lidar_data))
@@ -127,16 +124,14 @@ def start_training():
 
         # Define the model
         model = Sequential([
-            Conv2D(64, (3, 1), activation='relu', input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),  # Changed kernel size to (3, 1)
-            MaxPooling2D((2, 1)),  # Changed pool size to (2, 1)
-            Conv2D(64, (1, 1), activation='relu'),  
-            MaxPooling2D((2, 1)),  # Changed pool size to (2, 1)
+            Conv2D(64, (3, 2), activation='relu', input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),  # Adjusted kernel size
+            MaxPooling2D((2, 1)),  # Adjusted pool size
+            Conv2D(64, (1, 1), activation='relu'),
+            MaxPooling2D((2, 1)),  # Adjusted pool size
             Flatten(),
-            # Dense(256, activation='relu'),
-            # Dropout(0.3),
             Dense(128, activation='relu'),
             Dropout(0.3),
-            Dense(1, activation='linear')  # Assuming controller has one output
+            Dense(1, activation='linear')  # Output for the servo control
         ])
         
         model.compile(optimizer='adam', loss='mse', metrics=['mae'])
@@ -183,12 +178,12 @@ data_file_path_controller = tk.StringVar()
 
 tk.Label(root, text="LIDAR File Path:").grid(row=0, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=data_file_path_LIDAR, width=50).grid(row=0, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse LIDAR", command=lambda data=data_file_path_LIDAR:select_data_file(data)).grid(row=0, column=2, padx=10, pady=10)
+tk.Button(root, text="Browse LIDAR", command=lambda data=data_file_path_LIDAR: select_data_file(data)).grid(row=0, column=2, padx=10, pady=10)
 
 tk.Label(root, text="Controller File Path:").grid(row=1, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=data_file_path_controller, width=50).grid(row=1, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse Controller", command=lambda data=data_file_path_controller:select_data_file(data)).grid(row=1, column=2, padx=10, pady=10)
+tk.Button(root, text="Browse Controller", command=lambda data=data_file_path_controller: select_data_file(data)).grid(row=1, column=2, padx=10, pady=10)
 
-tk.Button(root, text="Start Training", command=start_training).grid(row=1, column=0, columnspan=3, pady=20)
+tk.Button(root, text="Start Training", command=start_training).grid(row=2, column=0, columnspan=3, pady=20)
 
 root.mainloop()

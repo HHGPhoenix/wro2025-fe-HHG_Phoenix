@@ -67,17 +67,10 @@ def predict_servo_angle(lidar_data, steering_model):
     interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate")
     interpolated_distances = interp_distance(desired_angles)
 
-    # Reshape interpolated distances to (1, 360, 1) to partially match the model's expected input shape
-    interpolated_distances = interpolated_distances.reshape(1, 360, 1)
-
-    # Prepare angles as a second feature, ensuring they are in the correct shape
-    angles = np.arange(360).reshape(1, 360, 1)
-
-    # Concatenate distances and angles along the last dimension to form the final input shape of (1, 360, 2)
-    final_input = np.concatenate([interpolated_distances, angles], axis=-1)
-
-    # Add an extra dimension to match the model's expected input shape of (None, 360, 2, 1)
-    final_input = np.expand_dims(final_input, -1)
+    interpolated_data = list(zip(desired_angles, interpolated_distances))
+    
+    final_input = np.array(interpolated_data, dtype=np.float32)
+    final_input = np.expand_dims(final_input, axis=0)
 
     print("Final input shape:", final_input.shape)
     

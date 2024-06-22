@@ -11,6 +11,9 @@ import threading
 import queue
 from tensorflow.keras.models import load_model  # type: ignore
 
+for gpu in tf.config.experimental.list_physical_devices('GPU'):
+    tf.config.experimental.set_memory_growth(gpu, True)
+
 # Function to parse data from LiDAR and controller files
 def parse_data(file_path_lidar, file_path_controller):
     lidar_data = []
@@ -21,6 +24,8 @@ def parse_data(file_path_lidar, file_path_controller):
         
         for lidar_line, controller_line in zip(lidar_lines, controller_lines):
             data = eval(lidar_line.strip())
+
+            print(f"Data: {data[:3]}")
             
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
             
@@ -45,11 +50,11 @@ def parse_data(file_path_lidar, file_path_controller):
             # Create the new list with interpolated data
             interpolated_data = list(zip(desired_angles, interpolated_distances))
 
-            # Convert to DataFrame for easier manipulation
-            df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
+            # # Convert to DataFrame for easier manipulation
+            # df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
 
-            # Remove data from 110 to 250 degrees
-            df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+            # # Remove data from 110 to 250 degrees
+            # df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
             
             lidar_data.append(interpolated_data)
             
@@ -58,8 +63,19 @@ def parse_data(file_path_lidar, file_path_controller):
             
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
+    
+    print(f"LiDAR data1: {lidar_data[:3]}")
 
-    print(f"Controller data: {controller_data[:10]}")
+    print(f"Lidar data shape1: {lidar_data.shape}")
+    
+    # lidar_data = lidar_data / np.max(lidar_data) #######################SCHAU DISCORD ICH HAB DIE NOCH GEADDED FÜR NOMA AUS OARSCH
+    lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  # Reshape for CNN input
+    
+    print(f"LiDAR data2: {lidar_data[:3]}")
+
+    print(f"Lidar data shape2: {lidar_data.shape}")
+    
+    print(f"Controller data: {controller_data[:3]}")
 
     return lidar_data, controller_data
 
@@ -84,17 +100,29 @@ def select_controller_file(data):
 
 # Function to update the display with new data
 def update_display(lidar_data, controller_data):
-    global model
+    global model, ax1, ax2, fig, root  # Assuming these are defined elsewhere
     index = 0
     while index < len(lidar_data) and index < len(controller_data):
-        raw_data = lidar_data[index]
-        expected_output = controller_data[index]
-        processed_data = pd.DataFrame(raw_data, columns=["angle", "distance"])
         
-        model_input = np.expand_dims(processed_data['distance'].values, axis=0)
-        model_input = np.expand_dims(model_input, axis=-1)
+        print("Lidar data: ", lidar_data[index][:3])
+        
+        expected_output = controller_data[index]
+        
+        raw_data = lidar_data[index]
+        
+        # raw data shape (360, 2, 1) -> (None, 360, 2, 1)
+        
+        model_input = np.expand_dims(raw_data, axis=0)
+        
+        print(f"Model input shape: {model_input.shape}", model_input[0][:3])
+        
+        processed_data = pd.DataFrame(raw_data[:, :, 0], columns=["angle", "distance"])
+        
         model_output = model.predict(model_input)
+        
+        print(f"Model output: {model_output[0]}")
 
+        # Visualization code (remains unchanged)
         ax1.clear()
         ax1.scatter(processed_data["angle"], processed_data["distance"], s=3)
         ax1.set_title('LIDAR Data')
@@ -117,7 +145,6 @@ def update_display(lidar_data, controller_data):
 
         index += 1
         time.sleep(2)  # Simulate the delay between readings
-
 # Function to start processing and displaying data
 def process_and_display():
     global model
