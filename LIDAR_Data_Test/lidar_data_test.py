@@ -25,7 +25,7 @@ tLIDAR = threading.Thread(target=lidar.read_data)
 tLIDAR.start()
 
 # Load your trained model
-steering_model = tf.keras.models.load_model('best_model_605019d7-1080-49b5-ad60-971e86a3fce4.h5')
+steering_model = tf.keras.models.load_model('best_model.h5')
 
 # Connect to the available USB via serial
 ser = serial.Serial('/dev/ttyUSB0', 921600)
@@ -54,50 +54,40 @@ def write_data_to_file():
                 f.write(str(x) + '\n')
         time.sleep(0.1)  # Sleep for 0.1 seconds to achieve 10Hz frequency
         
-def predict_servo_angle(lidar_data):
-    # Preprocess your data if necessary
-    # For example, if your model expects a certain shape, you might need to reshape your data
-    # lidar_data = lidar_data.reshape((1, -1))
+def predict_servo_angle(lidar_data, steering_model):
     df = pd.DataFrame(lidar_data, columns=["angle", "distance", "intensity"])
-
-    # Filter out invalid points (distance and intensity zero)
-    df = df[(df["distance"] != 0)]
+    df = df.drop(columns=["intensity"])
+    df = df[df["distance"] != 0]  # Filter out invalid points
     df["angle"] = (df["angle"] - 90) % 360
-
-    # Sort the data by angle
     df = df.sort_values("angle")
 
-    # Define the desired angles (one point per angle from 0 to 359)
     desired_angles = np.arange(0, 360, 1)
-
-    # Interpolate distance and intensity for missing angles, use nearest for fill_value
-    interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value=(df["distance"].iloc[0], df["distance"].iloc[-1]))
-    interp_intensity = interp1d(df["angle"], df["intensity"], kind="linear", bounds_error=False, fill_value=(df["intensity"].iloc[0], df["intensity"].iloc[-1]))
-
-    # Generate the interpolated values
+    interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate")
     interpolated_distances = interp_distance(desired_angles)
-    interpolated_intensities = interp_intensity(desired_angles)
 
-    # Create the new list with interpolated data
-    interpolated_data = list(zip(desired_angles, interpolated_distances, interpolated_intensities))
+    interpolated_data = np.array(list(zip(interpolated_distances)))
+    interpolated_data = interpolated_data.reshape(1, 360, 1, 1)  # Reshape to (1, 360, 1, 1) to match the model's expected input shape
 
-    # Convert to DataFrame for easier manipulation
-    df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance", "intensity"])
+    # Assuming the model expects a second feature (e.g., angle), we replicate the angles as a feature
+    angles = np.arange(360).reshape(360, 1)
+    angles = np.expand_dims(angles, axis=-1)  # Reshape angles to (360, 1, 1)
+    angles = np.expand_dims(angles, axis=0)  # Add batch dimension, resulting in (1, 360, 1, 1)
 
-    # Reshape the DataFrame to match the input shape of the model
-    df_interpolated = df_interpolated.values.reshape(-1, 360, 3, 1)
+    # Concatenate distances and angles to form the final input shape of (None, 360, 2, 1)
+    final_input = np.concatenate([interpolated_data, angles], axis=2)  # Concatenate along the features axis
 
-    # Use the model to predict the servo angle
-    predicted_angle = steering_model.predict(df_interpolated)
+    predicted_angle = steering_model.predict(final_input)
 
     return predicted_angle
 
-def run_model(queue):
+def run_model(input_queue, output_queue, steering_model):
     while True:
-        if not queue.empty():
-            lidar_data = queue.get()
-            predicted_value = predict_servo_angle(lidar_data)
-            queue.put(predicted_value)
+        if not input_queue.empty():
+            print("Running model")
+            lidar_data = input_queue.get()
+            predicted_value = predict_servo_angle(lidar_data, steering_model)
+            output_queue.put(predicted_value)
+            print("Model finished")
             
 def get_cpu_usage():
     return psutil.cpu_percent()
@@ -109,11 +99,12 @@ def get_cpu_temp():
     return temp
 
             
-# Create a queue to share data between processes
-queue = Queue()
+# Create two queues: one for input lidar data and one for output predicted values
+input_queue = Queue()
+output_queue = Queue()
 
 # Create a new process for running the AI model
-pModel = Process(target=run_model, args=(queue,))
+pModel = Process(target=run_model, args=(input_queue, output_queue, steering_model))
 
 # Start the new process
 pModel.start()
@@ -134,21 +125,22 @@ try:
         x, y, rx, ry = controller.get_analog_stick_values()
 
         # Put the lidar data in the queue
-        queue.put(lidar.data_arrays[-1])
+        input_queue.put(lidar.data_arrays[-1])
     
-        try:
-            # Get the predicted value from the queue
-            predicted_value = queue.get(False)[-1][0]
-            # print(predicted_value)
-        except Empty:
-            continue
+        while output_queue.empty():
+            pass
+    
+        # Get the predicted value from the queue
+        predicted_value = output_queue.get()
+        # print(predicted_value)
         
+        print(predicted_value)
 
         servo_value = controller.map_servo_angle(predicted_value)
 
-        cpu_usage = get_cpu_usage()
-        cpu_temp = get_cpu_temp()
-        print("CPU Usage:", cpu_usage, "CPU Temperature:", cpu_temp)
+        # cpu_usage = get_cpu_usage()
+        # cpu_temp = get_cpu_temp()
+        # print("CPU Usage:", cpu_usage, "CPU Temperature:", cpu_temp)
         
         if servo_value < 5.5:
             servo_value = 5.5
