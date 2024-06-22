@@ -77,9 +77,24 @@ def parse_data(file_path_lidar, file_path_controller):
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
+    # Include previous three controller values, use 0.5 as default if not available
+    previous_controller_data = []
+    for i in range(len(controller_data)):
+        if i < 3:
+            prev_vals = [0.5] * (3 - i) + list(controller_data[:i])
+        else:
+            prev_vals = list(controller_data[i-3:i])
+        previous_controller_data.append(prev_vals)
+
+    previous_controller_data = np.array(previous_controller_data, dtype=np.float32)
+    
+    # Combine LIDAR data with previous controller values
+    combined_data = np.hstack((lidar_data.reshape(lidar_data.shape[0], -1), previous_controller_data))
+
+    print(f"Combined data shape: {combined_data.shape}")
     print(f"Controller data: {controller_data[:10]}")
 
-    return lidar_data, controller_data
+    return combined_data, controller_data
 
 def plot_training_history(history, model_id):
     plt.figure(figsize=(12, 4))
@@ -112,28 +127,26 @@ def start_training():
         print(f"Controller file path: {controller_file_path}")
 
         # Load and parse data
-        lidar_data, controller_data = parse_data(LIDAR_file_path, controller_file_path)
+        combined_data, controller_data = parse_data(LIDAR_file_path, controller_file_path)
 
-        print(f"LIDAR data shape: {lidar_data.shape}")
+        print(f"Combined data shape: {combined_data.shape}")
 
         print(f"Controller data shape: {controller_data.shape}")
 
         # print first ten data points
-        print(f"LIDAR data: {lidar_data[:10]}")
+        print(f"Combined data: {combined_data[:10]}")
 
-        # Preprocess LIDAR data to fit the model input
-        # Normalizing and reshaping the data
-        # lidar_data = lidar_data / np.max(lidar_data)  # Normalize
-        lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  # Reshape for CNN input
+        # Preprocess combined data to fit the model input
+        combined_data = np.reshape(combined_data, (combined_data.shape[0], combined_data.shape[1], 1))  # Reshape for CNN input
 
         # Split data into training and validation sets
-        split_idx = int(0.8 * len(lidar_data))
-        train_lidar, val_lidar = lidar_data[:split_idx], lidar_data[split_idx:]
+        split_idx = int(0.8 * len(combined_data))
+        train_combined, val_combined = combined_data[:split_idx], combined_data[split_idx:]
         train_controller, val_controller = controller_data[:split_idx], controller_data[split_idx:]
 
         # Define the model
         model = Sequential([
-            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),
+            Conv2D(128, (3, 1), activation=LeakyReLU(alpha=0.05), input_shape=(combined_data.shape[1], 1, 1)),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
             Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
@@ -156,8 +169,8 @@ def start_training():
 
         # Train the model
         history = model.fit(
-            train_lidar, train_controller,
-            validation_data=(val_lidar, val_controller),
+            train_combined, train_controller,
+            validation_data=(val_combined, val_controller),
             epochs=200,
             callbacks=[early_stopping, model_checkpoint],
             batch_size=32
@@ -167,7 +180,7 @@ def start_training():
         best_model = tf.keras.models.load_model(f'best_model_{model_id}.h5')
 
         # Evaluate the model
-        loss, mae = best_model.evaluate(val_lidar, val_controller)
+        loss, mae = best_model.evaluate(val_combined, val_controller)
         print(f'Validation Mean Absolute Error: {mae:.4f}')
 
         # Save the model with the MAE in the filename

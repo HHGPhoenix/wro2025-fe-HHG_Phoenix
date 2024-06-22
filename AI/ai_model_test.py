@@ -73,10 +73,27 @@ def parse_data(file_path_lidar, file_path_controller):
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
     
-    # Reshape for CNN input
-    lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  
+    # # Reshape for CNN input
+    # lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  
     
-    return lidar_data, controller_data
+    # Include previous three controller values, use 0.5 as default if not available
+    previous_controller_data = []
+    for i in range(len(controller_data)):
+        if i < 3:
+            prev_vals = [0.5] * (3 - i) + list(controller_data[:i])
+        else:
+            prev_vals = list(controller_data[i-3:i])
+        previous_controller_data.append(prev_vals)
+
+    previous_controller_data = np.array(previous_controller_data, dtype=np.float32)
+    
+    # Combine LIDAR data with previous controller values
+    combined_data = np.hstack((lidar_data.reshape(lidar_data.shape[0], -1), previous_controller_data))
+
+    print(f"Combined data shape: {combined_data.shape}")
+    print(f"Controller data: {controller_data[:10]}")
+
+    return combined_data, controller_data
 
 # Initialize queues for data communication
 data_queue = queue.Queue()
@@ -113,8 +130,11 @@ def update_display(lidar_data, controller_data):
         
         raw_data = lidar_data[index]
         
-        # Reshape raw data for model input (1, 360, 2, 1)
+        # reshape from (441) to (441, 1, 1)
         model_input = np.expand_dims(raw_data, axis=0)
+        model_input = np.expand_dims(model_input, axis=-1)
+        
+        print(f"Model input shape: {model_input.shape}")
         
         processed_data = pd.DataFrame(raw_data[:, :, 0], columns=["angle", "distance"])
         
