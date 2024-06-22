@@ -131,18 +131,16 @@ def start_training():
         train_lidar, val_lidar = lidar_data[:split_idx], lidar_data[split_idx:]
         train_controller, val_controller = controller_data[:split_idx], controller_data[split_idx:]
 
-        lrelu = lambda x: tf.keras.activations.relu(x, alpha=0.1)
-
         # Define the model
         model = Sequential([
-            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.1), input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),
+            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=(lidar_data.shape[1], lidar_data.shape[2], 1)),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
-            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.1)),
+            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
             Flatten(),
-            Dense(64, activation=LeakyReLU(alpha=0.1)),
+            Dense(64, activation=LeakyReLU(alpha=0.05)),
             Dropout(0.3),
             Dense(1, activation='linear')  # Output for the servo control
         ])
