@@ -50,7 +50,15 @@ def parse_data(file_path_lidar, file_path_controller):
             # Create the new list with interpolated data
             interpolated_data = list(zip(desired_angles, interpolated_distances))
             
-            lidar_data.append(interpolated_data)
+            # Convert to DataFrame for easier manipulation
+            df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
+
+            # Remove data from 110 to 250 degrees
+            df_interpolated = df_interpolated[(df_interpolated["angle"] < 110) | (df_interpolated["angle"] > 250)]
+
+            df_interpolated_list = df_interpolated.values.tolist()  
+            
+            lidar_data.append(df_interpolated_list)
             
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
@@ -126,7 +134,7 @@ def update_display(lidar_data, controller_data):
         root.after(0, update_plots)
         
         index += 1
-        time.sleep(2)  # Simulate the delay between readings
+        time.sleep(0.5)  # Simulate the delay between readings
 
 def process_and_display():
     global model

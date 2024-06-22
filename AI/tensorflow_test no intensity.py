@@ -116,7 +116,7 @@ def start_training():
 
         # Preprocess LIDAR data to fit the model input
         # Normalizing and reshaping the data
-        lidar_data = lidar_data / np.max(lidar_data)  # Normalize
+        # lidar_data = lidar_data / np.max(lidar_data)  # Normalize
         lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  # Reshape for CNN input
 
         # Split data into training and validation sets
