@@ -24,9 +24,6 @@ lidar.start_sensor()
 tLIDAR = threading.Thread(target=lidar.read_data)
 tLIDAR.start()
 
-# Load your trained model
-steering_model = tf.keras.models.load_model('best_model.h5')
-
 # Connect to the available USB via serial
 ser = serial.Serial('/dev/ttyUSB0', 921600)
 ser.write('START\n'.encode())
@@ -89,7 +86,9 @@ def predict_servo_angle(lidar_data, steering_model):
 
     return predicted_angle
 
-def run_model(input_queue, output_queue, steering_model):
+def run_model(input_queue, output_queue):
+    steering_model = tf.keras.models.load_model('best_model.h5')
+    
     while True:
         if not input_queue.empty():
             print("Running model")
@@ -113,7 +112,7 @@ input_queue = Queue()
 output_queue = Queue()
 
 # Create a new process for running the AI model
-pModel = Process(target=run_model, args=(input_queue, output_queue, steering_model))
+pModel = Process(target=run_model, args=(input_queue, output_queue))
 
 # Start the new process
 pModel.start()
@@ -163,7 +162,7 @@ try:
         speed_value = controller.map_speed_value(ry)
         ser.write(f'SPEED {speed_value}\n'.encode())
 
-        time.sleep(0.1)
+        # time.sleep(0.03)
     
 finally:
     lidar.stop_sensor()
