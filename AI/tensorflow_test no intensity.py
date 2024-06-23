@@ -97,8 +97,14 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.text_display = None
         self.figure = None
         self.canvas = None
-        self.loss_values = []  # Store loss values for each epoch
-        self.val_loss_values = []  # Store validation loss values for each epoch
+        self.loss_values = []
+        self.val_loss_values = []
+        self.mae_values = []  # Store mae values for each epoch
+        self.val_mae_values = []  # Store validation mae values for each epoch
+        self.lowest_val_mae = float('inf')
+        self.lowest_val_mae_epoch = -1
+        self.highest_loss = float('-inf')
+        self.lowest_loss = float('inf')
         self.create_tensorflow_progress_window()
         print("Progress window created.")
 
@@ -126,11 +132,10 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.canvas.get_tk_widget().pack()
 
     def safe_update_gui(self, epoch, logs):
+        # Update console message to include new stats
         console_message = f"Epoch {epoch+1}/{self.params['epochs']}: " \
-                          f"loss = {logs['loss']:.4f}, " \
-                          f"mae = {logs['mae']:.4f}, " \
-                          f"val_loss = {logs['val_loss']:.4f}, " \
-                          f"val_mae = {logs['val_mae']:.4f}"
+                          f"loss = {logs['loss']:.4f}, mae = {logs['mae']:.4f}, " \
+                          f"val_loss = {logs['val_loss']:.4f}, val_mae = {logs['val_mae']:.4f}"
         self.text_display.insert(tk.END, console_message + "\n")
         self.text_display.see(tk.END)  # Scroll to the end of text display
     
@@ -139,9 +144,14 @@ class ConsoleAndGUIProgressCallback(Callback):
             pb['value'] = progress_percentage
         self.progress_window.update_idletasks()
     
-        # Append current epoch's loss and validation loss to their respective lists
-        self.loss_values.append(logs['loss'])
-        self.val_loss_values.append(logs['val_loss'])
+        # Update statistics
+        if logs['val_mae'] < self.lowest_val_mae:
+            self.lowest_val_mae = logs['val_mae']
+            self.lowest_val_mae_epoch = epoch + 1
+        self.highest_loss = max(self.highest_loss, logs['loss'])
+        self.lowest_loss = min(self.lowest_loss, logs['loss'])
+        self.mae_values.append(logs['mae'])
+        self.val_mae_values.append(logs['val_mae'])
     
         # Plotting logic
         self.figure.clear()
@@ -153,10 +163,54 @@ class ConsoleAndGUIProgressCallback(Callback):
         ax.set_title('Training Progress')
         ax.legend()
         self.canvas.draw()
+
+        # Debugging output
+        print(f"Epoch: {epoch+1}, Loss Values Length: {len(self.loss_values)}, MAE Values Length: {len(self.mae_values)}")
+
+        # Plotting logic with checks
+        if self.loss_values and self.val_loss_values:  # Check if lists are not empty
+            self.figure.clear()
+            ax = self.figure.add_subplot(121)  # Adjusted for subplot layout
+            ax.plot(range(1, epoch + 2), self.loss_values, label='Train Loss')
+            ax.plot(range(1, epoch + 2), self.val_loss_values, label='Validation Loss')
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Loss')
+            ax.set_title('Training Progress')
+            ax.legend()
+            self.canvas.draw()
+
+        if self.mae_values and self.val_mae_values:  # Check if lists are not empty
+            ax2 = self.figure.add_subplot(122)
+            ax2.plot(range(1, epoch + 2), self.mae_values, label='MAE')
+            ax2.plot(range(1, epoch + 2), self.val_mae_values, label='Validation MAE')
+            ax2.set_xlabel('Epoch')
+            ax2.set_ylabel('MAE')
+            ax2.set_title('MAE Progress')
+            ax2.legend()
+            self.canvas.draw()
+        else:
+            print("MAE or Validation MAE values are empty, skipping plotting.")
     
     def on_epoch_end(self, epoch, logs=None):
         # Schedule the safe_update_gui method to run in the main GUI thread
         self.progress_window.after(0, self.safe_update_gui, epoch, logs)
+
+    def on_train_end(self, logs=None):
+        # Display final statistics in the text display
+        final_stats_message = f"Training Complete.\n" \
+                            f"Lowest Validation MAE: {self.lowest_val_mae:.4f} at Epoch {self.lowest_val_mae_epoch}\n" \
+                            f"Highest Loss: {self.highest_loss:.4f}\n" \
+                            f"Lowest Loss: {self.lowest_loss:.4f}"
+        self.text_display.insert(tk.END, final_stats_message + "\n")
+        self.text_display.see(tk.END)  # Scroll to the end of text display
+
+        # Optionally, display a message box or similar to alert the user that training is complete
+        tk.messagebox.showinfo("Training Complete", "The model training session has completed.")
+
+        # Update the progress bar to 100% if not already
+        for pb in self.progress_bars:
+            pb['value'] = 100
+        self.progress_window.update_idletasks()
 
 
 def parse_data_with_callback(args):
