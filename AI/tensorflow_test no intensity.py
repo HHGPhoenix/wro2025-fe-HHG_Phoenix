@@ -139,9 +139,9 @@ def load_data_from_folder(folder_path):
 
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
 
-def plot_training_history(history, model_id):
-    plt.figure(figsize=(12, 4))
-    plt.subplot(1, 2, 1)
+def plot_training_history(history, model_id, custom_filename=None):
+    plt.figure(figsize=(12, 8))  # Increased figure size for better readability
+    plt.subplot(2, 1, 1)  # Adjusted for additional text space
     plt.plot(history.history['mae'])
     plt.plot(history.history['val_mae'])
     plt.title('Model MAE')
@@ -149,7 +149,7 @@ def plot_training_history(history, model_id):
     plt.xlabel('Epoch')
     plt.legend(['Train', 'Validation'], loc='upper left')
 
-    plt.subplot(1, 2, 2)
+    plt.subplot(2, 1, 2)  # Adjusted for additional text space
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
     plt.title('Model Loss')
@@ -157,29 +157,22 @@ def plot_training_history(history, model_id):
     plt.xlabel('Epoch')
     plt.legend(['Train', 'Validation'], loc='upper left')
 
-    plt.savefig(f'training_history_{model_id}.png')
-    plt.show()
-
-    write_model_stats(history, model_id)
-
-def write_model_stats(history, model_id):
+    # Calculate final statistics
     final_mae = history.history['mae'][-1]
     final_val_mae = history.history['val_mae'][-1]
     final_loss = history.history['loss'][-1]
     final_val_loss = history.history['val_loss'][-1]
 
-    stats = f"""
-    Model ID: {model_id}
-    Final Training MAE: {final_mae}
-    Final Validation MAE: {final_val_mae}
-    Final Training Loss: {final_loss}
-    Final Validation Loss: {final_val_loss}
-    """
+    # Add text for final statistics
+    plt.figtext(0.5, 0.01, f'Final MAE: {final_mae:.4f}, Final Val MAE: {final_val_mae:.4f}, '
+                           f'Final Loss: {final_loss:.4f}, Final Val Loss: {final_val_loss:.4f}',
+                ha="center", fontsize=9, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
 
-    print(stats)
-    # Optionally, write to a file
-    with open(f'model_stats_{model_id}.txt', 'w') as f:
-        f.write(stats)
+    if custom_filename:
+        plt.savefig(f'training_history_{custom_filename}.png')
+    else:
+        plt.savefig(f'training_history_{model_id}.png')
+    plt.show()
 
 def start_training():
     try:
@@ -258,7 +251,7 @@ def start_training():
         best_model.save(model_filename_full)
 
         # Plot and save training history
-        plot_training_history(history, model_id)
+        plot_training_history(history, model_id, custom_filename)
 
     except Exception as e:
         print(f"An error occurred: {e}")
