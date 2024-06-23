@@ -125,7 +125,7 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.progress_window)
         self.canvas.get_tk_widget().pack()
 
-    def on_epoch_end(self, epoch, logs=None):
+    def safe_update_gui(self, epoch, logs):
         console_message = f"Epoch {epoch+1}/{self.params['epochs']}: " \
                           f"loss = {logs['loss']:.4f}, " \
                           f"mae = {logs['mae']:.4f}, " \
@@ -133,26 +133,30 @@ class ConsoleAndGUIProgressCallback(Callback):
                           f"val_mae = {logs['val_mae']:.4f}"
         self.text_display.insert(tk.END, console_message + "\n")
         self.text_display.see(tk.END)  # Scroll to the end of text display
-
+    
         progress_percentage = (epoch + 1) / self.params['epochs'] * 100
         for pb in self.progress_bars:
             pb['value'] = progress_percentage
         self.progress_window.update_idletasks()
-
+    
         # Append current epoch's loss and validation loss to their respective lists
         self.loss_values.append(logs['loss'])
         self.val_loss_values.append(logs['val_loss'])
-
+    
         # Plotting logic
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        ax.plot(range(1, epoch + 2), self.loss_values, label='Train Loss')  # Plot train loss over epochs
-        ax.plot(range(1, epoch + 2), self.val_loss_values, label='Validation Loss')  # Plot validation loss over epochs
+        ax.plot(range(1, epoch + 2), self.loss_values, label='Train Loss')
+        ax.plot(range(1, epoch + 2), self.val_loss_values, label='Validation Loss')
         ax.set_xlabel('Epoch')
         ax.set_ylabel('Loss')
         ax.set_title('Training Progress')
         ax.legend()
         self.canvas.draw()
+    
+    def on_epoch_end(self, epoch, logs=None):
+        # Schedule the safe_update_gui method to run in the main GUI thread
+        self.progress_window.after(0, self.safe_update_gui, epoch, logs)
 
 
 def parse_data_with_callback(args):
