@@ -276,10 +276,10 @@ def start_training():
 
         # Define the model
         model = Sequential([
-            Conv2D(128, (3, 2), activation='linear', input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1)),
+            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1)),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
-            Conv2D(128, (1, 1), activation='linear'),
+            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
             Flatten(),
