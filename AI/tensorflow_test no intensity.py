@@ -225,7 +225,13 @@ def start_training():
 
         # Early stopping and model checkpoint
         early_stopping = EarlyStopping(monitor='val_loss', patience=30)  # Reduced patience
-        model_checkpoint = ModelCheckpoint(f'best_model_{model_id}.h5', monitor='val_loss', save_best_only=True)
+
+        if custom_filename:
+            model_filename = f"{custom_filename}.h5"
+        else:
+            model_filename = f'best_model_{model_id}.h5'
+
+        model_checkpoint = ModelCheckpoint(model_filename, monitor='val_loss', save_best_only=True)
 
         # Train the model
         history = model.fit(
@@ -245,7 +251,7 @@ def start_training():
 
         # Save the model with the MAE in the filename
         if custom_filename:
-            model_filename_full = f'{custom_filename}.h5'
+            model_filename_full = f'cube_classifer_{custom_filename}.h5'
         else:
             model_filename_full = f'cube_classifier_{model_id}_{mae:.2f}.h5'
         
