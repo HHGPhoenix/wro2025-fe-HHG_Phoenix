@@ -97,22 +97,32 @@ def load_data_from_folder(folder_path):
         
         if lidar_file and controller_file:
             lidar_data, controller_data = parse_data(lidar_file, controller_file)
-            data_length = len(lidar_data)
-            indices = list(range(data_length))
-            random.shuffle(indices)
-            split_idx = int(0.8 * data_length)
-            train_indices = indices[:split_idx]
-            val_indices = indices[split_idx:]
-            
-            train_lidar_data.append(lidar_data[train_indices])
-            train_controller_data.append(controller_data[train_indices])
-            val_lidar_data.append(lidar_data[val_indices])
-            val_controller_data.append(controller_data[val_indices])
+            if len(lidar_data) > 0 and len(controller_data) > 0:
+                data_length = len(lidar_data)
+                indices = list(range(data_length))
+                random.shuffle(indices)
+                split_idx = int(0.8 * data_length)
+                train_indices = indices[:split_idx]
+                val_indices = indices[split_idx:]
+                
+                train_lidar_data.append(lidar_data[train_indices])
+                train_controller_data.append(controller_data[train_indices])
+                val_lidar_data.append(lidar_data[val_indices])
+                val_controller_data.append(controller_data[val_indices])
     
-    train_lidar_data = np.concatenate(train_lidar_data, axis=0)
-    train_controller_data = np.concatenate(train_controller_data, axis=0)
-    val_lidar_data = np.concatenate(val_lidar_data, axis=0)
-    val_controller_data = np.concatenate(val_controller_data, axis=0)
+    if len(train_lidar_data) > 0:
+        train_lidar_data = np.concatenate(train_lidar_data, axis=0)
+        train_controller_data = np.concatenate(train_controller_data, axis=0)
+    else:
+        train_lidar_data = np.array([])
+        train_controller_data = np.array([])
+
+    if len(val_lidar_data) > 0:
+        val_lidar_data = np.concatenate(val_lidar_data, axis=0)
+        val_controller_data = np.concatenate(val_controller_data, axis=0)
+    else:
+        val_lidar_data = np.array([])
+        val_controller_data = np.array([])
 
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
 
@@ -146,6 +156,10 @@ def start_training():
         # Load and parse data
         train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path)
 
+        if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
+            print("No valid data found for training or validation.")
+            return
+
         print(f"Train LIDAR data shape: {train_lidar.shape}")
         print(f"Train Controller data shape: {train_controller.shape}")
         print(f"Validation LIDAR data shape: {val_lidar.shape}")
@@ -175,14 +189,14 @@ def start_training():
         model_id = str(uuid.uuid4())
 
         # Early stopping and model checkpoint
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20)  # Reduced patience
+        early_stopping = EarlyStopping(monitor='val_loss', patience=50)  # Reduced patience
         model_checkpoint = ModelCheckpoint(f'best_model_{model_id}.h5', monitor='val_loss', save_best_only=True)
 
         # Train the model
         history = model.fit(
             train_lidar, train_controller,
             validation_data=(val_lidar, val_controller),
-            epochs=200,
+            epochs=300,
             callbacks=[early_stopping, model_checkpoint],
             batch_size=32
         )
