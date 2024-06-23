@@ -230,7 +230,7 @@ def start_training():
                 file_pairs.append((lidar_file, controller_file))
         
         progress_window, progress_bars = create_progress_window(file_pairs)
-        progress_callbacks = [(lambda progress, pb=pb: pb.update({'value': progress})) for pb in progress_bars]
+        progress_callbacks = [(lambda progress, pb=pb: pb.config(value=progress)) for pb in progress_bars]
 
         root.update()  # Update the main window to show the progress window
 
@@ -301,7 +301,7 @@ def start_training():
 
         # Plot and save training history
         plot_training_history(history, model_id, custom_filename)
-        
+
     except StopIteration:
         print("Training stopped by user.")
 
