@@ -117,7 +117,6 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.text_display.pack()
 
         # Progress bars
-        # for _ in range(1):
         pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
         pb.pack()
         self.progress_bars.append(pb)
@@ -130,6 +129,16 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.figure = plt.figure(figsize=(8, 6))
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.progress_window)
         self.canvas.get_tk_widget().pack()
+
+        # Labels for displaying highest and lowest values
+        self.highest_loss_label = tk.Label(self.progress_window, text="Highest Loss: N/A")
+        self.highest_loss_label.pack()
+        self.lowest_loss_label = tk.Label(self.progress_window, text="Lowest Loss: N/A")
+        self.lowest_loss_label.pack()
+        self.lowest_val_mae_label = tk.Label(self.progress_window, text="Lowest Validation MAE: N/A")
+        self.lowest_val_mae_label.pack()
+        self.lowest_val_mae_epoch_label = tk.Label(self.progress_window, text="Epoch for Lowest Validation MAE: N/A")
+        self.lowest_val_mae_epoch_label.pack()
 
     def safe_update_gui(self, epoch, logs):
         # Update console message to include new stats
@@ -152,45 +161,39 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.lowest_loss = min(self.lowest_loss, logs['loss'])
         self.mae_values.append(logs['mae'])
         self.val_mae_values.append(logs['val_mae'])
-    
-        # Plotting logic
+        self.loss_values.append(logs['loss'])
+        self.val_loss_values.append(logs['val_loss'])
+
+        # Update labels for highest and lowest values
+        self.highest_loss_label.config(text=f"Highest Loss: {self.highest_loss:.4f}")
+        self.lowest_loss_label.config(text=f"Lowest Loss: {self.lowest_loss:.4f}")
+        self.lowest_val_mae_label.config(text=f"Lowest Validation MAE: {self.lowest_val_mae:.4f}")
+        self.lowest_val_mae_epoch_label.config(text=f"Epoch for Lowest Validation MAE: {self.lowest_val_mae_epoch}")
+        
+        # Consolidated Plotting Logic
         self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        ax.plot(range(1, epoch + 2), self.loss_values, label='Train Loss')
-        ax.plot(range(1, epoch + 2), self.val_loss_values, label='Validation Loss')
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Loss')
-        ax.set_title('Training Progress')
-        ax.legend()
-        self.canvas.draw()
+        if len(self.loss_values) > 0 and len(self.val_loss_values) > 0:
+            ax1 = self.figure.add_subplot(121)  # For loss
+            ax1.plot(range(1, len(self.loss_values) + 1), self.loss_values, label='Train Loss')
+            ax1.plot(range(1, len(self.val_loss_values) + 1), self.val_loss_values, label='Validation Loss')
+            ax1.set_xlabel('Epoch')
+            ax1.set_ylabel('Loss')
+            ax1.set_title('Loss Progress')
+            ax1.legend()
 
-        # Debugging output
-        print(f"Epoch: {epoch+1}, Loss Values Length: {len(self.loss_values)}, MAE Values Length: {len(self.mae_values)}")
-
-        # Plotting logic with checks
-        if self.loss_values and self.val_loss_values:  # Check if lists are not empty
-            self.figure.clear()
-            ax = self.figure.add_subplot(121)  # Adjusted for subplot layout
-            ax.plot(range(1, epoch + 2), self.loss_values, label='Train Loss')
-            ax.plot(range(1, epoch + 2), self.val_loss_values, label='Validation Loss')
-            ax.set_xlabel('Epoch')
-            ax.set_ylabel('Loss')
-            ax.set_title('Training Progress')
-            ax.legend()
-            self.canvas.draw()
-
-        if self.mae_values and self.val_mae_values:  # Check if lists are not empty
-            ax2 = self.figure.add_subplot(122)
-            ax2.plot(range(1, epoch + 2), self.mae_values, label='MAE')
-            ax2.plot(range(1, epoch + 2), self.val_mae_values, label='Validation MAE')
-            ax2.set_xlabel('Epoch')
-            ax2.set_ylabel('MAE')
-            ax2.set_title('MAE Progress')
-            ax2.legend()
-            self.canvas.draw()
+            if len(self.mae_values) > 0 and len(self.val_mae_values) > 0:
+                ax2 = self.figure.add_subplot(122)  # For MAE
+                ax2.plot(range(1, len(self.mae_values) + 1), self.mae_values, label='MAE')
+                ax2.plot(range(1, len(self.val_mae_values) + 1), self.val_mae_values, label='Validation MAE')
+                ax2.set_xlabel('Epoch')
+                ax2.set_ylabel('MAE')
+                ax2.set_title('MAE Progress')
+                ax2.legend()
         else:
-            print("MAE or Validation MAE values are empty, skipping plotting.")
-    
+            print("Insufficient data for plotting.")
+        
+        self.canvas.draw()
+        
     def on_epoch_end(self, epoch, logs=None):
         # Schedule the safe_update_gui method to run in the main GUI thread
         self.progress_window.after(0, self.safe_update_gui, epoch, logs)
@@ -472,7 +475,7 @@ def start_training():
         os.remove(checkpoint_filename)
 
         # Plot and save training history
-        plot_training_history(history, model_id, custom_filename)
+        plot_training_history(history, model_id, epochs_trained=len(history.history['loss']), best_val_mae=mae, custom_filename=custom_filename)
 
     except StopIteration:
         print("Training stopped by user.")
