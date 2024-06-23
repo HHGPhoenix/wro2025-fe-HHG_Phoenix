@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import ttk
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU
@@ -24,8 +25,8 @@ def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
 
-@lru_cache(maxsize=128)  # Caching results of parse_data
-def parse_data(file_path_lidar, file_path_controller):
+@lru_cache(maxsize=128)
+def parse_data(file_path_lidar, file_path_controller, progress_callback):
     lidar_data = []
     controller_data = []
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
@@ -74,26 +75,24 @@ def parse_data(file_path_lidar, file_path_controller):
             controller_data.append(float(controller_line))
             
             progress = (index + 1) / total_lines * 100  # Calculate progress percentage
-            print(f"\rProgress: {progress:.2f}%", end="")
+            progress_callback(progress)
 
-        print("\nProcessing complete.")
-            
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
     return lidar_data, controller_data
+            
+def process_file_pair(args):
+    file_pair, progress_callback = args
+    return parse_data(*file_pair, progress_callback)
 
-def process_file_pair(file_pair):
-    return parse_data(*file_pair)
-
-def load_data_from_folder(folder_path):
+def load_data_from_folder(folder_path, progress_callbacks):
     train_lidar_data = []
     train_controller_data = []
     val_lidar_data = []
     val_controller_data = []
     
     file_pairs = []
-
     for subdir, _, files in os.walk(folder_path):
         lidar_file = None
         controller_file = None
@@ -107,7 +106,7 @@ def load_data_from_folder(folder_path):
             file_pairs.append((lidar_file, controller_file))
 
     with Pool(processes=cpu_count()) as pool:
-        results = pool.map(process_file_pair, file_pairs)
+        results = pool.map(process_file_pair, [(file_pair, progress_callbacks[i]) for i, file_pair in enumerate(file_pairs)])
 
     for lidar_data, controller_data in results:
         if len(lidar_data) > 0 and len(controller_data) > 0:
@@ -181,6 +180,15 @@ def start_training():
 
         print(f"Selected folder path: {folder_path}")
 
+        progress_callbacks = []
+        for i in range(len(progress_bars)):
+            def create_progress_callback(index):
+                def progress_callback(progress):
+                    progress_bars[index]['value'] = progress
+                    root.update_idletasks()
+                return progress_callback
+            progress_callbacks.append(create_progress_callback(i))
+
         # Load and parse data
         train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path)
 
@@ -217,14 +225,10 @@ def start_training():
         model_id = str(uuid.uuid4())
 
         # Early stopping and model checkpoint
-        early_stopping = EarlyStopping(monitor='val_loss', patience=30)  # Reduced patience
+        early_stopping = EarlyStopping(monitor='val_loss', patience=35)  # Reduced patience
 
-        if custom_filename:
-            model_filename = f"{custom_filename}.h5"
-        else:
-            model_filename = f'best_model_{model_id}.h5'
-
-        model_checkpoint = ModelCheckpoint(model_filename, monitor='val_loss', save_best_only=True)
+        checkpoint_filename = f"best_model_{custom_filename}.h5" if custom_filename else f'best_model_{model_id}.h5'
+        model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
 
         # Train the model
         history = model.fit(
@@ -236,19 +240,18 @@ def start_training():
         )
 
         # Load the best model
-        best_model = tf.keras.models.load_model(f'best_model_{model_id}.h5')
+        best_model = tf.keras.models.load_model(checkpoint_filename)
 
         # Evaluate the model
         loss, mae = best_model.evaluate(val_lidar, val_controller)
         print(f'Validation Mean Absolute Error: {mae:.4f}')
-
-        # Save the model with the MAE in the filename
-        if custom_filename:
-            model_filename_full = f'cube_classifer_{custom_filename}.h5'
-        else:
-            model_filename_full = f'cube_classifier_{model_id}_{mae:.2f}.h5'
         
-        best_model.save(model_filename_full)
+        # Save the model with the MAE in the filename
+        final_model_filename = f'best_model_{custom_filename}_{mae:.4f}.h5' if custom_filename else f'best_model_{model_id}_{mae:.4f}.h5'
+        best_model.save(final_model_filename)
+
+        # delete the temporary best model
+        os.remove(checkpoint_filename)
 
         # Plot and save training history
         plot_training_history(history, model_id, custom_filename)
@@ -272,5 +275,11 @@ if __name__ == "__main__":
     tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
 
     tk.Button(root, text="Start Training", command=start_training).grid(row=2, column=0, columnspan=3, pady=20)
+
+    progress_bars = []
+    for i in range(10):  # Assuming there are 10 instances, adjust as needed
+        progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
+        progress_bar.grid(row=3 + i, column=0, columnspan=3, padx=10, pady=5)
+        progress_bars.append(progress_bar)
 
     root.mainloop()
