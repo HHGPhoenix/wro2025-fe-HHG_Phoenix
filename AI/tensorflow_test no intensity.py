@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.models import Sequential # type: ignore
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU # type: ignore
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint # type: ignore
 import numpy as np
 import matplotlib.pyplot as plt
 import uuid
@@ -12,14 +12,15 @@ import os
 import pandas as pd
 from scipy.interpolate import interp1d
 import random
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Queue, Process, cpu_count, Pool
 from functools import lru_cache
 
-# Print all GPU devices
-print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+if __name__ == "__main__":
+    # Print all GPU devices
+    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
-for gpu in tf.config.experimental.list_physical_devices('GPU'):
-    tf.config.experimental.set_memory_growth(gpu, True)
+    for gpu in tf.config.experimental.list_physical_devices('GPU'):
+        tf.config.experimental.set_memory_growth(gpu, True)
 
 def select_data_folder(data):
     path = filedialog.askdirectory()
@@ -81,10 +82,9 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback):
     controller_data = np.array(controller_data, dtype=np.float32)
 
     return lidar_data, controller_data
-            
-def process_file_pair(args):
-    file_pair, progress_callback = args
-    return parse_data(*file_pair, progress_callback)
+
+
+from tqdm import tqdm  # Add this import for tqdm
 
 def load_data_from_folder(folder_path, progress_callbacks):
     train_lidar_data = []
@@ -105,8 +105,20 @@ def load_data_from_folder(folder_path, progress_callbacks):
         if lidar_file and controller_file:
             file_pairs.append((lidar_file, controller_file))
 
+    total_files = len(file_pairs)
+    
     with Pool(processes=cpu_count()) as pool:
-        results = pool.map(process_file_pair, [(file_pair, progress_callbacks[i]) for i, file_pair in enumerate(file_pairs)])
+        results = []
+        
+        # Using tqdm to show the progress bar in the console
+        with tqdm(total=total_files, desc="Processing files") as pbar:
+            for i, file_pair in enumerate(file_pairs):
+                progress_callback = lambda progress, i=i: progress_callbacks[i](progress)  # wrap the progress callback
+                result = pool.apply_async(parse_data, (file_pair[0], file_pair[1], progress_callback))
+                results.append(result)
+                pbar.update(1)
+        
+        results = [result.get() for result in results]  # Collect results
 
     for lidar_data, controller_data in results:
         if len(lidar_data) > 0 and len(controller_data) > 0:
@@ -137,6 +149,7 @@ def load_data_from_folder(folder_path, progress_callbacks):
         val_controller_data = np.array([])
 
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
+
 
 def plot_training_history(history, model_id, custom_filename=None):
     plt.figure(figsize=(12, 8))  # Increased figure size for better readability
@@ -173,6 +186,25 @@ def plot_training_history(history, model_id, custom_filename=None):
         plt.savefig(f'training_history_{model_id}.png')
     plt.show()
 
+def create_progress_window(file_pairs):
+    progress_window = tk.Toplevel()
+    progress_window.title("Loading Progress")
+    
+    progress_bars = []
+    
+    for i, (lidar_file, controller_file) in enumerate(file_pairs):
+        frame = ttk.Frame(progress_window)
+        frame.pack(pady=5)
+
+        label = ttk.Label(frame, text=f"File Pair {i+1}: {lidar_file}, {controller_file}")
+        label.pack(side=tk.LEFT, padx=10)
+        
+        progress_bar = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate')
+        progress_bar.pack(side=tk.RIGHT, padx=10)
+        progress_bars.append(progress_bar)
+    
+    return progress_window, progress_bars
+
 def start_training():
     try:
         folder_path = data_folder_path.get()
@@ -180,17 +212,25 @@ def start_training():
 
         print(f"Selected folder path: {folder_path}")
 
-        progress_callbacks = []
-        for i in range(len(progress_bars)):
-            def create_progress_callback(index):
-                def progress_callback(progress):
-                    progress_bars[index]['value'] = progress
-                    root.update_idletasks()
-                return progress_callback
-            progress_callbacks.append(create_progress_callback(i))
+        # Prepare progress bars
+        file_pairs = []
+        for subdir, _, files in os.walk(folder_path):
+            lidar_file = None
+            controller_file = None
+            for file in files:
+                if file.startswith('lidar_'):
+                    lidar_file = os.path.join(subdir, file)
+                elif file.startswith('x_'):
+                    controller_file = os.path.join(subdir, file)
+            
+            if lidar_file and controller_file:
+                file_pairs.append((lidar_file, controller_file))
+        
+        progress_window, progress_bars = create_progress_window(file_pairs)
+        progress_callbacks = [lambda progress, pb=pb: pb['value'] = progress for pb in progress_bars]
 
         # Load and parse data
-        train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path)
+        train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callbacks)
 
         if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
             print("No valid data found for training or validation.")
@@ -205,12 +245,13 @@ def start_training():
         train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
         val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
 
+
         # Define the model
         model = Sequential([
-            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1)),
+            Conv2D(128, (3, 2), activation='linear', input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1)),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
-            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
+            Conv2D(128, (1, 1), activation='linear'),
             BatchNormalization(),  # Added batch normalization
             MaxPooling2D((2, 1)),
             Flatten(),
@@ -276,10 +317,5 @@ if __name__ == "__main__":
 
     tk.Button(root, text="Start Training", command=start_training).grid(row=2, column=0, columnspan=3, pady=20)
 
-    progress_bars = []
-    for i in range(10):  # Assuming there are 10 instances, adjust as needed
-        progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
-        progress_bar.grid(row=3 + i, column=0, columnspan=3, padx=10, pady=5)
-        progress_bars.append(progress_bar)
 
     root.mainloop()
