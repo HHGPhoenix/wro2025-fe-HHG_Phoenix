@@ -11,6 +11,8 @@ import os
 import pandas as pd
 from scipy.interpolate import interp1d
 import random
+from multiprocessing import Pool, cpu_count
+from functools import lru_cache
 
 # Print all GPU devices
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -22,6 +24,7 @@ def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
 
+@lru_cache(maxsize=128)  # Caching results of parse_data
 def parse_data(file_path_lidar, file_path_controller):
     lidar_data = []
     controller_data = []
@@ -80,12 +83,17 @@ def parse_data(file_path_lidar, file_path_controller):
 
     return lidar_data, controller_data
 
+def process_file_pair(file_pair):
+    return parse_data(*file_pair)
+
 def load_data_from_folder(folder_path):
     train_lidar_data = []
     train_controller_data = []
     val_lidar_data = []
     val_controller_data = []
     
+    file_pairs = []
+
     for subdir, _, files in os.walk(folder_path):
         lidar_file = None
         controller_file = None
@@ -96,20 +104,25 @@ def load_data_from_folder(folder_path):
                 controller_file = os.path.join(subdir, file)
         
         if lidar_file and controller_file:
-            lidar_data, controller_data = parse_data(lidar_file, controller_file)
-            if len(lidar_data) > 0 and len(controller_data) > 0:
-                data_length = len(lidar_data)
-                indices = list(range(data_length))
-                random.shuffle(indices)
-                split_idx = int(0.8 * data_length)
-                train_indices = indices[:split_idx]
-                val_indices = indices[split_idx:]
-                
-                train_lidar_data.append(lidar_data[train_indices])
-                train_controller_data.append(controller_data[train_indices])
-                val_lidar_data.append(lidar_data[val_indices])
-                val_controller_data.append(controller_data[val_indices])
-    
+            file_pairs.append((lidar_file, controller_file))
+
+    with Pool(processes=cpu_count()) as pool:
+        results = pool.map(process_file_pair, file_pairs)
+
+    for lidar_data, controller_data in results:
+        if len(lidar_data) > 0 and len(controller_data) > 0:
+            data_length = len(lidar_data)
+            indices = list(range(data_length))
+            random.shuffle(indices)
+            split_idx = int(0.8 * data_length)
+            train_indices = indices[:split_idx]
+            val_indices = indices[split_idx:]
+            
+            train_lidar_data.append(lidar_data[train_indices])
+            train_controller_data.append(controller_data[train_indices])
+            val_lidar_data.append(lidar_data[val_indices])
+            val_controller_data.append(controller_data[val_indices])
+
     if len(train_lidar_data) > 0:
         train_lidar_data = np.concatenate(train_lidar_data, axis=0)
         train_controller_data = np.concatenate(train_controller_data, axis=0)
@@ -147,9 +160,31 @@ def plot_training_history(history, model_id):
     plt.savefig(f'training_history_{model_id}.png')
     plt.show()
 
+    write_model_stats(history, model_id)
+
+def write_model_stats(history, model_id):
+    final_mae = history.history['mae'][-1]
+    final_val_mae = history.history['val_mae'][-1]
+    final_loss = history.history['loss'][-1]
+    final_val_loss = history.history['val_loss'][-1]
+
+    stats = f"""
+    Model ID: {model_id}
+    Final Training MAE: {final_mae}
+    Final Validation MAE: {final_val_mae}
+    Final Training Loss: {final_loss}
+    Final Validation Loss: {final_val_loss}
+    """
+
+    print(stats)
+    # Optionally, write to a file
+    with open(f'model_stats_{model_id}.txt', 'w') as f:
+        f.write(stats)
+
 def start_training():
     try:
         folder_path = data_folder_path.get()
+        custom_filename = model_filename.get()
 
         print(f"Selected folder path: {folder_path}")
 
@@ -189,7 +224,7 @@ def start_training():
         model_id = str(uuid.uuid4())
 
         # Early stopping and model checkpoint
-        early_stopping = EarlyStopping(monitor='val_loss', patience=50)  # Reduced patience
+        early_stopping = EarlyStopping(monitor='val_loss', patience=30)  # Reduced patience
         model_checkpoint = ModelCheckpoint(f'best_model_{model_id}.h5', monitor='val_loss', save_best_only=True)
 
         # Train the model
@@ -209,8 +244,12 @@ def start_training():
         print(f'Validation Mean Absolute Error: {mae:.4f}')
 
         # Save the model with the MAE in the filename
-        model_filename = f'cube_classifier_{model_id}_{mae:.2f}.h5'
-        best_model.save(model_filename)
+        if custom_filename:
+            model_filename_full = f'{custom_filename}.h5'
+        else:
+            model_filename_full = f'cube_classifier_{model_id}_{mae:.2f}.h5'
+        
+        best_model.save(model_filename_full)
 
         # Plot and save training history
         plot_training_history(history, model_id)
@@ -218,16 +257,21 @@ def start_training():
     except Exception as e:
         print(f"An error occurred: {e}")
 
-# Tkinter GUI setup
-root = tk.Tk()
-root.title("Train Model")
+if __name__ == "__main__":
+    # Tkinter GUI setup
+    root = tk.Tk()
+    root.title("Train Model")
 
-data_folder_path = tk.StringVar()
+    data_folder_path = tk.StringVar()
+    model_filename = tk.StringVar()
 
-tk.Label(root, text="Data Folder Path:").grid(row=0, column=0, padx=10, pady=10)
-tk.Entry(root, textvariable=data_folder_path, width=50).grid(row=0, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse Folder", command=lambda data=data_folder_path: select_data_folder(data)).grid(row=0, column=2, padx=10, pady=10)
+    tk.Label(root, text="Data Folder Path:").grid(row=0, column=0, padx=10, pady=10)
+    tk.Entry(root, textvariable=data_folder_path, width=50).grid(row=0, column=1, padx=10, pady=10)
+    tk.Button(root, text="Browse Folder", command=lambda data=data_folder_path: select_data_folder(data)).grid(row=0, column=2, padx=10, pady=10)
 
-tk.Button(root, text="Start Training", command=start_training).grid(row=1, column=0, columnspan=3, pady=20)
+    tk.Label(root, text="Model Filename (optional):").grid(row=1, column=0, padx=10, pady=10)
+    tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
 
-root.mainloop()
+    tk.Button(root, text="Start Training", command=start_training).grid(row=2, column=0, columnspan=3, pady=20)
+
+    root.mainloop()
