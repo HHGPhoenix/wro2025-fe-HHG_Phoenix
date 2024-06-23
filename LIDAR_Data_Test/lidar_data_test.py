@@ -87,7 +87,7 @@ def predict_servo_angle(lidar_data, steering_model):
     return predicted_angle
 
 def run_model(input_queue, output_queue):
-    steering_model = tf.keras.models.load_model('best_model.h5')
+    steering_model = tf.keras.models.load_model('verygoodmovedxmodel3.h5')
     
     while True:
         if not input_queue.empty():
@@ -162,7 +162,7 @@ try:
         speed_value = controller.map_speed_value(ry)
         ser.write(f'SPEED {speed_value}\n'.encode())
 
-        # time.sleep(0.03)
+        time.sleep(0.03)
     
 finally:
     lidar.stop_sensor()
