@@ -15,6 +15,7 @@ import random
 from multiprocessing import Queue, Process, cpu_count, Pool
 from functools import lru_cache, partial
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -27,12 +28,8 @@ def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
 
-# Define a top-level progress callback function
-def progress_callback(progress, index, progress_callbacks):
-    progress_callbacks[index](progress)
-
 @lru_cache(maxsize=128)
-def parse_data(file_path_lidar, file_path_controller, progress_callback):
+def parse_data(file_path_lidar, file_path_controller):
     lidar_data = []
     controller_data = []
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
@@ -79,17 +76,23 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback):
             
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
-            
-            progress = (index + 1) / total_lines * 100  # Calculate progress percentage
-            progress_callback(progress)
 
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
-    progress_callback(100)
     return lidar_data, controller_data
 
-def load_data_from_folder(folder_path, progress_callbacks):
+def parse_data_with_callback(args):
+    file_pair, index, progress_callbacks, progress_callback = args
+    file_path_lidar, file_path_controller = file_pair
+    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller)
+    
+    progress = (index + 1) / len(progress_callbacks) * 100
+    progress_callback(progress, index, progress_callbacks)
+    
+    return lidar_data, controller_data
+
+def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
     train_lidar_data = []
     train_controller_data = []
     val_lidar_data = []
@@ -109,21 +112,14 @@ def load_data_from_folder(folder_path, progress_callbacks):
             file_pairs.append((lidar_file, controller_file))
 
     total_files = len(file_pairs)
-    
-    with Pool(processes=cpu_count()) as pool:
-        results = []
-        
-        # Using tqdm to show the progress bar in the console
-        with tqdm(total=total_files, desc="Processing files") as pbar:
-            for i, file_pair in enumerate(file_pairs):
-                # Use partial to create a top-level function for the progress callback
-                callback = partial(progress_callback, index=i, progress_callbacks=progress_callbacks)
-                result = pool.apply_async(parse_data, (file_pair[0], file_pair[1], callback))
-                results.append(result)
-                pbar.update(1)
-        
-        results = [result.get() for result in results]  # Collect results
+    results = []
 
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        future_to_file = {executor.submit(parse_data_with_callback, (file_pair, i, progress_callbacks, progress_callback)): file_pair for i, file_pair in enumerate(file_pairs)}
+        for future in as_completed(future_to_file):
+            lidar_data, controller_data = future.result()
+            results.append((lidar_data, controller_data))
+        
     for lidar_data, controller_data in results:
         if len(lidar_data) > 0 and len(controller_data) > 0:
             data_length = len(lidar_data)
@@ -208,7 +204,12 @@ def create_progress_window(file_pairs):
     
     return progress_window, progress_bars
 
+def progress_callback(progress, index, progress_callbacks):
+    progress_callbacks[index](progress)
+    root.update_idletasks()  # Update the Tkinter event loop
+
 def start_training():
+    try:
         folder_path = data_folder_path.get()
         custom_filename = model_filename.get()
 
@@ -229,10 +230,12 @@ def start_training():
                 file_pairs.append((lidar_file, controller_file))
         
         progress_window, progress_bars = create_progress_window(file_pairs)
-        progress_callbacks = [lambda progress, pb=pb: pb.update({'value': progress}) for pb in progress_bars]
+        progress_callbacks = [(lambda progress, pb=pb: pb.update({'value': progress})) for pb in progress_bars]
+
+        root.update()  # Update the main window to show the progress window
 
         # Load and parse data
-        train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callbacks)
+        train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
 
         if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
             print("No valid data found for training or validation.")
@@ -298,6 +301,9 @@ def start_training():
 
         # Plot and save training history
         plot_training_history(history, model_id, custom_filename)
+        
+    except StopIteration:
+        print("Training stopped by user.")
 
 
 if __name__ == "__main__":
