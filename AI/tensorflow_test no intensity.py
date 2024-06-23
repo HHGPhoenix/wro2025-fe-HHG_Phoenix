@@ -97,6 +97,8 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.text_display = None
         self.figure = None
         self.canvas = None
+        self.loss_values = []  # Store loss values for each epoch
+        self.val_loss_values = []  # Store validation loss values for each epoch
         self.create_tensorflow_progress_window()
         print("Progress window created.")
 
@@ -137,11 +139,15 @@ class ConsoleAndGUIProgressCallback(Callback):
             pb['value'] = progress_percentage
         self.progress_window.update_idletasks()
 
-        # Plotting example (replace with your own plot logic)
+        # Append current epoch's loss and validation loss to their respective lists
+        self.loss_values.append(logs['loss'])
+        self.val_loss_values.append(logs['val_loss'])
+
+        # Plotting logic
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        ax.plot(range(epoch + 1), [logs['loss']] * (epoch + 1), label='Train Loss')
-        ax.plot(range(epoch + 1), [logs['val_loss']] * (epoch + 1), label='Validation Loss')
+        ax.plot(range(1, epoch + 2), self.loss_values, label='Train Loss')  # Plot train loss over epochs
+        ax.plot(range(1, epoch + 2), self.val_loss_values, label='Validation Loss')  # Plot validation loss over epochs
         ax.set_xlabel('Epoch')
         ax.set_ylabel('Loss')
         ax.set_title('Training Progress')
@@ -383,8 +389,6 @@ def start_training():
         console_and_gui_callback = ConsoleAndGUIProgressCallback()
         checkpoint_filename = f"best_model_{custom_filename}.h5" if custom_filename else f'best_model_{model_id}.h5'
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
-
-        console_and_gui_callback.create_tensorflow_progress_window()
 
         # Train the model
         history = model.fit(
