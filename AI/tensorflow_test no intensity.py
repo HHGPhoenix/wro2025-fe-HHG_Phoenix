@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
 import tensorflow as tf
-from tensorflow.keras.models import Sequential # type: ignore
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU # type: ignore
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint # type: ignore
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import numpy as np
 import matplotlib.pyplot as plt
 import uuid
@@ -13,7 +13,8 @@ import pandas as pd
 from scipy.interpolate import interp1d
 import random
 from multiprocessing import Queue, Process, cpu_count, Pool
-from functools import lru_cache
+from functools import lru_cache, partial
+from tqdm import tqdm
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -25,6 +26,10 @@ if __name__ == "__main__":
 def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
+
+# Define a top-level progress callback function
+def progress_callback(progress, index, progress_callbacks):
+    progress_callbacks[index](progress)
 
 @lru_cache(maxsize=128)
 def parse_data(file_path_lidar, file_path_controller, progress_callback):
@@ -81,10 +86,8 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback):
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
+    progress_callback(100)
     return lidar_data, controller_data
-
-
-from tqdm import tqdm  # Add this import for tqdm
 
 def load_data_from_folder(folder_path, progress_callbacks):
     train_lidar_data = []
@@ -113,8 +116,9 @@ def load_data_from_folder(folder_path, progress_callbacks):
         # Using tqdm to show the progress bar in the console
         with tqdm(total=total_files, desc="Processing files") as pbar:
             for i, file_pair in enumerate(file_pairs):
-                progress_callback = lambda progress, i=i: progress_callbacks[i](progress)  # wrap the progress callback
-                result = pool.apply_async(parse_data, (file_pair[0], file_pair[1], progress_callback))
+                # Use partial to create a top-level function for the progress callback
+                callback = partial(progress_callback, index=i, progress_callbacks=progress_callbacks)
+                result = pool.apply_async(parse_data, (file_pair[0], file_pair[1], callback))
                 results.append(result)
                 pbar.update(1)
         
@@ -149,7 +153,6 @@ def load_data_from_folder(folder_path, progress_callbacks):
         val_controller_data = np.array([])
 
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
-
 
 def plot_training_history(history, model_id, custom_filename=None):
     plt.figure(figsize=(12, 8))  # Increased figure size for better readability
@@ -206,7 +209,6 @@ def create_progress_window(file_pairs):
     return progress_window, progress_bars
 
 def start_training():
-    try:
         folder_path = data_folder_path.get()
         custom_filename = model_filename.get()
 
@@ -227,7 +229,7 @@ def start_training():
                 file_pairs.append((lidar_file, controller_file))
         
         progress_window, progress_bars = create_progress_window(file_pairs)
-        progress_callbacks = [lambda progress, pb=pb: pb['value'] = progress for pb in progress_bars]
+        progress_callbacks = [lambda progress, pb=pb: pb.update({'value': progress}) for pb in progress_bars]
 
         # Load and parse data
         train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callbacks)
@@ -297,8 +299,6 @@ def start_training():
         # Plot and save training history
         plot_training_history(history, model_id, custom_filename)
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     # Tkinter GUI setup
@@ -316,6 +316,5 @@ if __name__ == "__main__":
     tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
 
     tk.Button(root, text="Start Training", command=start_training).grid(row=2, column=0, columnspan=3, pady=20)
-
 
     root.mainloop()
