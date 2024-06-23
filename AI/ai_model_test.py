@@ -11,7 +11,7 @@ from scipy.interpolate import interp1d
 import time
 import threading
 import queue
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model # type: ignore
 
 # Set TensorFlow to allow memory growth on GPU
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
@@ -24,8 +24,10 @@ def parse_data(file_path_lidar, file_path_controller):
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
         lidar_lines = lidar_file.readlines()
         controller_lines = controller_file.readlines()
+
+        total_lines = len(lidar_lines)
         
-        for lidar_line, controller_line in zip(lidar_lines, controller_lines):
+        for index, (lidar_line, controller_line) in enumerate(zip(lidar_lines, controller_lines)):
             data = eval(lidar_line.strip())
             
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
@@ -62,6 +64,11 @@ def parse_data(file_path_lidar, file_path_controller):
             
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
+
+            progress = (index + 1) / total_lines * 100  # Calculate progress percentage
+            print(f"\rProgress: {progress:.2f}%", end="")
+
+        print("\nProcessing complete.")
             
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
