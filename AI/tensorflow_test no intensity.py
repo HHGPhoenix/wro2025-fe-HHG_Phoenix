@@ -151,7 +151,7 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
 
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
 
-def plot_training_history(history, model_id, custom_filename=None):
+def plot_training_history(history, model_id, best_val_mae, epochs_trained, custom_filename=None):
     plt.figure(figsize=(12, 8))  # Increased figure size for better readability
     plt.subplot(2, 1, 1)  # Adjusted for additional text space
     plt.plot(history.history['mae'])
@@ -175,8 +175,9 @@ def plot_training_history(history, model_id, custom_filename=None):
     final_loss = history.history['loss'][-1]
     final_val_loss = history.history['val_loss'][-1]
 
-    # Add text for final statistics
+    # Add text for final statistics and best validation MAE
     plt.figtext(0.5, 0.01, f'Final MAE: {final_mae:.4f}, Final Val MAE: {final_val_mae:.4f}, '
+                           f'Best Val MAE: {best_val_mae:.4f}, Epochs Trained: {epochs_trained}, '
                            f'Final Loss: {final_loss:.4f}, Final Val Loss: {final_val_loss:.4f}',
                 ha="center", fontsize=9, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
 
@@ -227,7 +228,7 @@ def progress_callback(progress, index, progress_callbacks):
         # root.after(0, lambda: progress_callbacks[index](progress))
     root.update()
     root.update_idletasks()
-    print(f"Progress: {progress:.2f}% for index {index}")
+    # print(f"Progress: {progress:.2f}% for index {index}")
 
 def start_training_thread():
     Thread(target=start_training).start()
