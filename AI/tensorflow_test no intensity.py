@@ -12,10 +12,9 @@ import os
 import pandas as pd
 from scipy.interpolate import interp1d
 import random
-from multiprocessing import Queue, Process, cpu_count, Pool
-from functools import lru_cache, partial
-from tqdm import tqdm
+from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -29,7 +28,7 @@ def select_data_folder(data):
     data.set(path)
 
 @lru_cache(maxsize=128)
-def parse_data(file_path_lidar, file_path_controller):
+def parse_data(file_path_lidar, file_path_controller, progress_callback=None):
     lidar_data = []
     controller_data = []
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
@@ -77,6 +76,10 @@ def parse_data(file_path_lidar, file_path_controller):
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
 
+            if progress_callback:
+                progress = (index + 1) / total_lines * 100
+                progress_callback(progress, index, total_lines)  # Update progress bar
+
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
@@ -85,11 +88,7 @@ def parse_data(file_path_lidar, file_path_controller):
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
     file_path_lidar, file_path_controller = file_pair
-    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller)
-    
-    progress = (index + 1) / len(progress_callbacks) * 100
-    progress_callback(progress, index, progress_callbacks)
-    
+    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller, progress_callback)
     return lidar_data, controller_data
 
 def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
@@ -97,7 +96,6 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
     train_controller_data = []
     val_lidar_data = []
     val_controller_data = []
-    
     file_pairs = []
     for subdir, _, files in os.walk(folder_path):
         lidar_file = None
@@ -107,19 +105,20 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
                 lidar_file = os.path.join(subdir, file)
             elif file.startswith('x_'):
                 controller_file = os.path.join(subdir, file)
-        
         if lidar_file and controller_file:
             file_pairs.append((lidar_file, controller_file))
-
     total_files = len(file_pairs)
     results = []
 
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        future_to_file = {executor.submit(parse_data_with_callback, (file_pair, i, progress_callbacks, progress_callback)): file_pair for i, file_pair in enumerate(file_pairs)}
+        future_to_file = {
+            executor.submit(parse_data_with_callback, (file_pair, i, progress_callbacks, progress_callback)): file_pair
+            for i, file_pair in enumerate(file_pairs)
+        }
         for future in as_completed(future_to_file):
             lidar_data, controller_data = future.result()
             results.append((lidar_data, controller_data))
-        
+
     for lidar_data, controller_data in results:
         if len(lidar_data) > 0 and len(controller_data) > 0:
             data_length = len(lidar_data)
@@ -128,7 +127,6 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             split_idx = int(0.8 * data_length)
             train_indices = indices[:split_idx]
             val_indices = indices[split_idx:]
-            
             train_lidar_data.append(lidar_data[train_indices])
             train_controller_data.append(controller_data[train_indices])
             val_lidar_data.append(lidar_data[val_indices])
@@ -188,25 +186,38 @@ def plot_training_history(history, model_id, custom_filename=None):
 def create_progress_window(file_pairs):
     progress_window = tk.Toplevel()
     progress_window.title("Loading Progress")
-    
     progress_bars = []
-    
+
     for i, (lidar_file, controller_file) in enumerate(file_pairs):
+        # Extract the last directory and file name for lidar_file
+        lidar_dir, lidar_name = os.path.split(lidar_file)
+        _, lidar_last_dir = os.path.split(lidar_dir)
+        lidar_display = os.path.join(lidar_last_dir, lidar_name)
+
+        # Extract the last directory and file name for controller_file
+        controller_dir, controller_name = os.path.split(controller_file)
+        _, controller_last_dir = os.path.split(controller_dir)
+        controller_display = os.path.join(controller_last_dir, controller_name)
+
         frame = ttk.Frame(progress_window)
         frame.pack(pady=5)
 
-        label = ttk.Label(frame, text=f"File Pair {i+1}: {lidar_file}, {controller_file}")
+        label_text = f"File Pair {i+1}: {lidar_display}, {controller_display}"
+        label = ttk.Label(frame, text=label_text)
         label.pack(side=tk.LEFT, padx=10)
-        
+
         progress_bar = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate')
         progress_bar.pack(side=tk.RIGHT, padx=10)
         progress_bars.append(progress_bar)
-    
+
     return progress_window, progress_bars
 
 def progress_callback(progress, index, progress_callbacks):
-    progress_callbacks[index](progress)
-    root.update_idletasks()  # Update the Tkinter event loop
+    print(f"Progress: {progress:.2f}%")  # This print statement can be removed
+    root.after(0, lambda: progress_callbacks[index](progress))  # Update the progress bar in the GUI
+
+def start_training_thread():
+    Thread(target=start_training).start()
 
 def start_training():
     try:
@@ -215,7 +226,6 @@ def start_training():
 
         print(f"Selected folder path: {folder_path}")
 
-        # Prepare progress bars
         file_pairs = []
         for subdir, _, files in os.walk(folder_path):
             lidar_file = None
@@ -225,14 +235,14 @@ def start_training():
                     lidar_file = os.path.join(subdir, file)
                 elif file.startswith('x_'):
                     controller_file = os.path.join(subdir, file)
-            
             if lidar_file and controller_file:
                 file_pairs.append((lidar_file, controller_file))
-        
-        progress_window, progress_bars = create_progress_window(file_pairs)
-        progress_callbacks = [(lambda progress, pb=pb: pb.config(value=progress)) for pb in progress_bars]
 
-        root.update()  # Update the main window to show the progress window
+        # Create progress window
+        progress_window, progress_bars = create_progress_window(file_pairs)
+        progress_callbacks = [lambda progress, pb=pb: pb.config(value=progress) for pb in progress_bars]
+
+        root.update()
 
         # Load and parse data
         train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
@@ -321,6 +331,6 @@ if __name__ == "__main__":
     tk.Label(root, text="Model Filename (optional):").grid(row=1, column=0, padx=10, pady=10)
     tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
 
-    tk.Button(root, text="Start Training", command=start_training).grid(row=2, column=0, columnspan=3, pady=20)
+    tk.Button(root, text="Start Training", command=start_training_thread).grid(row=2, column=0, columnspan=3, pady=20)
 
     root.mainloop()
