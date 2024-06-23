@@ -4,7 +4,7 @@ from tkinter import ttk
 import tensorflow as tf
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU # type: ignore
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint # type: ignore
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, Callback # type: ignore
 import numpy as np
 import matplotlib.pyplot as plt
 import uuid
@@ -15,6 +15,7 @@ import random
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
+import time
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -85,6 +86,40 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None, pr
     controller_data = np.array(controller_data, dtype=np.float32)
 
     return lidar_data, controller_data
+
+class ConsoleAndGUIProgressCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        # Update console
+        console_message = f"Epoch {epoch+1}/{self.params['epochs']}: " \
+                          f"loss = {logs['loss']:.4f}, " \
+                          f"mae = {logs['mae']:.4f}, " \
+                          f"val_loss = {logs['val_loss']:.4f}, " \
+                          f"val_mae = {logs['val_mae']:.4f}"
+        print(console_message)
+
+        # Update GUI progress (simplified example, adjust as needed)
+        progress_percentage = (epoch + 1) / self.params['epochs'] * 100
+        for pb in self.progress_bars:
+            pb.config(value=progress_percentage)
+        self.progress_window.update()
+    
+    def create_progress_window():
+        progress_window = tk.Tk()
+        progress_window.title("Training Progress")
+
+        progress_label = tk.Label(progress_window, text="Training Progress")
+        progress_label.pack()
+
+        progress_bars = []
+        for _ in range(1):  # Assuming a single progress bar for simplicity
+            pb = tk.Progressbar(progress_window, orient="horizontal", length=200, mode="determinate")
+            pb.pack()
+            progress_bars.append(pb)
+
+        close_button = tk.Button(progress_window, text="Close", command=progress_window.destroy)
+        close_button.pack()
+
+        return progress_window, progress_bars
 
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
@@ -261,6 +296,26 @@ def start_training():
         # Load and parse data
         train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
 
+        # Wait one second
+        time.sleep(1)
+
+        # Clear the content of the progress window
+        for widget in progress_window.winfo_children():
+            widget.destroy()
+
+        # Write "finished" to the window as text
+        finished_label = tk.Label(progress_window, text="Finished")
+        finished_label.pack()
+
+        # Update the window to show the "Finished" text
+        progress_window.update()
+
+        # Wait another second
+        time.sleep(1)
+
+        # Close the progress window
+        progress_window.destroy()
+
         if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
             print("No valid data found for training or validation.")
             return
@@ -297,6 +352,7 @@ def start_training():
         # Early stopping and model checkpoint
         early_stopping = EarlyStopping(monitor='val_loss', patience=35)  # Reduced patience
 
+        console_and_gui_callback = ConsoleAndGUIProgressCallback()
         checkpoint_filename = f"best_model_{custom_filename}.h5" if custom_filename else f'best_model_{model_id}.h5'
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
 
@@ -305,7 +361,7 @@ def start_training():
             train_lidar, train_controller,
             validation_data=(val_lidar, val_controller),
             epochs=300,
-            callbacks=[early_stopping, model_checkpoint],
+            callbacks=[early_stopping, model_checkpoint, console_and_gui_callback],
             batch_size=32
         )
 
