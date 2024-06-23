@@ -16,6 +16,8 @@ from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 import time
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -88,38 +90,64 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None, pr
     return lidar_data, controller_data
 
 class ConsoleAndGUIProgressCallback(Callback):
+    def __init__(self):
+        super().__init__()
+        self.progress_window = None
+        self.progress_bars = []
+        self.text_display = None
+        self.figure = None
+        self.canvas = None
+        self.create_tensorflow_progress_window()
+        print("Progress window created.")
+
+    def create_tensorflow_progress_window(self):
+        self.progress_window = tk.Toplevel(root)
+        self.progress_window.title("Training Progress")
+
+        # Textual display of progress
+        self.text_display = tk.Text(self.progress_window, height=10, width=80)
+        self.text_display.pack()
+
+        # Progress bars
+        # for _ in range(1):
+        pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
+        pb.pack()
+        self.progress_bars.append(pb)
+
+        # Close button
+        close_button = tk.Button(self.progress_window, text="Close", command=self.progress_window.destroy)
+        close_button.pack()
+
+        # Matplotlib figure for plots
+        self.figure = plt.figure(figsize=(8, 6))
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.progress_window)
+        self.canvas.get_tk_widget().pack()
+
     def on_epoch_end(self, epoch, logs=None):
-        # Update console
         console_message = f"Epoch {epoch+1}/{self.params['epochs']}: " \
                           f"loss = {logs['loss']:.4f}, " \
                           f"mae = {logs['mae']:.4f}, " \
                           f"val_loss = {logs['val_loss']:.4f}, " \
                           f"val_mae = {logs['val_mae']:.4f}"
-        print(console_message)
+        self.text_display.insert(tk.END, console_message + "\n")
+        self.text_display.see(tk.END)  # Scroll to the end of text display
 
-        # Update GUI progress (simplified example, adjust as needed)
         progress_percentage = (epoch + 1) / self.params['epochs'] * 100
         for pb in self.progress_bars:
-            pb.config(value=progress_percentage)
-        self.progress_window.update()
-    
-    def create_progress_window():
-        progress_window = tk.Tk()
-        progress_window.title("Training Progress")
+            pb['value'] = progress_percentage
+        self.progress_window.update_idletasks()
 
-        progress_label = tk.Label(progress_window, text="Training Progress")
-        progress_label.pack()
+        # Plotting example (replace with your own plot logic)
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.plot(range(epoch + 1), [logs['loss']] * (epoch + 1), label='Train Loss')
+        ax.plot(range(epoch + 1), [logs['val_loss']] * (epoch + 1), label='Validation Loss')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title('Training Progress')
+        ax.legend()
+        self.canvas.draw()
 
-        progress_bars = []
-        for _ in range(1):  # Assuming a single progress bar for simplicity
-            pb = tk.Progressbar(progress_window, orient="horizontal", length=200, mode="determinate")
-            pb.pack()
-            progress_bars.append(pb)
-
-        close_button = tk.Button(progress_window, text="Close", command=progress_window.destroy)
-        close_button.pack()
-
-        return progress_window, progress_bars
 
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
@@ -355,6 +383,8 @@ def start_training():
         console_and_gui_callback = ConsoleAndGUIProgressCallback()
         checkpoint_filename = f"best_model_{custom_filename}.h5" if custom_filename else f'best_model_{model_id}.h5'
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
+
+        console_and_gui_callback.create_tensorflow_progress_window()
 
         # Train the model
         history = model.fit(
