@@ -27,8 +27,8 @@ def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
 
-@lru_cache(maxsize=128)
-def parse_data(file_path_lidar, file_path_controller, progress_callback=None):
+@lru_cache(maxsize=111111)
+def parse_data(file_path_lidar, file_path_controller, progress_callback=None, progress_callbacks=None, idx=None):
     lidar_data = []
     controller_data = []
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
@@ -76,9 +76,10 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None):
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
 
+            # Calculate progress
             if progress_callback:
                 progress = (index + 1) / total_lines * 100
-                progress_callback(progress, index, total_lines)  # Update progress bar
+                progress_callback(progress, idx, progress_callbacks)
 
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
@@ -87,8 +88,10 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None):
 
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
+    # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
+    progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
     file_path_lidar, file_path_controller = file_pair
-    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller, progress_callback)
+    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
     return lidar_data, controller_data
 
 def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
@@ -213,8 +216,18 @@ def create_progress_window(file_pairs):
     return progress_window, progress_bars
 
 def progress_callback(progress, index, progress_callbacks):
-    print(f"Progress: {progress:.2f}%")  # This print statement can be removed
-    root.after(0, lambda: progress_callbacks[index](progress))  # Update the progress bar in the GUI
+    # Check if index is within the range of progress_callbacks
+    if 0 <= index < len(progress_callbacks):
+        root.after(0, lambda: progress_callbacks[index](progress))  # Update the progress bar in the GUI
+    else:
+        print(f"Error: Index {index} is out of range for progress_callbacks with length {len(progress_callbacks)}")
+        # Handle the error appropriately, e.g., adjust index or skip the update
+        # For example, setting index to a default value (like 0) or the last valid index
+        # index = max(0, min(index, len(progress_callbacks) - 1))
+        # root.after(0, lambda: progress_callbacks[index](progress))
+    root.update()
+    root.update_idletasks()
+    print(f"Progress: {progress:.2f}% for index {index}")
 
 def start_training_thread():
     Thread(target=start_training).start()
