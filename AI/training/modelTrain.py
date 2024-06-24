@@ -51,6 +51,8 @@ def create_model(input_shape):
         BatchNormalization(),
         MaxPooling2D((2, 1)),
         Flatten(),
+        Dense(128, activation=LeakyReLU(alpha=0.05)),
+        Dropout(0.5),
         Dense(64, activation=LeakyReLU(alpha=0.05)),
         Dropout(0.3),
         Dense(1, activation='linear')
