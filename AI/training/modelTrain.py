@@ -120,14 +120,22 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.text_display = None
         self.figure = None
         self.canvas = None
-        self.loss_values = []
-        self.val_loss_values = []
-        self.mae_values = []  # Store mae values for each epoch
-        self.val_mae_values = []  # Store validation mae values for each epoch
+        
+        self.loss_values = []  # Track latest 150 loss values
+        self.val_loss_values = []  # Track latest 150 validation loss values
+        self.mae_values = []  # Track latest 150 mae values for each epoch
+        self.val_mae_values = []  # Track latest 150 validation mae values for each epoch
+
+        self.full_loss_values = []  # Store complete history of loss values
+        self.full_val_loss_values = []  # Store complete history of validation loss values
+        self.full_mae_values = []  # Store complete history of mae values
+        self.full_val_mae_values = []  # Store complete history of validation mae values
+        
         self.lowest_val_mae = float('inf')
         self.lowest_val_mae_epoch = -1
         self.highest_loss = float('-inf')
         self.lowest_loss = float('inf')
+        
         self.create_tensorflow_progress_window()
         print("Progress window created.")
         
@@ -141,6 +149,7 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.text_display.pack()
 
         # Primary Progress Bar
+        self.progress_bars = []
         pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
         pb.pack()
         self.progress_bars.append(pb)
@@ -181,8 +190,8 @@ class ConsoleAndGUIProgressCallback(Callback):
     def safe_update_gui(self, epoch, logs):
         # Update console message to include new stats
         console_message = f"Epoch {epoch+1}/{self.params['epochs']}: " \
-                        f"loss = {logs['loss']:.4f}, mae = {logs['mae']:.4f}, " \
-                        f"val_loss = {logs['val_loss']:.4f}, val_mae = {logs['val_mae']:.4f}"
+                          f"loss = {logs['loss']:.4f}, mae = {logs['mae']:.4f}, " \
+                          f"val_loss = {logs['val_loss']:.4f}, val_mae = {logs['val_mae']:.4f}"
         self.text_display.insert(tk.END, console_message + "\n")
         self.text_display.see(tk.END)  # Scroll to the end of text display
 
@@ -191,6 +200,27 @@ class ConsoleAndGUIProgressCallback(Callback):
             pb['value'] = progress_percentage
         self.progress_window.update_idletasks()
 
+        # Update full history
+        self.full_loss_values.append(logs['loss'])
+        self.full_val_loss_values.append(logs['val_loss'])
+        self.full_mae_values.append(logs['mae'])
+        self.full_val_mae_values.append(logs['val_mae'])
+
+        # Maintain the sliding window of 150 entries
+        if len(self.loss_values) >= 150:
+            self.loss_values.pop(0)
+        if len(self.val_loss_values) >= 150:
+            self.val_loss_values.pop(0)
+        if len(self.mae_values) >= 150:
+            self.mae_values.pop(0)
+        if len(self.val_mae_values) >= 150:
+            self.val_mae_values.pop(0)
+
+        self.loss_values.append(logs['loss'])
+        self.val_loss_values.append(logs['val_loss'])
+        self.mae_values.append(logs['mae'])
+        self.val_mae_values.append(logs['val_mae'])
+
         # Update statistics
         if logs['val_mae'] < self.lowest_val_mae:
             self.lowest_val_mae = logs['val_mae']
@@ -198,10 +228,6 @@ class ConsoleAndGUIProgressCallback(Callback):
             self.last_best_epoch = epoch + 1  # Update the epoch of the last best validation MAE
         self.highest_loss = max(self.highest_loss, logs['loss'])
         self.lowest_loss = min(self.lowest_loss, logs['loss'])
-        self.mae_values.append(logs['mae'])
-        self.val_mae_values.append(logs['val_mae'])
-        self.loss_values.append(logs['loss'])
-        self.val_loss_values.append(logs['val_loss'])
 
         # Update labels for highest and lowest values
         self.highest_loss_label.config(text=f"Highest Loss: {self.highest_loss:.4f}")
@@ -236,8 +262,10 @@ class ConsoleAndGUIProgressCallback(Callback):
         else:
             print("Insufficient data for plotting.")
 
+        # Disable any interactive mode for the figure to prevent hover actions
+        plt.ioff()
         self.canvas.draw()
-        
+
     def on_epoch_end(self, epoch, logs=None):
         # Schedule the safe_update_gui method to run in the main GUI thread
         self.progress_window.after(0, self.safe_update_gui, epoch, logs)
