@@ -18,6 +18,27 @@ from functools import lru_cache
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE
+
+EPOCHS = 300
+
+PATIENCE = 35
+
+def create_model(input_shape):
+    model = Sequential([
+        Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=input_shape),
+        BatchNormalization(),
+        MaxPooling2D((2, 1)),
+        Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
+        BatchNormalization(),
+        MaxPooling2D((2, 1)),
+        Flatten(),
+        Dense(64, activation=LeakyReLU(alpha=0.05)),
+        Dropout(0.3),
+        Dense(1, activation='linear')
+    ])
+    return model
+
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -427,22 +448,9 @@ def start_training():
         train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
         val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
 
-
-        # Define the model
-        model = Sequential([
-            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1)),
-            BatchNormalization(),  # Added batch normalization
-            MaxPooling2D((2, 1)),
-            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
-            BatchNormalization(),  # Added batch normalization
-            MaxPooling2D((2, 1)),
-            Flatten(),
-            Dense(64, activation=LeakyReLU(alpha=0.05)),
-            Dropout(0.3),
-            Dense(1, activation='linear')  # Output for the servo control
-        ])
+        MODEL = create_model((train_lidar.shape[1], train_lidar.shape[2], 1))
         
-        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+        MODEL.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
         # Generate a unique ID for the model
         model_id = str(uuid.uuid4())
@@ -455,7 +463,7 @@ def start_training():
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
 
         # Train the model
-        history = model.fit(
+        history = MODEL.fit(
             train_lidar, train_controller,
             validation_data=(val_lidar, val_controller),
             epochs=300,
