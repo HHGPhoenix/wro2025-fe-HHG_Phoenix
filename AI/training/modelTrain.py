@@ -18,12 +18,16 @@ from functools import lru_cache
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-loaded_lidar_data = None
-loaded_controller_data = None
+global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE, BATCH_SIZE
+
+train_lidar = None
+train_controller = None
+val_lidar = None
+val_controller = None
+
+custom_filename = None
 
 ##############################################################################################
-
-global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE, BATCH_SIZE
 
 EPOCHS = 300
 
@@ -302,9 +306,19 @@ class ConsoleAndGUIProgressCallback(Callback):
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
     # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
+    print(f"Processing file pair {index + 1}: {file_pair}")
     progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
     file_path_lidar, file_path_controller = file_pair
-    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
+
+    print(f"Starting to parse lidar data from {file_path_lidar}")
+    lidar_data = parse_data(file_path_lidar, file_path_controller,  progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx=index)
+    print(f"Finished parsing lidar data from {file_path_lidar}")
+
+    print(f"Starting to parse controller data from {file_path_controller}")
+    controller_data = parse_data(file_path_controller, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx=index)
+    print(f"Finished parsing controller data from {file_path_controller}")
+
+    print(f"Finished processing file pair {index + 1}: {file_pair}")
     return lidar_data, controller_data
 
 def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
@@ -367,34 +381,50 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
 def load_data():
     global loaded_lidar_data, loaded_controller_data
     folder_path = data_folder_path.get()
-    progress_callbacks = [None] * len(folder_path)  # Placeholder for progress callbacks
-    progress_callback = lambda progress, index, callbacks: print(f"Progress: {progress:.2f}% for index {index}")
-    
+    custom_filename = model_filename.get()
+
+    print(f"Selected folder path: {folder_path}")
+
+    file_pairs = []
+    for subdir, _, files in os.walk(folder_path):
+        lidar_file = None
+        controller_file = None
+        for file in files:
+            if file.startswith('lidar_'):
+                lidar_file = os.path.join(subdir, file)
+            elif file.startswith('x_'):
+                controller_file = os.path.join(subdir, file)
+        if lidar_file and controller_file:
+            file_pairs.append((lidar_file, controller_file))
+
+    # Create progress window
+    progress_window, progress_bars = create_progress_window(file_pairs)
+    progress_callbacks = [lambda progress, pb=pb: pb.config(value=progress) for pb in progress_bars]
+
+    root.update()
+
     print(f"Loading data from folder: {folder_path}")
-    train_lidar_data, train_controller_data, val_lidar_data, val_controller_data = load_data_from_folder(
-        folder_path, progress_callback, progress_callbacks
-    )
-    
-    loaded_lidar_data = train_lidar_data
-    loaded_controller_data = train_controller_data
+
+    # Load and parse data
+    train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
     print("Data loaded successfully!")
 
 def load_data_from_file():
-    global loaded_lidar_data, loaded_controller_data
+    global train_lidar, train_controller, val_lidar, val_controller
     file_path = filedialog.askopenfilename(title="Select Data File", filetypes=(("NPY Files", "*.npy"),))
     if file_path:
         print(f"Loading data from file: {file_path}")
-        loaded_lidar_data, loaded_controller_data = np.load(file_path, allow_pickle=True)
-        print("Data loaded from file successfully!")
+        train_lidar, train_controller, val_lidar, val_controller = np.load(file_path, allow_pickle=True)
+        print("Data loaded successfully!")
 
 def save_data_in_file():
-    global loaded_lidar_data, loaded_controller_data
-    if loaded_lidar_data is not None and loaded_controller_data is not None:
-        file_path = filedialog.asksaveasfilename(defaultextension=".npy", filetypes=(("NPY Files", "*.npy"),))
+    global train_lidar, train_controller, val_lidar, val_controller
+    if train_lidar.size > 0 and train_controller.size > 0 and val_lidar.size > 0 and val_controller.size > 0:
+        file_path = filedialog.asksaveasfilename(title="Save Data File", filetypes=(("NPY Files", "*.npy"),))
         if file_path:
             print(f"Saving data to file: {file_path}")
-            np.save(file_path, (loaded_lidar_data, loaded_controller_data), allow_pickle=True)
-            print("Data saved successfully!")
+            np.save(file_path, (train_lidar, train_controller, val_lidar, val_controller))
+            print("Data saved to file successfully!")
     else:
         print("No data to save!")
 
@@ -481,55 +511,9 @@ def start_training_thread():
     Thread(target=start_training).start()
 
 def start_training():
-    global loaded_lidar_data, loaded_controller_data
+    global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, model_id
     if loaded_lidar_data is not None and loaded_controller_data is not None:
         try:
-            global custom_filename, model_filename, model_id
-            folder_path = data_folder_path.get()
-            custom_filename = model_filename.get()
-
-            print(f"Selected folder path: {folder_path}")
-
-            file_pairs = []
-            for subdir, _, files in os.walk(folder_path):
-                lidar_file = None
-                controller_file = None
-                for file in files:
-                    if file.startswith('lidar_'):
-                        lidar_file = os.path.join(subdir, file)
-                    elif file.startswith('x_'):
-                        controller_file = os.path.join(subdir, file)
-                if lidar_file and controller_file:
-                    file_pairs.append((lidar_file, controller_file))
-
-            # Create progress window
-            progress_window, progress_bars = create_progress_window(file_pairs)
-            progress_callbacks = [lambda progress, pb=pb: pb.config(value=progress) for pb in progress_bars]
-
-            root.update()
-
-            # Load and parse data
-            train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
-
-            # Wait one second
-            time.sleep(1)
-
-            # Clear the content of the progress window
-            for widget in progress_window.winfo_children():
-                widget.destroy()
-
-            # Write "finished" to the window as text
-            finished_label = tk.Label(progress_window, text="Finished")
-            finished_label.pack()
-
-            # Update the window to show the "Finished" text
-            progress_window.update()
-
-            # Wait another second
-            time.sleep(1)
-
-            # Close the progress window
-            progress_window.destroy()
 
             if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
                 print("No valid data found for training or validation.")
