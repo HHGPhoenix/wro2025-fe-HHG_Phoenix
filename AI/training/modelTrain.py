@@ -34,9 +34,9 @@ val_controller = None
 
 ##############################################################################################
 
-EPOCHS = 300
+EPOCHS = 400
 
-PATIENCE = 35
+PATIENCE = 40
 
 BATCH_SIZE = 32
 
@@ -56,7 +56,6 @@ def create_model(input_shape):
         Dense(1, activation='linear')
     ])
     return model
-
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -170,11 +169,14 @@ class ConsoleAndGUIProgressCallback(Callback):
         pb.pack()
         self.progress_bars.append(pb)
 
-        # Secondary Progress Bar (Red, for remaining patience)
-        self.secondary_pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
-        self.secondary_pb.pack()
         self.secondary_pb_style = ttk.Style()
         self.secondary_pb_style.configure("Red.Horizontal.TProgressbar", troughcolor='white', background='red')
+
+        # Now, create the secondary progress bar after configuring the style
+        self.secondary_pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate", style="Red.Horizontal.TProgressbar")
+        self.secondary_pb.pack()
+
+        # Explicitly update the style if needed (usually not necessary, but here for completeness)
         self.secondary_pb.configure(style="Red.Horizontal.TProgressbar")
 
         # Initialize secondary progress bar (patience countdown)
@@ -536,6 +538,9 @@ def start_training():
     global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, model_id
     if train_lidar is not None and train_controller is not None and val_lidar is not None and val_controller is not None:
         try:
+
+            if custom_filename is None:
+                custom_filename = model_filename.get()
 
             if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
                 print("No valid data found for training or validation.")
