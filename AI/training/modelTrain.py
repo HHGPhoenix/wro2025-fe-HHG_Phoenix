@@ -36,7 +36,7 @@ val_controller = None
 
 EPOCHS = 400
 
-PATIENCE = 40
+PATIENCE = 50
 
 BATCH_SIZE = 32
 
