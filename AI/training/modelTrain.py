@@ -18,6 +18,11 @@ from functools import lru_cache
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+loaded_lidar_data = None
+loaded_controller_data = None
+
+##############################################################################################
+
 global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE, BATCH_SIZE
 
 EPOCHS = 300
@@ -25,6 +30,8 @@ EPOCHS = 300
 PATIENCE = 35
 
 BATCH_SIZE = 32
+
+##############################################################################################
 
 def create_model(input_shape):
     model = Sequential([
@@ -206,14 +213,16 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.full_mae_values.append(logs['mae'])
         self.full_val_mae_values.append(logs['val_mae'])
 
+        make_weg = 80
+
         # Maintain the sliding window of 150 entries
-        if len(self.loss_values) >= 150:
+        if len(self.loss_values) >= make_weg:
             self.loss_values.pop(0)
-        if len(self.val_loss_values) >= 150:
+        if len(self.val_loss_values) >= make_weg:
             self.val_loss_values.pop(0)
-        if len(self.mae_values) >= 150:
+        if len(self.mae_values) >= make_weg:
             self.mae_values.pop(0)
-        if len(self.val_mae_values) >= 150:
+        if len(self.val_mae_values) >= make_weg:
             self.val_mae_values.pop(0)
 
         self.loss_values.append(logs['loss'])
@@ -355,6 +364,40 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
 
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
 
+def load_data():
+    global loaded_lidar_data, loaded_controller_data
+    folder_path = data_folder_path.get()
+    progress_callbacks = [None] * len(folder_path)  # Placeholder for progress callbacks
+    progress_callback = lambda progress, index, callbacks: print(f"Progress: {progress:.2f}% for index {index}")
+    
+    print(f"Loading data from folder: {folder_path}")
+    train_lidar_data, train_controller_data, val_lidar_data, val_controller_data = load_data_from_folder(
+        folder_path, progress_callback, progress_callbacks
+    )
+    
+    loaded_lidar_data = train_lidar_data
+    loaded_controller_data = train_controller_data
+    print("Data loaded successfully!")
+
+def load_data_from_file():
+    global loaded_lidar_data, loaded_controller_data
+    file_path = filedialog.askopenfilename(title="Select Data File", filetypes=(("NPY Files", "*.npy"),))
+    if file_path:
+        print(f"Loading data from file: {file_path}")
+        loaded_lidar_data, loaded_controller_data = np.load(file_path, allow_pickle=True)
+        print("Data loaded from file successfully!")
+
+def save_data_in_file():
+    global loaded_lidar_data, loaded_controller_data
+    if loaded_lidar_data is not None and loaded_controller_data is not None:
+        file_path = filedialog.asksaveasfilename(defaultextension=".npy", filetypes=(("NPY Files", "*.npy"),))
+        if file_path:
+            print(f"Saving data to file: {file_path}")
+            np.save(file_path, (loaded_lidar_data, loaded_controller_data), allow_pickle=True)
+            print("Data saved successfully!")
+    else:
+        print("No data to save!")
+
 def plot_training_history(history, model_id, best_val_mae, epochs_trained, custom_filename=None):
     plt.figure(figsize=(12, 8))  # Increased figure size for better readability
     plt.subplot(2, 1, 1)  # Adjusted for additional text space
@@ -438,126 +481,131 @@ def start_training_thread():
     Thread(target=start_training).start()
 
 def start_training():
-    try:
-        global custom_filename, model_filename, model_id
-        folder_path = data_folder_path.get()
-        custom_filename = model_filename.get()
+    global loaded_lidar_data, loaded_controller_data
+    if loaded_lidar_data is not None and loaded_controller_data is not None:
+        try:
+            global custom_filename, model_filename, model_id
+            folder_path = data_folder_path.get()
+            custom_filename = model_filename.get()
 
-        print(f"Selected folder path: {folder_path}")
+            print(f"Selected folder path: {folder_path}")
 
-        file_pairs = []
-        for subdir, _, files in os.walk(folder_path):
-            lidar_file = None
-            controller_file = None
-            for file in files:
-                if file.startswith('lidar_'):
-                    lidar_file = os.path.join(subdir, file)
-                elif file.startswith('x_'):
-                    controller_file = os.path.join(subdir, file)
-            if lidar_file and controller_file:
-                file_pairs.append((lidar_file, controller_file))
+            file_pairs = []
+            for subdir, _, files in os.walk(folder_path):
+                lidar_file = None
+                controller_file = None
+                for file in files:
+                    if file.startswith('lidar_'):
+                        lidar_file = os.path.join(subdir, file)
+                    elif file.startswith('x_'):
+                        controller_file = os.path.join(subdir, file)
+                if lidar_file and controller_file:
+                    file_pairs.append((lidar_file, controller_file))
 
-        # Create progress window
-        progress_window, progress_bars = create_progress_window(file_pairs)
-        progress_callbacks = [lambda progress, pb=pb: pb.config(value=progress) for pb in progress_bars]
+            # Create progress window
+            progress_window, progress_bars = create_progress_window(file_pairs)
+            progress_callbacks = [lambda progress, pb=pb: pb.config(value=progress) for pb in progress_bars]
 
-        root.update()
+            root.update()
 
-        # Load and parse data
-        train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
+            # Load and parse data
+            train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
 
-        # Wait one second
-        time.sleep(1)
+            # Wait one second
+            time.sleep(1)
 
-        # Clear the content of the progress window
-        for widget in progress_window.winfo_children():
-            widget.destroy()
+            # Clear the content of the progress window
+            for widget in progress_window.winfo_children():
+                widget.destroy()
 
-        # Write "finished" to the window as text
-        finished_label = tk.Label(progress_window, text="Finished")
-        finished_label.pack()
+            # Write "finished" to the window as text
+            finished_label = tk.Label(progress_window, text="Finished")
+            finished_label.pack()
 
-        # Update the window to show the "Finished" text
-        progress_window.update()
+            # Update the window to show the "Finished" text
+            progress_window.update()
 
-        # Wait another second
-        time.sleep(1)
+            # Wait another second
+            time.sleep(1)
 
-        # Close the progress window
-        progress_window.destroy()
+            # Close the progress window
+            progress_window.destroy()
 
-        if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
-            print("No valid data found for training or validation.")
-            return
+            if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
+                print("No valid data found for training or validation.")
+                return
 
-        print(f"Train LIDAR data shape: {train_lidar.shape}")
-        print(f"Train Controller data shape: {train_controller.shape}")
-        print(f"Validation LIDAR data shape: {val_lidar.shape}")
-        print(f"Validation Controller data shape: {val_controller.shape}")
+            print(f"Train LIDAR data shape: {train_lidar.shape}")
+            print(f"Train Controller data shape: {train_controller.shape}")
+            print(f"Validation LIDAR data shape: {val_lidar.shape}")
+            print(f"Validation Controller data shape: {val_controller.shape}")
 
-        # Preprocess LIDAR data to fit the model input
-        train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
-        val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
+            # Preprocess LIDAR data to fit the model input
+            train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
+            val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
 
-        MODEL = create_model((train_lidar.shape[1], train_lidar.shape[2], 1))
-        
-        MODEL.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            MODEL = create_model((train_lidar.shape[1], train_lidar.shape[2], 1))
+            
+            MODEL.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
-        # Generate a unique ID for the model
-        model_id = str(uuid.uuid4())
+            # Generate a unique ID for the model
+            model_id = str(uuid.uuid4())
 
-        # Early stopping and model checkpoint
-        early_stopping = EarlyStopping(monitor='val_loss', patience=PATIENCE)  # Reduced patience
+            # Early stopping and model checkpoint
+            early_stopping = EarlyStopping(monitor='val_loss', patience=PATIENCE)  # Reduced patience
 
-        console_and_gui_callback = ConsoleAndGUIProgressCallback()
-        checkpoint_filename = f"best_model_{custom_filename}.h5" if custom_filename else f'best_model_{model_id}.h5'
-        model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
+            console_and_gui_callback = ConsoleAndGUIProgressCallback()
+            checkpoint_filename = f"best_model_{custom_filename}.h5" if custom_filename else f'best_model_{model_id}.h5'
+            model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
 
-        # Train the model
-        history = MODEL.fit(
-            train_lidar, train_controller,
-            validation_data=(val_lidar, val_controller),
-            epochs=EPOCHS,
-            callbacks=[early_stopping, model_checkpoint, console_and_gui_callback],
-            batch_size=BATCH_SIZE
-        )
+            # Train the model
+            history = MODEL.fit(
+                train_lidar, train_controller,
+                validation_data=(val_lidar, val_controller),
+                epochs=EPOCHS,
+                callbacks=[early_stopping, model_checkpoint, console_and_gui_callback],
+                batch_size=BATCH_SIZE
+            )
 
-        # Load the best model
-        best_model = tf.keras.models.load_model(checkpoint_filename)
+            # Load the best model
+            best_model = tf.keras.models.load_model(checkpoint_filename)
 
-        # Evaluate the model
-        loss, mae = best_model.evaluate(val_lidar, val_controller)
-        print(f'Validation Mean Absolute Error: {mae:.4f}')
-        
-        # Save the model with the MAE in the filename
-        final_model_filename = f'best_model_{custom_filename}_{mae:.4f}.h5' if custom_filename else f'best_model_{model_id}_{mae:.4f}.h5'
-        best_model.save(final_model_filename)
+            # Evaluate the model
+            loss, mae = best_model.evaluate(val_lidar, val_controller)
+            print(f'Validation Mean Absolute Error: {mae:.4f}')
+            
+            # Save the model with the MAE in the filename
+            final_model_filename = f'best_model_{custom_filename}_{mae:.4f}.h5' if custom_filename else f'best_model_{model_id}_{mae:.4f}.h5'
+            best_model.save(final_model_filename)
 
-        # delete the temporary best model
-        os.remove(checkpoint_filename)
+            # delete the temporary best model
+            os.remove(checkpoint_filename)
 
-        # Plot and save training history
-        plot_training_history(history, model_id, epochs_trained=len(history.history['loss']), best_val_mae=mae, custom_filename=custom_filename)
+            # Plot and save training history
+            plot_training_history(history, model_id, epochs_trained=len(history.history['loss']), best_val_mae=mae, custom_filename=custom_filename)
 
-    except StopIteration:
-        print("Training stopped by user.")
+        except StopIteration:
+            print("Training stopped by user.")
+    
+    else:
+        print("No data loaded. Please load data before training the model.")
 
 
 if __name__ == "__main__":
+    # Tkinter GUI setup
     # Tkinter GUI setup
     root = tk.Tk()
     root.title("Train Model")
 
     data_folder_path = tk.StringVar()
-    model_filename = tk.StringVar()
 
     tk.Label(root, text="Data Folder Path:").grid(row=0, column=0, padx=10, pady=10)
     tk.Entry(root, textvariable=data_folder_path, width=50).grid(row=0, column=1, padx=10, pady=10)
     tk.Button(root, text="Browse Folder", command=lambda data=data_folder_path: select_data_folder(data)).grid(row=0, column=2, padx=10, pady=10)
 
-    tk.Label(root, text="Model Filename (optional):").grid(row=1, column=0, padx=10, pady=10)
-    tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
-
-    tk.Button(root, text="Start Training", command=start_training_thread).grid(row=2, column=0, columnspan=3, pady=20)
+    tk.Button(root, text="Load Data", command=load_data).grid(row=1, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Load Data from File", command=load_data_from_file).grid(row=2, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Save Data in File", command=save_data_in_file).grid(row=3, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Train Model", command=train_model).grid(row=4, column=0, columnspan=3, pady=20)
 
     root.mainloop()
