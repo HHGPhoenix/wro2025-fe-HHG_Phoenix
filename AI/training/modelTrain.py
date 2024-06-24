@@ -132,17 +132,6 @@ class ConsoleAndGUIProgressCallback(Callback):
         print("Progress window created.")
         
         
-        self.update_queue = queue.Queue()
-
-        # Start a periodic check of the queue
-        self.root.after(100, self.process_queue)
-
-
-        self.update_queue = queue.Queue()
-
-        # Start a periodic check of the queue
-        self.root.after(100, self.process_queue)
-
     def create_tensorflow_progress_window(self):
         self.progress_window = tk.Toplevel(root)
         self.progress_window.title("Training Progress")
