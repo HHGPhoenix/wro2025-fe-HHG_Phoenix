@@ -13,7 +13,6 @@ import pandas as pd
 from scipy.interpolate import interp1d
 import random
 from threading import Thread
-import queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 import time
@@ -114,9 +113,8 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None, pr
     return lidar_data, controller_data
 
 class ConsoleAndGUIProgressCallback(Callback):
-    def __init__(self, root):
+    def __init__(self):
         super().__init__()
-        self.root = root
         self.progress_window = None
         self.progress_bars = []
         self.text_display = None
@@ -124,8 +122,8 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.canvas = None
         self.loss_values = []
         self.val_loss_values = []
-        self.mae_values = []
-        self.val_mae_values = []
+        self.mae_values = []  # Store mae values for each epoch
+        self.val_mae_values = []  # Store validation mae values for each epoch
         self.lowest_val_mae = float('inf')
         self.lowest_val_mae_epoch = -1
         self.highest_loss = float('-inf')
@@ -133,38 +131,52 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.create_tensorflow_progress_window()
         print("Progress window created.")
         
+        
+        self.update_queue = queue.Queue()
+
+        # Start a periodic check of the queue
+        self.root.after(100, self.process_queue)
+
+
         self.update_queue = queue.Queue()
 
         # Start a periodic check of the queue
         self.root.after(100, self.process_queue)
 
     def create_tensorflow_progress_window(self):
-        self.progress_window = tk.Toplevel(self.root)
+        self.progress_window = tk.Toplevel(root)
         self.progress_window.title("Training Progress")
 
+        # Textual display of progress
         self.text_display = tk.Text(self.progress_window, height=10, width=80)
         self.text_display.pack()
 
+        # Primary Progress Bar
         pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
         pb.pack()
         self.progress_bars.append(pb)
 
+        # Secondary Progress Bar (Red, for remaining patience)
         self.secondary_pb = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
         self.secondary_pb.pack()
         self.secondary_pb_style = ttk.Style()
         self.secondary_pb_style.configure("Red.Horizontal.TProgressbar", troughcolor='white', background='red')
         self.secondary_pb.configure(style="Red.Horizontal.TProgressbar")
 
+        # Initialize secondary progress bar (patience countdown)
         self.secondary_pb['maximum'] = PATIENCE
         self.secondary_pb['value'] = PATIENCE
 
+        # Close button
         close_button = tk.Button(self.progress_window, text="Close", command=self.progress_window.destroy)
         close_button.pack()
 
+        # Matplotlib figure for plots
         self.figure = plt.figure(figsize=(8, 6))
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.progress_window)
         self.canvas.get_tk_widget().pack()
 
+        # Labels for displaying highest and lowest values with larger font
         self.highest_loss_label = tk.Label(self.progress_window, text="Highest Loss: N/A", font=("Helvetica", 14))
         self.highest_loss_label.pack()
         self.lowest_loss_label = tk.Label(self.progress_window, text="Lowest Loss: N/A", font=("Helvetica", 14))
@@ -174,37 +186,27 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.lowest_val_mae_epoch_label = tk.Label(self.progress_window, text="Epoch for Lowest Validation MAE: N/A", font=("Helvetica", 14))
         self.lowest_val_mae_epoch_label.pack()
 
+        # Track the epoch of the last best validation MAE
         self.last_best_epoch = 0
 
     def safe_update_gui(self, epoch, logs):
-        # Push updates to the queue
-        self.update_queue.put((epoch, logs))
-
-    def process_queue(self):
-        while not self.update_queue.empty():
-            epoch, logs = self.update_queue.get()
-            self._update_gui(epoch, logs)
-        
-        # Reschedule the next check
-        self.root.after(100, self.process_queue)
-
-    def _update_gui(self, epoch, logs):
+        # Update console message to include new stats
         console_message = f"Epoch {epoch+1}/{self.params['epochs']}: " \
-                          f"loss = {logs['loss']:.4f}, mae = {logs['mae']:.4f}, " \
-                          f"val_loss = {logs['val_loss']:.4f}, val_mae = {logs['val_mae']:.4f}"
+                        f"loss = {logs['loss']:.4f}, mae = {logs['mae']:.4f}, " \
+                        f"val_loss = {logs['val_loss']:.4f}, val_mae = {logs['val_mae']:.4f}"
         self.text_display.insert(tk.END, console_message + "\n")
-        self.text_display.see(tk.END)
+        self.text_display.see(tk.END)  # Scroll to the end of text display
 
         progress_percentage = (epoch + 1) / self.params['epochs'] * 100
         for pb in self.progress_bars:
             pb['value'] = progress_percentage
         self.progress_window.update_idletasks()
 
+        # Update statistics
         if logs['val_mae'] < self.lowest_val_mae:
             self.lowest_val_mae = logs['val_mae']
             self.lowest_val_mae_epoch = epoch + 1
-            self.last_best_epoch = epoch + 1
-
+            self.last_best_epoch = epoch + 1  # Update the epoch of the last best validation MAE
         self.highest_loss = max(self.highest_loss, logs['loss'])
         self.lowest_loss = min(self.lowest_loss, logs['loss'])
         self.mae_values.append(logs['mae'])
@@ -212,18 +214,21 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.loss_values.append(logs['loss'])
         self.val_loss_values.append(logs['val_loss'])
 
+        # Update labels for highest and lowest values
         self.highest_loss_label.config(text=f"Highest Loss: {self.highest_loss:.4f}")
         self.lowest_loss_label.config(text=f"Lowest Loss: {self.lowest_loss:.4f}")
         self.lowest_val_mae_label.config(text=f"Lowest Validation MAE: {self.lowest_val_mae:.4f}")
         self.lowest_val_mae_epoch_label.config(text=f"Epoch for Lowest Validation MAE: {self.lowest_val_mae_epoch}")
 
+        # Update the secondary progress bar based on epochs since last improvement
         epochs_since_last_improvement = (epoch + 1) - self.last_best_epoch
         remaining_patience = max(0, PATIENCE - epochs_since_last_improvement)
         self.secondary_pb['value'] = remaining_patience
 
+        # Consolidated Plotting Logic
         self.figure.clear()
         if len(self.loss_values) > 0 and len(self.val_loss_values) > 0:
-            ax1 = self.figure.add_subplot(121)
+            ax1 = self.figure.add_subplot(121)  # For loss
             ax1.plot(range(1, len(self.loss_values) + 1), self.loss_values, label='Train Loss')
             ax1.plot(range(1, len(self.val_loss_values) + 1), self.val_loss_values, label='Validation Loss')
             ax1.set_xlabel('Epoch')
@@ -232,7 +237,7 @@ class ConsoleAndGUIProgressCallback(Callback):
             ax1.legend()
 
             if len(self.mae_values) > 0 and len(self.val_mae_values) > 0:
-                ax2 = self.figure.add_subplot(122)
+                ax2 = self.figure.add_subplot(122)  # For MAE
                 ax2.plot(range(1, len(self.mae_values) + 1), self.mae_values, label='MAE')
                 ax2.plot(range(1, len(self.val_mae_values) + 1), self.val_mae_values, label='Validation MAE')
                 ax2.set_xlabel('Epoch')
@@ -243,24 +248,30 @@ class ConsoleAndGUIProgressCallback(Callback):
             print("Insufficient data for plotting.")
 
         self.canvas.draw()
-
+        
     def on_epoch_end(self, epoch, logs=None):
-        self.safe_update_gui(epoch, logs)
+        # Schedule the safe_update_gui method to run in the main GUI thread
+        self.progress_window.after(0, self.safe_update_gui, epoch, logs)
 
     def on_train_end(self, logs=None):
+        # Display final statistics in the text display
         final_stats_message = f"Training Complete.\n" \
-                              f"Lowest Validation MAE: {self.lowest_val_mae:.4f} at Epoch {self.lowest_val_mae_epoch}\n" \
-                              f"Highest Loss: {self.highest_loss:.4f}\n" \
-                              f"Lowest Loss: {self.lowest_loss:.4f}"
+                            f"Lowest Validation MAE: {self.lowest_val_mae:.4f} at Epoch {self.lowest_val_mae_epoch}\n" \
+                            f"Highest Loss: {self.highest_loss:.4f}\n" \
+                            f"Lowest Loss: {self.lowest_loss:.4f}"
         self.text_display.insert(tk.END, final_stats_message + "\n")
-        self.text_display.see(tk.END)
+        self.text_display.see(tk.END)  # Scroll to the end of text display
 
+        # Optionally, display a message box or similar to alert the user that training is complete
         tk.messagebox.showinfo("Training Complete", "The model training session has completed.")
 
+        # Save the final plot
+        # self.figure.savefig("final_training_plot.png")
         if custom_filename:
             self.figure.savefig(f'final_training_plot_{custom_filename}.png')
         else:
             self.figure.savefig(f'final_training_plot_{model_id}.png')
+
 
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
