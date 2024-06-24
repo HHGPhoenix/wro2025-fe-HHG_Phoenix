@@ -27,6 +27,11 @@ val_controller = None
 
 custom_filename = None
 
+train_lidar = None
+train_controller = None
+val_lidar = None
+val_controller = None
+
 ##############################################################################################
 
 EPOCHS = 300
@@ -305,6 +310,7 @@ class ConsoleAndGUIProgressCallback(Callback):
 
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
+
     # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
     print(f"Processing file pair {index + 1}: {file_pair}")
     progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
@@ -379,7 +385,7 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
     return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
 
 def load_data():
-    global loaded_lidar_data, loaded_controller_data
+    global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, progress_window
     folder_path = data_folder_path.get()
     custom_filename = model_filename.get()
 
@@ -408,6 +414,26 @@ def load_data():
     # Load and parse data
     train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
     print("Data loaded successfully!")
+
+    # Wait one second
+    time.sleep(1)
+
+    # Clear the content of the progress window
+    for widget in progress_window.winfo_children():
+        widget.destroy()
+
+    # Write "finished" to the window as text
+    finished_label = tk.Label(progress_window, text="Finished")
+    finished_label.pack()
+
+    # Update the window to show the "Finished" text
+    progress_window.update()
+
+    # Wait another second
+    time.sleep(1)
+
+    # Close the progress window
+    progress_window.destroy()
 
 def load_data_from_file():
     global train_lidar, train_controller, val_lidar, val_controller
@@ -495,17 +521,15 @@ def create_progress_window(file_pairs):
 
 def progress_callback(progress, index, progress_callbacks):
     # Check if index is within the range of progress_callbacks
+    # print(f"Evaluating progress for index {index}")
     if 0 <= index < len(progress_callbacks):
-        root.after(0, lambda: progress_callbacks[index](progress))  # Update the progress bar in the GUI
+        progress_callbacks[index](progress)  # Update the progress bar in the GUI
+        # print(f"Progress: {progress:.2f}% for index {index}")
     else:
         print(f"Error: Index {index} is out of range for progress_callbacks with length {len(progress_callbacks)}")
-        # Handle the error appropriately, e.g., adjust index or skip the update
-        # For example, setting index to a default value (like 0) or the last valid index
-        # index = max(0, min(index, len(progress_callbacks) - 1))
-        # root.after(0, lambda: progress_callbacks[index](progress))
     root.update()
     root.update_idletasks()
-    # print(f"Progress: {progress:.2f}% for index {index}")
+    # print(f"Progress callback for index {index} completed.")
 
 def start_training_thread():
     Thread(target=start_training).start()
@@ -573,23 +597,29 @@ def start_training():
     
     else:
         print("No data loaded. Please load data before training the model.")
+    
+def load_data_thread():
+    Thread(target=load_data).start()
 
 
 if __name__ == "__main__":
-    # Tkinter GUI setup
     # Tkinter GUI setup
     root = tk.Tk()
     root.title("Train Model")
 
     data_folder_path = tk.StringVar()
+    model_filename = tk.StringVar()
 
     tk.Label(root, text="Data Folder Path:").grid(row=0, column=0, padx=10, pady=10)
     tk.Entry(root, textvariable=data_folder_path, width=50).grid(row=0, column=1, padx=10, pady=10)
     tk.Button(root, text="Browse Folder", command=lambda data=data_folder_path: select_data_folder(data)).grid(row=0, column=2, padx=10, pady=10)
 
-    tk.Button(root, text="Load Data", command=load_data).grid(row=1, column=0, columnspan=3, pady=10)
-    tk.Button(root, text="Load Data from File", command=load_data_from_file).grid(row=2, column=0, columnspan=3, pady=10)
-    tk.Button(root, text="Save Data in File", command=save_data_in_file).grid(row=3, column=0, columnspan=3, pady=10)
-    tk.Button(root, text="Train Model", command=train_model).grid(row=4, column=0, columnspan=3, pady=20)
+    tk.Label(root, text="Model Filename (optional):").grid(row=1, column=0, padx=10, pady=10)
+    tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
+
+    tk.Button(root, text="Load Data", command=load_data_thread).grid(row=2, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Load Data from File", command=load_data_from_file).grid(row=3, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Save Data in File", command=save_data_in_file).grid(row=4, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Train Model", command=start_training_thread).grid(row=5, column=0, columnspan=3, pady=20)
 
     root.mainloop()
