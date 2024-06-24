@@ -18,6 +18,27 @@ from functools import lru_cache
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE
+
+EPOCHS = 300
+
+PATIENCE = 35
+
+def create_model(input_shape):
+    model = Sequential([
+        Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=input_shape),
+        BatchNormalization(),
+        MaxPooling2D((2, 1)),
+        Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
+        BatchNormalization(),
+        MaxPooling2D((2, 1)),
+        Flatten(),
+        Dense(64, activation=LeakyReLU(alpha=0.05)),
+        Dropout(0.3),
+        Dense(1, activation='linear')
+    ])
+    return model
+
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -130,14 +151,14 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.progress_window)
         self.canvas.get_tk_widget().pack()
 
-        # Labels for displaying highest and lowest values
-        self.highest_loss_label = tk.Label(self.progress_window, text="Highest Loss: N/A")
+        # Labels for displaying highest and lowest values with larger font
+        self.highest_loss_label = tk.Label(self.progress_window, text="Highest Loss: N/A", font=("Helvetica", 14))
         self.highest_loss_label.pack()
-        self.lowest_loss_label = tk.Label(self.progress_window, text="Lowest Loss: N/A")
+        self.lowest_loss_label = tk.Label(self.progress_window, text="Lowest Loss: N/A", font=("Helvetica", 14))
         self.lowest_loss_label.pack()
-        self.lowest_val_mae_label = tk.Label(self.progress_window, text="Lowest Validation MAE: N/A")
+        self.lowest_val_mae_label = tk.Label(self.progress_window, text="Lowest Validation MAE: N/A", font=("Helvetica", 14))
         self.lowest_val_mae_label.pack()
-        self.lowest_val_mae_epoch_label = tk.Label(self.progress_window, text="Epoch for Lowest Validation MAE: N/A")
+        self.lowest_val_mae_epoch_label = tk.Label(self.progress_window, text="Epoch for Lowest Validation MAE: N/A", font=("Helvetica", 14))
         self.lowest_val_mae_epoch_label.pack()
 
     def safe_update_gui(self, epoch, logs):
@@ -210,10 +231,12 @@ class ConsoleAndGUIProgressCallback(Callback):
         # Optionally, display a message box or similar to alert the user that training is complete
         tk.messagebox.showinfo("Training Complete", "The model training session has completed.")
 
-        # Update the progress bar to 100% if not already
-        for pb in self.progress_bars:
-            pb['value'] = 100
-        self.progress_window.update_idletasks()
+        # Save the final plot
+        # self.figure.savefig("final_training_plot.png")
+        if custom_filename:
+            self.figure.savefig(f'final_training_plot_{custom_filename}.png')
+        else:
+            self.figure.savefig(f'final_training_plot_{model_id}.png')
 
 
 def parse_data_with_callback(args):
@@ -365,6 +388,7 @@ def start_training_thread():
 
 def start_training():
     try:
+        global custom_filename, model_filename, model_id
         folder_path = data_folder_path.get()
         custom_filename = model_filename.get()
 
@@ -424,22 +448,9 @@ def start_training():
         train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
         val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
 
-
-        # Define the model
-        model = Sequential([
-            Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1)),
-            BatchNormalization(),  # Added batch normalization
-            MaxPooling2D((2, 1)),
-            Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
-            BatchNormalization(),  # Added batch normalization
-            MaxPooling2D((2, 1)),
-            Flatten(),
-            Dense(64, activation=LeakyReLU(alpha=0.05)),
-            Dropout(0.3),
-            Dense(1, activation='linear')  # Output for the servo control
-        ])
+        MODEL = create_model((train_lidar.shape[1], train_lidar.shape[2], 1))
         
-        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+        MODEL.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
         # Generate a unique ID for the model
         model_id = str(uuid.uuid4())
@@ -452,7 +463,7 @@ def start_training():
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
 
         # Train the model
-        history = model.fit(
+        history = MODEL.fit(
             train_lidar, train_controller,
             validation_data=(val_lidar, val_controller),
             epochs=300,
