@@ -36,7 +36,7 @@ val_controller = None
 
 EPOCHS = 400
 
-PATIENCE = 40
+PATIENCE = 50
 
 BATCH_SIZE = 32
 
@@ -52,7 +52,9 @@ def create_model(input_shape):
         MaxPooling2D((2, 1)),
         Flatten(),
         Dense(64, activation=LeakyReLU(alpha=0.05)),
-        Dropout(0.3),
+        Dropout(0.5),
+        Dense(32, activation=LeakyReLU(alpha=0.05)),
+        Dropout(0.5),
         Dense(1, activation='linear')
     ])
     return model
