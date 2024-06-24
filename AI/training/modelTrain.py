@@ -117,7 +117,6 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None, pr
             # Calculate progress
             if progress_callback:
                 progress = (index + 1) / total_lines * 100
-                print(f"Progress: {progress:.2f}% for index {idx}")
                 progress_callback(progress, idx, progress_callbacks)
 
     lidar_data = np.array(lidar_data, dtype=np.float32)
@@ -307,6 +306,7 @@ class ConsoleAndGUIProgressCallback(Callback):
 
 def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
+
     # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
     print(f"Processing file pair {index + 1}: {file_pair}")
     progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
@@ -517,14 +517,15 @@ def create_progress_window(file_pairs):
 
 def progress_callback(progress, index, progress_callbacks):
     # Check if index is within the range of progress_callbacks
-    print(f"Evaluating progress for index {index}")
+    # print(f"Evaluating progress for index {index}")
     if 0 <= index < len(progress_callbacks):
-        root.after(0, lambda: progress_callbacks[index](progress))  # Update the progress bar in the GUI
-        print(f"Progress: {progress:.2f}% for index {index}")
+        progress_callbacks[index](progress)  # Update the progress bar in the GUI
+        # print(f"Progress: {progress:.2f}% for index {index}")
     else:
         print(f"Error: Index {index} is out of range for progress_callbacks with length {len(progress_callbacks)}")
     root.update()
     root.update_idletasks()
+    # print(f"Progress callback for index {index} completed.")
 
 def start_training_thread():
     Thread(target=start_training).start()
@@ -533,7 +534,6 @@ def start_training():
     global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, model_id
     if loaded_lidar_data is not None and loaded_controller_data is not None:
         try:
-
 
             if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
                 print("No valid data found for training or validation.")
@@ -593,6 +593,9 @@ def start_training():
     
     else:
         print("No data loaded. Please load data before training the model.")
+    
+def load_data_thread():
+    Thread(target=load_data).start()
 
 
 if __name__ == "__main__":
@@ -610,9 +613,9 @@ if __name__ == "__main__":
     tk.Label(root, text="Model Filename (optional):").grid(row=1, column=0, padx=10, pady=10)
     tk.Entry(root, textvariable=model_filename, width=50).grid(row=1, column=1, padx=10, pady=10)
 
-    tk.Button(root, text="Load Data", command=load_data).grid(row=2, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Load Data", command=load_data_thread).grid(row=2, column=0, columnspan=3, pady=10)
     tk.Button(root, text="Load Data from File", command=load_data_from_file).grid(row=3, column=0, columnspan=3, pady=10)
     tk.Button(root, text="Save Data in File", command=save_data_in_file).grid(row=4, column=0, columnspan=3, pady=10)
-    tk.Button(root, text="Train Model", command=start_training).grid(row=5, column=0, columnspan=3, pady=20)
+    tk.Button(root, text="Train Model", command=start_training_thread).grid(row=5, column=0, columnspan=3, pady=20)
 
     root.mainloop()
