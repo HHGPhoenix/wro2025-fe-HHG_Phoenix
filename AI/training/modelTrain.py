@@ -534,7 +534,7 @@ def start_training_thread():
 
 def start_training():
     global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, model_id
-    if loaded_lidar_data is not None and loaded_controller_data is not None:
+    if train_lidar is not None and train_controller is not None and val_lidar is not None and val_controller is not None:
         try:
 
             if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
