@@ -312,19 +312,13 @@ def parse_data_with_callback(args):
     file_pair, index, progress_callbacks, progress_callback = args
 
     # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
-    print(f"Processing file pair {index + 1}: {file_pair}")
+    # print(f"Processing file pair {index + 1}: {file_pair}")
     progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
     file_path_lidar, file_path_controller = file_pair
 
     print(f"Starting to parse lidar data from {file_path_lidar}")
-    lidar_data = parse_data(file_path_lidar, file_path_controller,  progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx=index)
-    print(f"Finished parsing lidar data from {file_path_lidar}")
+    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
 
-    print(f"Starting to parse controller data from {file_path_controller}")
-    controller_data = parse_data(file_path_controller, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx=index)
-    print(f"Finished parsing controller data from {file_path_controller}")
-
-    print(f"Finished processing file pair {index + 1}: {file_pair}")
     return lidar_data, controller_data
 
 def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
@@ -437,19 +431,23 @@ def load_data():
 
 def load_data_from_file():
     global train_lidar, train_controller, val_lidar, val_controller
-    file_path = filedialog.askopenfilename(title="Select Data File", filetypes=(("NPY Files", "*.npy"),))
+    file_path = filedialog.askopenfilename(title="Select Data File", filetypes=(("NPZ Files", "*.npz"),))
     if file_path:
         print(f"Loading data from file: {file_path}")
-        train_lidar, train_controller, val_lidar, val_controller = np.load(file_path, allow_pickle=True)
+        with np.load(file_path, allow_pickle=True) as data:
+            train_lidar = data['train_lidar']
+            train_controller = data['train_controller']
+            val_lidar = data['val_lidar']
+            val_controller = data['val_controller']
         print("Data loaded successfully!")
 
 def save_data_in_file():
     global train_lidar, train_controller, val_lidar, val_controller
     if train_lidar.size > 0 and train_controller.size > 0 and val_lidar.size > 0 and val_controller.size > 0:
-        file_path = filedialog.asksaveasfilename(title="Save Data File", filetypes=(("NPY Files", "*.npy"),))
+        file_path = filedialog.asksaveasfilename(title="Save Data File", filetypes=(("NPZ Files", "*.npz"),))
         if file_path:
             print(f"Saving data to file: {file_path}")
-            np.save(file_path, (train_lidar, train_controller, val_lidar, val_controller))
+            np.savez(file_path, train_lidar=train_lidar, train_controller=train_controller, val_lidar=val_lidar, val_controller=val_controller)
             print("Data saved to file successfully!")
     else:
         print("No data to save!")
