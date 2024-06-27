@@ -5,63 +5,38 @@ import time
 import struct
 
 class LidarSensor():
-    def __init__(self, usb_address=None, LIDAR_commands_path=r"RPIs\Sensors\LIDAR\LIDARCommands.json"):
+    def __init__(self, address, LIDAR_commands_path=r"RPIs\Sensors\LIDAR\LIDARCommands.json"):
         """
         Initialize the LIDAR sensor by finding the usb device and resetting it.
 
         Args:
-            usb_address (str, optional): When manually set disable auto-detect. Defaults to None.
+            address (str): The address of the LIDAR sensor.
             LIDAR_commands_path (str, optional): Path to the LIDAR command mapping. Defaults to "./LIDARCommands.json".
-
-        Raises:
-            Exception: When the auto-detect could not find the LIDAR sensor.
         """
         
         with open(LIDAR_commands_path) as f:
             self.LIDAR_commands = json.load(f)
         
-        if usb_address is not None:
-            self.ser_device = serial.Serial(usb_address, 460800)
-        
-        else:
-            self.ser_device = self.find_usb_device(0x10c4, 0xea60)
-            if self.ser_device is None:
-                raise Exception("Lidar sensor not found, try specifying the USB address manually.")
-            self.ser_device = serial.Serial(self.ser_device, 460800)
+        self.ser_device = serial.Serial(address, 460800)
             
         self.reset_sensor()
-        
-    def find_usb_device(self, vendor_id, product_id):
-        """
-        Find the USB device by vendor and product id.
-
-        Args:
-            vendor_id (str): Vendor ID of the device.
-            product_id (str): Product ID of the device.
-
-        Returns:
-            usb.core: The USB device.
-        """
-        
-        # Find the device by vendor and product id
-        for device in usb.core.find(find_all=True):
-            if device.idVendor == vendor_id and device.idProduct == product_id:
-                return device
-        return None
     
     def reset_sensor(self):
         """
         Reset the LIDAR sensor.
         """
+        
         command = bytes.fromhex(self.LIDAR_commands['RESET'].replace('\\x', ''))
         self.ser_device.write(command)
+        
+        # Wait for the sensor to reset
+        time.sleep(0.5)
         
         while self.ser_device.in_waiting < 21:
             pass
         
         _ = self.ser_device.read(21)
 
-        time.sleep(0.5)
     
     def start_sensor(self, response_size=7, mode="normal"):
         """
