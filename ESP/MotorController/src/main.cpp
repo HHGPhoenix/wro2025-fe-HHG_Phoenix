@@ -1,46 +1,60 @@
 #include <Arduino.h>
 
-#define ENA 5
-#define IN1 4
-#define IN2 0
-#define encoderA 2
-#define encoderB 15
+#define ENA 14
+#define IN1 12
+#define IN2 13
+#define encoderA 5
+#define encoderB 4
 
 volatile long encoderTicks = 0;
-int lastEncoderA = LOW;
-int lastEncoderB = LOW;
 int desiredSpeed = 0; // Desired speed in ticks per second
 int motorSpeed = 0;	  // Actual motor speed in PWM value
+int lastSpeed = 0;	  // Last measured speed
 unsigned long lastTime = 0;
 
-// PD controller gains
-float Kp = 2.0; // Proportional gain
-float Kd = 1.0; // Derivative gain
+// Adjust PD controller gains
+float Kp = 2;	// Reduced Proportional gain
+float Kd = 0.5; // Reduced Derivative gain
+float Ka = 0;	// Acceleration gain
+
+void controlMotor(int currentSpeed);
+int computeSpeed();
+
+volatile int lastEncoderA = LOW;
+volatile int lastEncoderB = LOW;
 
 void IRAM_ATTR encoderISR()
 {
-	int newEncoderA = digitalRead(encoderA);
-	int newEncoderB = digitalRead(encoderB);
+	static unsigned long lastInterruptTime = 0;
+	unsigned long interruptTime = millis();
 
-	if (newEncoderA == HIGH && lastEncoderA == LOW)
-	{
-		if (newEncoderB == LOW)
+	// Debounce encoder signal
+	if (interruptTime - lastInterruptTime > 5)
+	{ // 5 ms debounce period
+		int newEncoderA = digitalRead(encoderA);
+		int newEncoderB = digitalRead(encoderB);
+
+		if (newEncoderA != lastEncoderA)
 		{
-			encoderTicks++;
+			if (newEncoderA == HIGH)
+			{
+				encoderTicks += (newEncoderB == LOW) ? 1 : -1;
+			}
+			else
+			{
+				encoderTicks += (newEncoderB == HIGH) ? 1 : -1;
+			}
 		}
-		else
-		{
-			encoderTicks--;
-		}
+
+		lastEncoderA = newEncoderA;
+		lastEncoderB = newEncoderB;
+		lastInterruptTime = interruptTime;
 	}
-
-	lastEncoderA = newEncoderA;
-	lastEncoderB = newEncoderB;
 }
 
 void setup()
 {
-	Serial.begin(115200);
+	Serial.begin(921600);
 
 	pinMode(ENA, OUTPUT);
 	pinMode(IN1, OUTPUT);
@@ -59,9 +73,11 @@ void loop()
 	if (Serial.available() > 0)
 	{
 		String command = Serial.readStringUntil('\n');
-		if (command.startsWith("SPEED"))
+		if (command.startsWith("SPEED "))
 		{
 			desiredSpeed = command.substring(6).toInt();
+			// Serial.print("Desired Speed: ");
+			// Serial.println(desiredSpeed);
 		}
 	}
 
@@ -69,6 +85,10 @@ void loop()
 	if (currentTime - lastTime >= 100)
 	{ // Adjust speed every 100 ms
 		int currentSpeed = computeSpeed();
+		Serial.print("DS: ");
+		Serial.println(desiredSpeed);
+		Serial.print("CS: ");
+		Serial.println(currentSpeed);
 		controlMotor(currentSpeed);
 		lastTime = currentTime;
 	}
@@ -77,54 +97,67 @@ void loop()
 int computeSpeed()
 {
 	static long lastEncoderTicks = 0;
-	long ticks = encoderTicks;
-	long deltaTicks = ticks - lastEncoderTicks;
-	lastEncoderTicks = ticks;
+	static unsigned long lastComputeTime = 0;
 
-	int speed = (deltaTicks * 1000) / (millis() - lastTime); // Speed in ticks per second
+	unsigned long currentTime = millis();
+	long ticks;
+
+	// Read encoderTicks atomically
+	noInterrupts();
+	ticks = encoderTicks;
+	interrupts();
+
+	long deltaTicks = ticks - lastEncoderTicks;
+	unsigned long deltaTime = currentTime - lastComputeTime;
+
+	// Update for the next iteration
+	lastEncoderTicks = ticks;
+	lastComputeTime = currentTime;
+
+	if (deltaTime == 0)
+	{
+		return 0; // Prevent division by zero
+	}
+
+	// Detecting overflow or invalid deltaTicks values
+	if (abs(deltaTicks) > 1000 || deltaTicks == 0)
+	{
+		return 0;
+	}
+
+	int speed = ((deltaTicks * 1000) / (int)deltaTime); // Speed in ticks per second
+
+	// Debugging information
+	// Serial.print("Ticks: ");
+	// Serial.print(ticks);
+	// Serial.print(" DeltaTicks: ");
+	// Serial.print(deltaTicks);
+	// Serial.print(" DeltaTime: ");
+	// Serial.print(deltaTime);
+	// Serial.print(" Speed: ");
+	// Serial.println(speed);
+
 	return speed;
 }
 
 void controlMotor(int currentSpeed)
 {
 	static int lastError = 0;
+	static int lastSpeed = 0; // Ensure lastSpeed is initialized if not already
 	int error = desiredSpeed - currentSpeed;
 	int derivative = error - lastError;
 	lastError = error;
 
-	// PD control
-	int controlSignal = Kp * error + Kd * derivative;
+	// PD control with acceleration component
+	int controlSignal = Kp * error + Kd * derivative + lastSpeed * Ka;
+
+	// Saturate control signal to -255 to 255
+	controlSignal = constrain(controlSignal, -255, 255);
 
 	motorSpeed = controlSignal;
 
-	if (motorSpeed > 255)
-		motorSpeed = 255;
-	if (motorSpeed < -255)
-		motorSpeed = -255;
-
-	if (desiredSpeed == 0)
-	{
-		// Active braking
-		if (currentSpeed > 0)
-		{
-			analogWrite(ENA, 255);
-			digitalWrite(IN1, LOW);
-			digitalWrite(IN2, HIGH);
-		}
-		else if (currentSpeed < 0)
-		{
-			analogWrite(ENA, 255);
-			digitalWrite(IN1, HIGH);
-			digitalWrite(IN2, LOW);
-		}
-		else
-		{
-			digitalWrite(IN1, LOW);
-			digitalWrite(IN2, LOW);
-			analogWrite(ENA, 0);
-		}
-	}
-	else if (motorSpeed >= 0)
+	// Control motor based on motorSpeed
+	if (motorSpeed >= 0)
 	{
 		analogWrite(ENA, motorSpeed);
 		digitalWrite(IN1, HIGH);
@@ -132,8 +165,10 @@ void controlMotor(int currentSpeed)
 	}
 	else
 	{
-		analogWrite(ENA, -motorSpeed);
+		analogWrite(ENA, -motorSpeed); // Use absolute value for PWM
 		digitalWrite(IN1, LOW);
 		digitalWrite(IN2, HIGH);
 	}
+
+	lastSpeed = currentSpeed; // Update lastSpeed for the next iteration
 }
