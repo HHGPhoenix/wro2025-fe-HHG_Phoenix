@@ -83,7 +83,7 @@ class PSController():
         right_analog_x_value = max(0, min(right_analog_x_value, 1))
         right_analog_y_value = max(0, min(right_analog_y_value, 1))
         
-        return left_analog_x_value, left_analog_y_value, right_analog_x_value, right_analog_y_value
+        return left_analog_x_value, left_analog_y_value, right_analog_x_value, right_analog_y_value    
     
     def map_servo_angle(self, value):
         if value <= 0.5:
