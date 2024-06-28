@@ -8,14 +8,10 @@ from picamera2 import controls
 
 #A class for detecting red and green blocks in the camera stream           
 class Camera():
-    def __init__(self, enable_video_stream=False, enable_video_writer=False):
+    def __init__(self):
         # Variable initialization
         self.freeze = False
         self.frame = None
-        self.frame_lock_1 = threading.Lock()
-        self.frame_lock_2 = threading.Lock()
-        self.enable_video_stream = enable_video_stream
-        self.enable_video_writer = enable_video_writer
         
         self.picam = Picamera2()
         # Configure and start the camera
@@ -68,30 +64,30 @@ class Camera():
 
         return simplified_image
          
-    # Function running in a new thread that constantly updates the coordinates of the blocks in the camera stream
-    def process_blocks(self):
-        self.video_writer = None
-        self.frames = [None] * 3
+    # # Function running in a new thread that constantly updates the coordinates of the blocks in the camera stream
+    # def process_blocks(self):
+    #     self.video_writer = None
+    #     self.frames = [None] * 3
 
-        while True:
-            self.block_array, framenormal, frameraw = self.get_coordinates()
-            framebinary = self.get_edges(frameraw)
+    #     while True:
+    #         self.block_array, framenormal, frameraw = self.get_coordinates()
+    #         framebinary = self.get_edges(frameraw)
 
-            self.frames[0] = framenormal
-            self.frames[1] = framebinary
-            self.frames[2] = frameraw
+    #         self.frames[0] = framenormal
+    #         self.frames[1] = framebinary
+    #         self.frames[2] = frameraw
 
-            if self.video_writer is None and self.enable_video_writer:
-                # Create a VideoWriter object to save the frames as an mp4 file
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                self.video_writer = cv2.VideoWriter(f'./videos/output_{str(uuid.uuid4())}.mp4', fourcc, 20, (frameraw.shape[1], frameraw.shape[0]), True)
+    #         if self.video_writer is None and self.enable_video_writer:
+    #             # Create a VideoWriter object to save the frames as an mp4 file
+    #             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    #             self.video_writer = cv2.VideoWriter(f'./videos/output_{str(uuid.uuid4())}.mp4', fourcc, 20, (frameraw.shape[1], frameraw.shape[0]), True)
 
-            # Write the frame to the video file
-            if self.enable_video_writer:
-                self.video_writer.write(frameraw)    
+    #         # Write the frame to the video file
+    #         if self.enable_video_writer:
+    #             self.video_writer.write(frameraw)    
     
     # Compress the video frames for the webstream    
-    def compress_frame(self, frame):
+    def compress_frame(self, frame, new_height=480):
         dimensions = len(frame.shape)
         if dimensions == 3:
             height, width, _ = frame.shape
@@ -99,7 +95,7 @@ class Camera():
             height, width = frame.shape
         else:
             raise ValueError(f"Unexpected number of dimensions in frame: {dimensions}")
-        new_height = 180
         new_width = int(new_height * width / height)
         frame = cv2.resize(frame, (new_width, new_height))
+        
         return frame
