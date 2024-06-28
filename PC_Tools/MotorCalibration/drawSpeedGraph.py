@@ -43,7 +43,7 @@ def update(i):
         # Clear the first line and redraw it with the updated CS values
         line1.set_data(range(len(cs_values)), cs_values)
 
-    elif "DS" in line:
+    elif "Out" in line:
         out = line.split(': ')[1]
         out = float(out)
         if out < 0:

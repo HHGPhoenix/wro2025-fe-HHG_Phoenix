@@ -85,8 +85,8 @@ void loop()
 	if (currentTime - lastTime >= 100)
 	{ // Adjust speed every 100 ms
 		int currentSpeed = computeSpeed();
-		Serial.print("DS: ");
-		Serial.println(desiredSpeed);
+		// Serial.print("DS: ");
+		// Serial.println(desiredSpeed);
 		Serial.print("CS: ");
 		Serial.println(currentSpeed);
 		controlMotor(currentSpeed);
@@ -169,6 +169,9 @@ void controlMotor(int currentSpeed)
 		digitalWrite(IN1, LOW);
 		digitalWrite(IN2, HIGH);
 	}
+
+	Serial.print("Out: ")
+		Serial.println(motorSpeed);
 
 	lastSpeed = currentSpeed; // Update lastSpeed for the next iteration
 }
