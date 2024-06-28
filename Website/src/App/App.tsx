@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Navbar from '../components/Nav/Navbar.js';
-import Home from '../pages/Home.js';
-import About from '../pages/About.js';
-import Contact from '../pages/Contact.js';
+import Home from '../pages/LiDAR.js';
+import About from '../pages/Vidstreams.js';
+import Contact from '../pages/CarControl.js';
 import '../tailwind.css';
 
 const App: React.FC = () => {
