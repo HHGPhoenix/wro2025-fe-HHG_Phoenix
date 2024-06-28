@@ -7,7 +7,7 @@ ser = serial.Serial('COM5', 921600)
 
 # Send START message
 # ser.write(b'START\n')
-ser.write('SPEED 100\n'.encode())
+ser.write('SPEED 300\n'.encode())
 # ser.write(b'KD1.1\n')
 # ser.write(b'KP1.6\n')
 

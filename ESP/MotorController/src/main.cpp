@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <limits.h> // For INT_MIN and INT_MAX
 
 #define ENA 14
 #define IN1 12
@@ -13,9 +14,9 @@ int lastSpeed = 0;	  // Last measured speed
 unsigned long lastTime = 0;
 
 // Adjust PD controller gains
-float Kp = 2;	// Reduced Proportional gain
-float Kd = 0.5; // Reduced Derivative gain
-float Ka = 0;	// Acceleration gain
+float Kp = 0.3; // Reduced Proportional gain
+float Kd = 0.2; // Reduced Derivative gain
+float Ka = 1;	// Acceleration gain
 
 void controlMotor(int currentSpeed);
 int computeSpeed();
@@ -25,31 +26,23 @@ volatile int lastEncoderB = LOW;
 
 void IRAM_ATTR encoderISR()
 {
-	static unsigned long lastInterruptTime = 0;
-	unsigned long interruptTime = millis();
+	int newEncoderA = digitalRead(encoderA);
+	int newEncoderB = digitalRead(encoderB);
 
-	// Debounce encoder signal
-	if (interruptTime - lastInterruptTime > 5)
-	{ // 5 ms debounce period
-		int newEncoderA = digitalRead(encoderA);
-		int newEncoderB = digitalRead(encoderB);
-
-		if (newEncoderA != lastEncoderA)
+	if (newEncoderA != lastEncoderA)
+	{
+		if (newEncoderA == HIGH)
 		{
-			if (newEncoderA == HIGH)
-			{
-				encoderTicks += (newEncoderB == LOW) ? 1 : -1;
-			}
-			else
-			{
-				encoderTicks += (newEncoderB == HIGH) ? 1 : -1;
-			}
+			encoderTicks += (newEncoderB == LOW) ? 1 : -1;
 		}
-
-		lastEncoderA = newEncoderA;
-		lastEncoderB = newEncoderB;
-		lastInterruptTime = interruptTime;
+		else
+		{
+			encoderTicks += (newEncoderB == HIGH) ? 1 : -1;
+		}
 	}
+
+	lastEncoderA = newEncoderA;
+	lastEncoderB = newEncoderB;
 }
 
 void setup()
@@ -76,17 +69,15 @@ void loop()
 		if (command.startsWith("SPEED "))
 		{
 			desiredSpeed = command.substring(6).toInt();
-			// Serial.print("Desired Speed: ");
-			// Serial.println(desiredSpeed);
+			Serial.print("Desired Speed: ");
+			Serial.println(desiredSpeed);
 		}
 	}
 
 	unsigned long currentTime = millis();
 	if (currentTime - lastTime >= 100)
-	{ // Adjust speed every 100 ms
+	{
 		int currentSpeed = computeSpeed();
-		// Serial.print("DS: ");
-		// Serial.println(desiredSpeed);
 		Serial.print("CS: ");
 		Serial.println(currentSpeed);
 		controlMotor(currentSpeed);
@@ -125,25 +116,39 @@ int computeSpeed()
 		return 0;
 	}
 
-	int speed = ((deltaTicks * 1000) / (int)deltaTime); // Speed in ticks per second
+	long long speed = (static_cast<long long>(deltaTicks) * 1000L) / deltaTime; // Use long long for calculation
 
 	// Debugging information
-	// Serial.print("Ticks: ");
-	// Serial.print(ticks);
-	// Serial.print(" DeltaTicks: ");
-	// Serial.print(deltaTicks);
-	// Serial.print(" DeltaTime: ");
-	// Serial.print(deltaTime);
-	// Serial.print(" Speed: ");
-	// Serial.println(speed);
+	Serial.print("Ticks: ");
+	Serial.print(ticks);
+	Serial.print(" DeltaTicks: ");
+	Serial.print(deltaTicks);
+	Serial.print(" DeltaTime: ");
+	Serial.print(deltaTime);
+	Serial.print(" Speed: ");
+	Serial.println(speed);
 
-	return speed;
+	// Check if speed is within the int range
+	if (speed < INT_MIN || speed > INT_MAX)
+	{
+		// Handle overflow, e.g., by clamping to INT_MAX or INT_MIN
+		return (speed < INT_MIN) ? INT_MIN : INT_MAX;
+	}
+
+	return static_cast<int>(speed / 10); // Cast back to int
 }
 
 void controlMotor(int currentSpeed)
 {
+	if (currentSpeed == 0 && desiredSpeed == 0)
+	{
+		analogWrite(ENA, 0);
+		digitalWrite(IN1, LOW);
+		digitalWrite(IN2, LOW);
+		return;
+	}
+
 	static int lastError = 0;
-	static int lastSpeed = 0; // Ensure lastSpeed is initialized if not already
 	int error = desiredSpeed - currentSpeed;
 	int derivative = error - lastError;
 	lastError = error;
@@ -170,8 +175,8 @@ void controlMotor(int currentSpeed)
 		digitalWrite(IN2, HIGH);
 	}
 
-	Serial.print("Out: ")
-		Serial.println(motorSpeed);
+	lastSpeed = motorSpeed;
 
-	lastSpeed = currentSpeed; // Update lastSpeed for the next iteration
+	Serial.print("Out: ");
+	Serial.println(motorSpeed);
 }
