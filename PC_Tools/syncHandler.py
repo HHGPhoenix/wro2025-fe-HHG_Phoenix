@@ -1,26 +1,52 @@
 import os
-import time
 import json
+import sys
+import time
+import subprocess
+from threading import Event, Thread
+from concurrent.futures import ThreadPoolExecutor
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-import paramiko
-from concurrent.futures import ThreadPoolExecutor
-import subprocess
-import sys
-from threading import Thread, Event
+import paramiko  # Ensure paramiko is installed
 
-# Configuration file
-CONFIG_FILE = 'PC_Tools/sync_handler_data.json'
-GITIGNORE_FILE = '.gitignore'
-WATCHED_DIR = None
+# Get the current working directory
+exec_dir = os.getcwd()
+
+# Configuration variables, paths are now relative to exec_dir
+CONFIG_FILE = os.path.join(exec_dir, 'PC_Tools', 'sync_handler_data.json')
+GITIGNORE_FILE = os.path.join(exec_dir, '.gitignore')
+WATCHED_DIR = os.path.join(exec_dir, 'RPIs')  # Specify your watched directory here
 RPI_CONFIGS = {}
+
+# Ensure necessary directories exist
+try:
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    os.makedirs(WATCHED_DIR, exist_ok=True)
+except Exception as e:
+    print(f"Error creating directories: {e}")
+    sys.exit(1)
+
+# # Create the config file if it doesn't exist
+# if not os.path.exists(CONFIG_FILE):
+#     try:
+#         with open(CONFIG_FILE, 'w') as f:
+#             f.write('{}')  # Write an empty JSON object to the file
+#     except Exception as e:
+#         print(f"Error creating configuration file: {e}")
+#         sys.exit(1)
 
 # Load or create configuration file
 def load_config():
-    if not os.path.exists(CONFIG_FILE):
-        return {}
-    with open(CONFIG_FILE, 'r') as f:
-        return json.load(f)
+    try:
+        if not os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'w') as f:
+                f.write('{}')
+            return {'RPIs': {}}
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error loading configuration: {e}")
+        return {'RPIs': {}}
 
 def save_config(config):
     with open(CONFIG_FILE, 'w') as f:
@@ -28,41 +54,31 @@ def save_config(config):
 
 # Load initial configuration
 def load_initial_config():
-    global GITIGNORE_FILE, WATCHED_DIR, RPI_CONFIGS
+    global GITIGNORE_FILE, RPI_CONFIGS
     config = load_config()
-    
-    WATCHED_DIR = config.get('WATCHED_DIR', None)
-    if not WATCHED_DIR:
-        print("No WATCHED_DIR specified in the config. Exiting.")
-        sys.exit(1)
     
     GITIGNORE_FILE = os.path.join(WATCHED_DIR, '.gitignore')
     
     RPI_CONFIGS = config.get('RPIs', {})
-    if not RPI_CONFIGS:
-        print("No RPIs specified in the config. Exiting.")
-        sys.exit(1)
+    return config
 
 # Update or add new RPI configuration dynamically
 def configure_rpi(config):
     updated = False
-    for rpi_host, rpi_details in RPI_CONFIGS.items():
+    for rpi_host, rpi_details in config.get('RPIs', {}).items():
+        if not all(k in rpi_details for k in ('host', 'user', 'pass', 'port', 'dest_dir')):
+            print(f"RPI {rpi_host} is missing configuration details. Please update the configuration file.")
+            sys.exit(0)
         if rpi_details.get('status') == 'unconfigured':
             print(f"RPI {rpi_host} is unconfigured. Please configure it and rerun the script.")
             sys.exit(0)
-        elif 'status' not in rpi_details:
-            RPI_CONFIGS[rpi_host]['status'] = 'unconfigured'
-            updated = True
-            print(f"New RPI {rpi_host} detected. Added to configuration as unconfigured.")
     
     if updated:
-        config['RPIs'] = RPI_CONFIGS
         save_config(config)
         sys.exit(0)
     
     print("All RPIs are configured.")
     return config
-
 # Load initial configuration and ensure all RPIs are configured
 config = load_initial_config()
 config = configure_rpi(config)
@@ -157,44 +173,31 @@ def sync_all_files_to_rpis():
 
 # Monitor for new or updated RPI configurations
 def monitor_rpi_configs(stop_event):
-    def scan_for_rpis():
-        # Placeholder: Replace this with your logic to scan for RPIs
-        # This could be a network scan or reading from a known list
-        detected_rpis = ["192.168.1.10", "192.168.1.11"]  # Example IPs
-        return detected_rpis
-
     while not stop_event.is_set():
-        detected_rpis = scan_for_rpis()
+        config = load_config()
         config_changed = False
 
-        for rpi in detected_rpis:
-            if rpi not in RPI_CONFIGS:
-                print(f"New RPI {rpi} detected. Adding to configuration.")
-                RPI_CONFIGS[rpi] = {
-                    'host': rpi,
-                    'user': 'default_user',  # Replace with actual default or input mechanism
-                    'pass': 'default_pass',  # Replace with actual default or input mechanism
-                    'port': 22,  # Default SSH port
-                    'dest_dir': '/path/to/dest',  # Default destination directory
-                    'status': 'unconfigured'
-                }
-                config_changed = True
+        for rpi, details in config['RPIs'].items():
+            if not all(k in details for k in ('host', 'user', 'pass', 'port', 'dest_dir')):
+                print(f"RPI {rpi} is missing configuration details. Please update the configuration file.")
+                continue
+            
+            if details.get('status') == 'unconfigured':
+                print(f"RPI {rpi} is unconfigured. Attempting to configure...")
+
+                try:
+                    client = ssh_connect(details['host'], details['user'], details['pass'], details['port'])
+                    client.close()
+                    details['status'] = 'configured'
+                    config_changed = True
+                    print(f"RPI {rpi} configured successfully.")
+                except Exception as e:
+                    print(f"Failed to connect to RPI {rpi}: {e}")
 
         if config_changed:
-            config = load_config()
-            config['RPIs'] = RPI_CONFIGS
             save_config(config)
-            print("Configuration updated with new RPIs.")
-        
-        # Reload config to check for updates
-        updated_config = load_config()
-        if updated_config != config:
-            print("Configuration file has been updated.")
-            config.update(updated_config)
-            RPI_CONFIGS.update(config.get('RPIs', {}))
         
         time.sleep(5)
-
 # Modify the main function to call sync_all_files_to_rpis at the start and monitor RPIs
 def main():
     if "--run-in-cmd" not in sys.argv:
@@ -204,7 +207,7 @@ def main():
         subprocess.Popen(cmd_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
     else:
         # Original main functionality
-        sync_all_files_to_rpis()
+        config = load_initial_config()  # Load initial configuration
         
         stop_event = Event()
         
