@@ -1,20 +1,26 @@
 import flask
 from flask import Response
 import cv2
+import numpy as np
 
 class WebServer:
-    def __init__(self, camera, lidar, port=5000, host='0.0.0.0'):
+    def __init__(self, shared_frames_list, port=5000, host='0.0.0.0'):
         self.port = port
         self.host = host
+        self.shared_frames_list = shared_frames_list
         
         self.app = flask.Flask(__name__)
         
         self.app_routes()
-        self.camera = camera
-        self.lidar = lidar
+
+        print("Web server initialized")
+
+        self.run()
     
     def run(self):
-        self.app.run(host=self.host, port=self.port, debug=True, threaded=True)
+        print("Web server running")
+        self.app.run(host=self.host, port=self.port, debug=True, threaded=True, use_reloader=False)
+        print("Web server stopped")
         
     def app_routes(self):
         @self.app.route('/raw_video_stream')
@@ -29,27 +35,22 @@ class WebServer:
         # def polar_plot_stream():
         #     return Response(self.stream_camera(self.generate_polar_plot), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-    def process_cam_frames(self):
-        while True:
-            frameraw, framehsv = self.camera.capture_array()
-            
-            self.simplified_image = self.camera.simplify_image(framehsv, [0, 255, 0], [255, 0, 0])
-            
-            # if len(self.lidar.data_arrays) > 0:
-            #     self.polar_plot = self.lidar.polar_plot(self.lidar.data_arrays[-1])
-            
-            self.frameraw = frameraw
-        
     def generate_raw_frame(self):
-        return self.frameraw
+        frameraw_bytes = self.shared_frames_list[0]
+        if frameraw_bytes:
+            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 640, 3))  # Adjust shape as needed
+            return frame
                 
     def generate_simplified_frame(self):
-        return self.simplified_image
+        simplified_image_bytes = self.shared_frames_list[1]
+        if simplified_image_bytes:
+            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((480, 640, 3))  # Adjust shape as needed
+            return frame
     
-    def generate_polar_plot(self):
-        # convert byte array to image
-        image = cv2.imdecode(np.frombuffer(self.polar_plot, np.uint8), cv2.IMREAD_COLOR)
-        return image
+    # def generate_polar_plot(self):
+    #     # convert byte array to image
+    #     image = cv2.imdecode(np.frombuffer(self.polar_plot, np.uint8), cv2.IMREAD_COLOR)
+    #     return image
         
     def stream_camera(self, image_function):
         try:
@@ -68,37 +69,30 @@ class WebServer:
             print("Video geschlossen 💀")
 
 def compress_image(image):
-    # Assuming 'image' is a NumPy array representing the image.
-    # Compress the image to 360p (if needed, adjust the resizing).
-    # Note: You might need to adjust the resizing logic based on your requirements.
     height, width = image.shape[:2]
     if height > 360 or width > 630:
         image = cv2.resize(image, (630, 360), interpolation=cv2.INTER_AREA)
 
-    # Encode the image as JPEG
     _, encoded_image = cv2.imencode('.jpg', image)
-    
-    # Convert the encoded image to a byte string
     return encoded_image.tobytes()
 
-
-if __name__ == "__main__":
-    from RPIs.Devices.Camera.CameraManager import Camera
-    from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
-    import numpy as np
-    import threading
+# if __name__ == "__main__":
+#     from RPIs.Devices.Camera.CameraManager import Camera
+#     from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
+#     import numpy as np
+#     import threading
     
-    cam = Camera()
-    lidar = LidarSensor("/dev/ttyUSB0")
+#     cam = Camera()
+#     lidar = LidarSensor("/dev/ttyUSB0")
     
-    lidar.reset_sensor()
-    lidar.start_sensor()
-    tlidar = threading.Thread(target=lidar.read_data)
-    tlidar.start()
+#     lidar.reset_sensor()
+#     lidar.start_sensor()
+#     tlidar = threading.Thread(target=lidar.read_data)
+#     tlidar.start()
     
-    webserver = WebServer(cam, lidar)
+#     webserver = WebServer(cam, lidar)
     
-    tprocess = threading.Thread(target=webserver.process_cam_frames)
-    tprocess.start()
+#     tprocess = threading.Thread(target=webserver.process_cam_frames)
+#     tprocess.start()
     
-    webserver.run()
+#     webserver.run()
