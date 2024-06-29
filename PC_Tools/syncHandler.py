@@ -26,18 +26,20 @@ except Exception as e:
     print(f"Error creating directories: {e}")
     sys.exit(1)
 
-# Create the config file if it doesn't exist
-if not os.path.exists(CONFIG_FILE):
-    try:
-        with open(CONFIG_FILE, 'w') as f:
-            f.write('{}')  # Write an empty JSON object to the file
-    except Exception as e:
-        print(f"Error creating configuration file: {e}")
-        sys.exit(1)
-        
+# # Create the config file if it doesn't exist
+# if not os.path.exists(CONFIG_FILE):
+#     try:
+#         with open(CONFIG_FILE, 'w') as f:
+#             f.write('{}')  # Write an empty JSON object to the file
+#     except Exception as e:
+#         print(f"Error creating configuration file: {e}")
+#         sys.exit(1)
+
 # Load or create configuration file
 def load_config():
     if not os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'w') as f:
+            f.write('{}')  # Write an empty JSON object to the file
         return {'RPIs': {}}
     with open(CONFIG_FILE, 'r') as f:
         return json.load(f)
@@ -59,23 +61,20 @@ def load_initial_config():
 # Update or add new RPI configuration dynamically
 def configure_rpi(config):
     updated = False
-    for rpi_host, rpi_details in RPI_CONFIGS.items():
+    for rpi_host, rpi_details in config.get('RPIs', {}).items():
+        if not all(k in rpi_details for k in ('host', 'user', 'pass', 'port', 'dest_dir')):
+            print(f"RPI {rpi_host} is missing configuration details. Please update the configuration file.")
+            sys.exit(0)
         if rpi_details.get('status') == 'unconfigured':
             print(f"RPI {rpi_host} is unconfigured. Please configure it and rerun the script.")
             sys.exit(0)
-        elif 'status' not in rpi_details:
-            RPI_CONFIGS[rpi_host]['status'] = 'unconfigured'
-            updated = True
-            print(f"New RPI {rpi_host} detected. Added to configuration as unconfigured.")
     
     if updated:
-        config['RPIs'] = RPI_CONFIGS
         save_config(config)
         sys.exit(0)
     
     print("All RPIs are configured.")
     return config
-
 # Load initial configuration and ensure all RPIs are configured
 config = load_initial_config()
 config = configure_rpi(config)
@@ -170,44 +169,31 @@ def sync_all_files_to_rpis():
 
 # Monitor for new or updated RPI configurations
 def monitor_rpi_configs(stop_event):
-    def scan_for_rpis():
-        # Placeholder: Replace this with your logic to scan for RPIs
-        # This could be a network scan or reading from a known list
-        detected_rpis = ["192.168.1.10", "192.168.1.11"]  # Example IPs
-        return detected_rpis
-
     while not stop_event.is_set():
-        detected_rpis = scan_for_rpis()
+        config = load_config()
         config_changed = False
 
-        for rpi in detected_rpis:
-            if rpi not in RPI_CONFIGS:
-                print(f"New RPI {rpi} detected. Adding to configuration.")
-                RPI_CONFIGS[rpi] = {
-                    'host': rpi,
-                    'user': 'default_user',  # Replace with actual default or input mechanism
-                    'pass': 'default_pass',  # Replace with actual default or input mechanism
-                    'port': 22,  # Default SSH port
-                    'dest_dir': '/path/to/dest',  # Default destination directory
-                    'status': 'unconfigured'
-                }
-                config_changed = True
+        for rpi, details in config['RPIs'].items():
+            if not all(k in details for k in ('host', 'user', 'pass', 'port', 'dest_dir')):
+                print(f"RPI {rpi} is missing configuration details. Please update the configuration file.")
+                continue
+            
+            if details.get('status') == 'unconfigured':
+                print(f"RPI {rpi} is unconfigured. Attempting to configure...")
+
+                try:
+                    client = ssh_connect(details['host'], details['user'], details['pass'], details['port'])
+                    client.close()
+                    details['status'] = 'configured'
+                    config_changed = True
+                    print(f"RPI {rpi} configured successfully.")
+                except Exception as e:
+                    print(f"Failed to connect to RPI {rpi}: {e}")
 
         if config_changed:
-            config = load_config()
-            config['RPIs'] = RPI_CONFIGS
             save_config(config)
-            print("Configuration updated with new RPIs.")
-        
-        # Reload config to check for updates
-        updated_config = load_config()
-        if updated_config != config:
-            print("Configuration file has been updated.")
-            config.update(updated_config)
-            RPI_CONFIGS.update(config.get('RPIs', {}))
         
         time.sleep(5)
-
 # Modify the main function to call sync_all_files_to_rpis at the start and monitor RPIs
 def main():
     if "--run-in-cmd" not in sys.argv:
@@ -218,8 +204,6 @@ def main():
     else:
         # Original main functionality
         config = load_initial_config()  # Load initial configuration
-        
-        sync_all_files_to_rpis()  # Sync files at the start
         
         stop_event = Event()
         
@@ -235,7 +219,6 @@ def main():
         try:
             while True:
                 time.sleep(1)
-       
         except KeyboardInterrupt:
             observer.stop()
             stop_event.set()
