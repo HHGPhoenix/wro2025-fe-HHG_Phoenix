@@ -6,7 +6,9 @@ import struct
 import matplotlib.pyplot as plt
 import numpy as np
 from io import BytesIO
-    
+import pandas as pd    
+from scipy.interpolate import interp1d
+
 class LidarSensor():
     def __init__(self, address, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
         """
@@ -28,11 +30,11 @@ class LidarSensor():
         """
         Reset the LIDAR sensor.
         """
-        
         command = bytes.fromhex(self.LIDAR_commands['RESET'].replace('\\x', ''))
         self.ser_device.write(command)
         
-        _ = self.ser_device.read(self.ser_device.in_waiting)
+        self.ser_device.reset_output_buffer()
+        self.ser_device.reset_input_buffer()
         
         # Wait for the sensor to reset
         time.sleep(0.5)
@@ -53,10 +55,11 @@ class LidarSensor():
         Returns:
             str: The response from the LIDAR sensor.
         """
-        
         if mode == "normal":
             command = bytes.fromhex(self.LIDAR_commands['SCAN'].replace('\\x', ''))
             self.ser_device.write(command)
+            
+            time.sleep(0.2)
             
             while self.ser_device.in_waiting < response_size:
                 # print(self.ser_device.in_waiting)
@@ -188,3 +191,39 @@ class LidarSensor():
         plt.close(fig)
 
         return img_bytes.getvalue()
+    
+    def interpolate_data(self, lidar_data, step=1, cutoff=(110, 250), rotation=0):
+        """
+        Interpolates the LIDAR data to fill in missing angles and returns the interpolated data.
+
+        Args:
+            lidar_data (_type_): A list of tuples or a 2D array where each tuple/row contains (angle in degrees, distance, intensity).
+            step (int, optional): Step size of the interpolation. Defaults to 1.
+            cutoff (tuple, optional): LIDAR data cutoff angles. Defaults to (110, 250).
+            rotation (int, optional): Angle to rotate the lidar data. Defaults to 0.
+
+        Returns:
+            interpolated_data: A list of tuples where each tuple contains (angle in degrees, distance).
+        """
+        
+        df = pd.DataFrame(lidar_data, columns=["angle", "distance", "intensity"])
+        df = df.drop(columns=["intensity"])
+        df = df[df["distance"] != 0]  # Filter out invalid points
+        df["angle"] = (df["angle"] - rotation) % 360
+        df = df.sort_values("angle")
+
+        desired_angles = np.arange(0, 360, step)
+        interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate")
+        interpolated_distances = interp_distance(desired_angles)
+
+        interpolated_data = list(zip(desired_angles, interpolated_distances))
+        
+        # Convert to DataFrame for easier manipulation
+        df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance"])
+
+        # Remove data from 110 to 250 degrees
+        df_interpolated = df_interpolated[(df_interpolated["angle"] < cutoff[0]) | (df_interpolated["angle"] > cutoff[1])]
+
+        df_interpolated_list = df_interpolated.values.tolist()
+        
+        return df_interpolated_list

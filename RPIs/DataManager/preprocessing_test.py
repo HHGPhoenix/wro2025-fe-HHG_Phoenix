@@ -1,11 +1,36 @@
-from CameraManager import Camera
-import cv2
+from RPIs.Devices.Camera.CameraManager import Camera
+from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
+import threading
+import socket
 
 cam = Camera()
 
-frame, framehsv = cam.capture_array()
+lidar = LidarSensor("/dev/ttyAMA0")
 
-simplified_image = cam.simplify_image(framehsv, [0, 255, 0], [0, 0, 255])
+lidar.reset_sensor()
+lidar.start_sensor()
 
-# save the image
-cv2.imwrite('simplified_image.jpg', simplified_image)
+tlidar = threading.Thread(target=lidar.read_data)
+tlidar.start()
+
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(('192.168.1.2', 11111))
+
+try:
+    while True:
+            output = {}
+            
+            frameraw, framehsv = cam.capture_array()
+            simplified_image = cam.simplify_image(framehsv, [255, 0, 0], [0, 255, 0])
+            
+            if len(lidar.data_arrays) > 0:
+                lidar_data = lidar.data_arrays[-1]
+                
+                lidar_data = lidar.interpolate_data(lidar_data)
+                
+                output.update({"simplified_image": simplified_image, "lidar_data": lidar_data})
+                
+                client.sendall(str(output).encode())
+        
+finally:
+    lidar.stop_sensor()
