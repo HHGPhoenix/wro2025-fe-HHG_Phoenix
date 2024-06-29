@@ -37,12 +37,16 @@ except Exception as e:
 
 # Load or create configuration file
 def load_config():
-    if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'w') as f:
-            f.write('{}')  # Write an empty JSON object to the file
+    try:
+        if not os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'w') as f:
+                f.write('{}')
+            return {'RPIs': {}}
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error loading configuration: {e}")
         return {'RPIs': {}}
-    with open(CONFIG_FILE, 'r') as f:
-        return json.load(f)
 
 def save_config(config):
     with open(CONFIG_FILE, 'w') as f:
