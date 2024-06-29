@@ -3,8 +3,8 @@ import numpy as np
 import threading
 import time
 import uuid
-from picamera2 import Picamera2
-from libcamera import controls
+from picamera2 import Picamera2 # type: ignore
+from libcamera import controls # type: ignore
 
 #A class for detecting red and green blocks in the camera stream           
 class Camera():

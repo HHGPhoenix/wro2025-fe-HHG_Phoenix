@@ -1,8 +1,8 @@
-from LIDAR.LIDARManager import LidarSensor
-from PSController.psController import PSController
+from LIDAR.LIDARManager import LidarSensor # type: ignore
+from PSController.psController import PSController # type: ignore
 import time
 import threading
-import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO # type: ignore
 import serial
 import uuid
 import tensorflow as tf

@@ -1,8 +1,8 @@
-from LIDAR.LIDARManager import LidarSensor
-from PSController.psController import PSController
+from LIDAR.LIDARManager import LidarSensor # type: ignore
+from PSController.psController import PSController # type: ignore
 import time
 import threading
-import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO # type: ignore
 import serial
 import uuid
 import tensorflow as tf
@@ -88,7 +88,7 @@ def predict_servo_angle(lidar_data):
     df_interpolated = df_interpolated.values.reshape(-1, 360, 3, 1)
 
     # Use the model to predict the servo angle
-    predicted_angle = steering_model.predict(df_interpolated)
+    predicted_angle = steering_model.predict(df_interpolated) # type: ignore
 
     return predicted_angle
 
@@ -168,4 +168,4 @@ try:
     
 finally:
     lidar.stop_sensor()
-    pModel.terminate()
+    pModel.terminate() # type: ignore
