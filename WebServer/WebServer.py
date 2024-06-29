@@ -3,14 +3,18 @@ from flask import Response
 import cv2
 
 class WebServer:
-    def __init__(self, camera, lidar, port=5000):
+    def __init__(self, camera, lidar, port=5000, host='0.0.0.0'):
         self.port = port
+        self.host = host
         
         self.app = flask.Flask(__name__)
         
         self.app_routes()
         self.camera = camera
         self.lidar = lidar
+    
+    def run(self):
+        self.app.run(host=self.host, port=self.port, debug=True, threaded=True)
         
     def app_routes(self):
         @self.app.route('/raw_video_stream')
@@ -21,11 +25,11 @@ class WebServer:
         def simplified_video_stream():
             return Response(self.stream_camera(self.generate_simplified_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-        @self.app.route('/polar_plot_stream')
-        def polar_plot_stream():
-            return Response(self.stream_camera(self.generate_polar_plot), mimetype='multipart/x-mixed-replace; boundary=frame')
+        # @self.app.route('/polar_plot_stream')
+        # def polar_plot_stream():
+        #     return Response(self.stream_camera(self.generate_polar_plot), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-    def process_frames(self):
+    def process_cam_frames(self):
         while True:
             frameraw, framehsv = self.camera.capture_array()
             
@@ -61,7 +65,7 @@ class WebServer:
                     yield (b'--frame\r\n'
                         b'Content-Type: image/jpeg\r\n\r\n' + b'\r\n')
         finally: 
-            print("Video wird geschlossen")
+            print("Video geschlossen 💀")
 
 def compress_image(image):
     # Assuming 'image' is a NumPy array representing the image.
@@ -92,13 +96,9 @@ if __name__ == "__main__":
     tlidar = threading.Thread(target=lidar.read_data)
     tlidar.start()
     
+    webserver = WebServer(cam, lidar)
     
-    webServer = WebServer(cam, lidar)
-    
-    tprocess = threading.Thread(target=webServer.process_frames)
+    tprocess = threading.Thread(target=webserver.process_cam_frames)
     tprocess.start()
     
-    webServer.app.run(host='0.0.0.0', port=webServer.port)
-    
-    
-    
+    webserver.run()
