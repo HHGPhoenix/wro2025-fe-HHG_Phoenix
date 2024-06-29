@@ -1,1 +1,6 @@
-{}
+{
+    "MODE": "set_mode",
+    "START": "start",
+    "How is it going": "send_good",
+    "GOOD": "received_good"
+}

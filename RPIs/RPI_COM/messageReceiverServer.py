@@ -14,7 +14,8 @@ class MessageReceiver:
     def load_mappings_from_json(self, file_path):
         with open(file_path, 'r') as file:
             mappings = json.load(file)
-            self.message_handler_map = {code: getattr(self.handler_instance, f"execute_{code}") for code in mappings}
+            for command, function_name in mappings.items():
+                self.message_handler_map[command] = getattr(self.handler_instance, function_name)
 
     def parse_message(self, message):
         parts = message.split('#')

@@ -2,28 +2,42 @@ import time
 import threading
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
-from RPIs.AIController.AICUtilityFunctions import AICU_Logger
+from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions, CommunicationEstablisher
 
-class RemoteFunctions:
+class AIController:
     def __init__(self):
-        pass
+        print("Starting AIController...")
+        self.receiver = None
+        self.client = None
+        self.logger = None
+        self.mode = None
+        self.running = False
+        self.communicationestablisher = CommunicationEstablisher(self)
+        self.start_comm()
 
-# Start the server
-receiver = MessageReceiver(r'RPIs\RPI_COM\Mappings\AIControllerMappings.json', 22222, handler_class=RemoteFunctions)
-threading.Thread(target=receiver.start_server, daemon=True).start()
+        self.logger.info("AIController started.")
 
-time.sleep(2)  # Give the server some time to start
+        self.communicationestablisher.spam()
 
-client = Messenger('127.0.0.1', 11111)  # Use '127.0.0.1' instead of '0.0.0.0' for the client
+    def start_comm(self):
+        self.remote_functions = RemoteFunctions(self)
+        
+        # Start the server
+        self.receiver = MessageReceiver(r'RPIs\RPI_COM\Mappings\AIControllerMappings.json', 22222, handler_class=self.remote_functions)
+        threading.Thread(target=self.receiver.start_server, daemon=True).start()
 
-logger = AICU_Logger(client)
+        self.client = Messenger('192.168.1.3', 11111)
 
-logger
+        self.logger = AICU_Logger(self.client)
 
-print("AIController started")
-
-client.send_message('LOG_DEBUG#This is a debug message')
-
-time.sleep(2)   
-
-client.send_message('LOG_INFO#This is an info message')
+    def main_loop_opening_race(self):
+        self.logger.info("Starting main loop for opening race...")
+        
+        while self.running:
+            pass
+        
+    def main_loop_obstacle_race(self):
+        self.logger.info("Starting main loop for obstacle race...")
+        
+        while self.running:
+            pass

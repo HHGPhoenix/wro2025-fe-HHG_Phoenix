@@ -1,8 +1,10 @@
 {
-    "LOG_DEBUG": "self.log_debug",
-    "LOG_INFO": "self.log_info",
-    "LOG_WARNING": "self.log_warning",
-    "LOG_ERROR": "self.log_error",
-    "LOG_CRITICAL": "self.log_critical",
-    "LOG_EXCEPTION": "self.log_exception"
+    "LOG_DEBUG": "log_debug",
+    "LOG_INFO": "log_info",
+    "LOG_WARNING": "log_warning",
+    "LOG_ERROR": "log_error",
+    "LOG_CRITICAL": "log_critical",
+    "LOG_EXCEPTION": "log_exception",
+    "How is it going": "send_good",
+    "GOOD": "received_good"
 }
