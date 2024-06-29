@@ -198,8 +198,32 @@ def monitor_rpi_configs(stop_event):
             save_config(config)
         
         time.sleep(5)
+
+def update_rpi_config_with_ips(config, rpi_ips):
+    updated = False
+    for ip in rpi_ips:
+        if ip not in config['RPIs']:
+            config['RPIs'][ip] = {
+                "host": ip,
+                "user": "",
+                "pass": "",
+                "port": 22,
+                "dest_dir": "",
+                "status": "unconfigured"
+            }
+            updated = True
+
+    if updated:
+        save_config(config)
+        print("Updated configuration with new RPI IP addresses.")
+    
+    return config
+
+
 # Modify the main function to call sync_all_files_to_rpis at the start and monitor RPIs
 def main():
+    rpi_ips = ["192.168.178.29", "robotpi.local"]  # Add your list of IP addresses here
+
     if "--run-in-cmd" not in sys.argv:
         # Construct the command to run this script in a new cmd window
         cmd_command = f'cmd /c "{sys.executable}" "{sys.argv[0]}" --run-in-cmd'
@@ -208,6 +232,7 @@ def main():
     else:
         # Original main functionality
         config = load_initial_config()  # Load initial configuration
+        config = update_rpi_config_with_ips(config, rpi_ips)  # Update configuration with new IPs if necessary
         
         stop_event = Event()
         

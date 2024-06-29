@@ -1,4 +1,4 @@
-
+import time
 class AICU_Logger:
     def __init__(self, client):
         self.client = client
@@ -57,6 +57,6 @@ class CommunicationEstablisher():
 
 
     def spam(self):
-        while True:
-            while self.received_message == None:
-                self.pi.client.send_message("How is it going?")
+        while self.received_message == None:
+            self.pi.client.send_message("How is it going?")
+            time.sleep(1)

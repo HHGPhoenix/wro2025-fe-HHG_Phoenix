@@ -4,8 +4,8 @@ import json
 import threading
 
 class MessageReceiver:
-    def __init__(self, mappings_file, port, handler_class, ip='0.0.0.0'):
-        self.handler_instance = handler_class()
+    def __init__(self, mappings_file, port, handler_instance, ip='0.0.0.0'):
+        self.handler_instance = handler_instance
         self.message_handler_map = {}
         self.load_mappings_from_json(mappings_file)
         self.ip = ip

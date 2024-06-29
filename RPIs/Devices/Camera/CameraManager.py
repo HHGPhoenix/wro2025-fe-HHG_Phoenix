@@ -22,6 +22,7 @@ class Camera():
         self.picam.configure(config)
         self.picam.start()
         self.picam.set_controls({"AfMode": controls.AfModeEnum.Continuous})
+        self.picam.set_logging(Picamera2.ERROR)
         
         # Define the color ranges for green and red in HSV color space
         self.lower_green = np.array([53, 100, 40])

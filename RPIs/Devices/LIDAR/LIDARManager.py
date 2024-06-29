@@ -130,7 +130,7 @@ class LidarSensor():
                             # Calculate and print the frequency
                             end_time = time.time()
                             frequency = 1.0 / (end_time - start_time)
-                            print(f"Frequency: {frequency} Hz")
+                            # print(f"Frequency: {frequency} Hz")
                             start_time = end_time
 
                         if len(self.data_arrays) > 0 and len(self.data_arrays) > 100:

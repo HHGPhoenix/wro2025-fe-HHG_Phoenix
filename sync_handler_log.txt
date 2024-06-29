@@ -1,0 +1,47 @@
+2024-06-29 16:34:52,428 - DEBUG - Starting script
+2024-06-29 16:34:52,428 - DEBUG - Starting main function
+2024-06-29 16:34:52,428 - DEBUG - Running in a new cmd window
+2024-06-29 16:35:48,023 - DEBUG - Starting script
+2024-06-29 16:35:48,023 - DEBUG - Starting main function
+2024-06-29 16:35:48,023 - DEBUG - Running in a new cmd window
+2024-06-29 16:36:48,217 - DEBUG - Starting script
+2024-06-29 16:36:48,217 - DEBUG - Starting main function
+2024-06-29 16:36:48,217 - DEBUG - Running in a new cmd window
+2024-06-29 16:36:48,240 - DEBUG - Command executed: start cmd /k "C:\Users\felix\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe" "d:\Developement\wro2025-fe-HHG_Phoenix\PC_Tools\sync_handler_old.py" --run-in-cmd
+2024-06-29 16:37:12,486 - DEBUG - Starting script
+2024-06-29 16:37:12,486 - DEBUG - Starting main function
+2024-06-29 16:37:12,486 - DEBUG - Running in a new cmd window
+2024-06-29 16:37:59,006 - DEBUG - Starting script
+2024-06-29 16:37:59,006 - DEBUG - Starting main function
+2024-06-29 16:37:59,006 - DEBUG - Running in a new cmd window
+2024-06-29 16:39:06,477 - DEBUG - Starting script
+2024-06-29 16:39:06,477 - DEBUG - Starting main function
+2024-06-29 16:39:06,478 - DEBUG - Running in a new cmd window
+2024-06-29 16:40:48,783 - DEBUG - Starting script
+2024-06-29 16:40:48,784 - DEBUG - Starting main function
+2024-06-29 16:40:48,784 - DEBUG - Running in a new cmd window
+2024-06-29 16:43:21,013 - DEBUG - Starting script
+2024-06-29 16:43:21,013 - DEBUG - Starting main function
+2024-06-29 16:43:21,013 - DEBUG - Running in a new cmd window
+2024-06-29 16:45:25,062 - DEBUG - Starting script
+2024-06-29 16:45:25,062 - DEBUG - Starting main function
+2024-06-29 16:45:25,062 - DEBUG - Running in a new cmd window
+2024-06-29 16:46:32,541 - DEBUG - Starting script
+2024-06-29 16:46:32,541 - DEBUG - Starting main function
+2024-06-29 16:46:32,541 - DEBUG - Running in a new cmd window
+2024-06-29 16:46:32,565 - DEBUG - Command executed: start cmd /k "'C:\Users\felix\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe' 'd:\Developement\wro2025-fe-HHG_Phoenix\PC_Tools\sync_handler_old.py' --run-in-cmd"
+2024-06-29 16:47:22,776 - DEBUG - Starting script
+2024-06-29 16:47:22,776 - DEBUG - Starting main function
+2024-06-29 16:47:22,776 - DEBUG - Running in a new cmd window
+2024-06-29 16:47:22,798 - DEBUG - Command executed: start cmd /k "'C:\Users\felix\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe' 'D:\Developement\wro2025-fe-HHG_Phoenix\PC_Tools\sync_handler_old.py' --run-in-cmd"
+2024-06-29 16:48:20,785 - DEBUG - Starting script
+2024-06-29 16:48:20,786 - DEBUG - Starting main function
+2024-06-29 16:48:20,786 - DEBUG - Running in a new cmd window
+2024-06-29 16:48:20,809 - DEBUG - Command executed: start "" cmd /k "'C:\Users\felix\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe' 'd:\Developement\wro2025-fe-HHG_Phoenix\PC_Tools\sync_handler_old.py' --run-in-cmd"
+2024-06-29 16:48:46,329 - DEBUG - Starting script
+2024-06-29 16:48:46,329 - DEBUG - Starting main function
+2024-06-29 16:48:46,329 - DEBUG - Running in a new cmd window
+2024-06-29 16:50:12,942 - DEBUG - Starting script
+2024-06-29 16:50:12,942 - DEBUG - Starting main function
+2024-06-29 16:50:12,942 - DEBUG - Running in a new subprocess
+2024-06-29 16:50:12,951 - DEBUG - Command executed: 'C:\Users\felix\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\python.exe' 'd:\Developement\wro2025-fe-HHG_Phoenix\PC_Tools\sync_handler_old.py' --run-in-cmd

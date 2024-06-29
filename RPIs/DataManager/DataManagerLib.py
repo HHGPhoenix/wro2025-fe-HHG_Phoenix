@@ -1,9 +1,9 @@
 from RPIs.RPI_Logging.Logger import Logger
+import time
 
 class RemoteFunctions:
     def __init__(self, DataManager):
         self.DataManager = DataManager
-    def __init__(self):
         logger_obj = Logger()
         self.logger = logger_obj.setup_log()
 
@@ -38,6 +38,6 @@ class CommunicationEstablisher():
 
 
     def spam(self):
-        while True:
-            while self.received_message == None:
-                self.pi.client.send_message("How is it going?")
+        while self.received_message == None:
+            self.pi.client.send_message("How is it going?")
+            time.sleep(1)
