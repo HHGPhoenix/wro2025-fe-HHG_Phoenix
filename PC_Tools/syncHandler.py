@@ -5,6 +5,8 @@ from watchdog.events import FileSystemEventHandler
 from dotenv import load_dotenv
 import paramiko
 from concurrent.futures import ThreadPoolExecutor
+import subprocess
+import sys
 
 # Load environment variables from .env file
 load_dotenv()
@@ -105,18 +107,25 @@ def sync_all_files_to_rpi():
 
 # Modify the main function to call sync_all_files_to_rpi at the start
 def main():
-    sync_all_files_to_rpi()  # Sync all files at script start
-    event_handler = ChangeHandler()
-    observer = Observer()
-    observer.schedule(event_handler, path=WATCHED_DIR, recursive=True)
-    observer.start()
+    if "--run-in-cmd" not in sys.argv:
+        # Construct the command to run this script in a new cmd window
+        cmd_command = f'cmd /c "{sys.executable}" "{sys.argv[0]}" --run-in-cmd'
+        # Open a new cmd window and run this script with the special argument
+        subprocess.Popen(cmd_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    else:
+        # Original main functionality
+        sync_all_files_to_rpi()
+        event_handler = ChangeHandler()
+        observer = Observer()
+        observer.schedule(event_handler, path=WATCHED_DIR, recursive=True)
+        observer.start()
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
 
 if __name__ == "__main__":
     main()
