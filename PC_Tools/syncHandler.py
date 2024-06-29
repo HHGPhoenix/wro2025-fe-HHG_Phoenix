@@ -1,24 +1,44 @@
 import os
-import time
 import json
+import sys
+import time
+import subprocess
+from threading import Event, Thread
+from concurrent.futures import ThreadPoolExecutor
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-import paramiko
-from concurrent.futures import ThreadPoolExecutor
-import subprocess
-import sys
-from threading import Thread, Event
+import paramiko  # Ensure paramiko is installed
 
-# Configuration file
-CONFIG_FILE = 'PC_Tools/sync_handler_data.json'
-GITIGNORE_FILE = '.gitignore'
-WATCHED_DIR = None
+# Get the current working directory
+exec_dir = os.getcwd()
+
+# Configuration variables, paths are now relative to exec_dir
+CONFIG_FILE = os.path.join(exec_dir, 'PC_Tools', 'sync_handler_data.json')
+GITIGNORE_FILE = os.path.join(exec_dir, '.gitignore')
+WATCHED_DIR = os.path.join(exec_dir, 'RPIs')  # Specify your watched directory here
 RPI_CONFIGS = {}
 
+# Ensure necessary directories exist
+try:
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    os.makedirs(WATCHED_DIR, exist_ok=True)
+except Exception as e:
+    print(f"Error creating directories: {e}")
+    sys.exit(1)
+
+# Create the config file if it doesn't exist
+if not os.path.exists(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            f.write('{}')  # Write an empty JSON object to the file
+    except Exception as e:
+        print(f"Error creating configuration file: {e}")
+        sys.exit(1)
+        
 # Load or create configuration file
 def load_config():
     if not os.path.exists(CONFIG_FILE):
-        return {}
+        return {'RPIs': {}}
     with open(CONFIG_FILE, 'r') as f:
         return json.load(f)
 
@@ -28,20 +48,13 @@ def save_config(config):
 
 # Load initial configuration
 def load_initial_config():
-    global GITIGNORE_FILE, WATCHED_DIR, RPI_CONFIGS
+    global GITIGNORE_FILE, RPI_CONFIGS
     config = load_config()
-    
-    WATCHED_DIR = config.get('WATCHED_DIR', None)
-    if not WATCHED_DIR:
-        print("No WATCHED_DIR specified in the config. Exiting.")
-        sys.exit(1)
     
     GITIGNORE_FILE = os.path.join(WATCHED_DIR, '.gitignore')
     
     RPI_CONFIGS = config.get('RPIs', {})
-    if not RPI_CONFIGS:
-        print("No RPIs specified in the config. Exiting.")
-        sys.exit(1)
+    return config
 
 # Update or add new RPI configuration dynamically
 def configure_rpi(config):
@@ -204,7 +217,9 @@ def main():
         subprocess.Popen(cmd_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
     else:
         # Original main functionality
-        sync_all_files_to_rpis()
+        config = load_initial_config()  # Load initial configuration
+        
+        sync_all_files_to_rpis()  # Sync files at the start
         
         stop_event = Event()
         
@@ -220,6 +235,7 @@ def main():
         try:
             while True:
                 time.sleep(1)
+       
         except KeyboardInterrupt:
             observer.stop()
             stop_event.set()
