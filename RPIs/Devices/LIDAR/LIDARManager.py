@@ -32,6 +32,8 @@ class LidarSensor():
         command = bytes.fromhex(self.LIDAR_commands['RESET'].replace('\\x', ''))
         self.ser_device.write(command)
         
+        _ = self.ser_device.read(self.ser_device.in_waiting)
+        
         # Wait for the sensor to reset
         time.sleep(0.5)
         
