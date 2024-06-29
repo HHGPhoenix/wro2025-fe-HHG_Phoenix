@@ -3,9 +3,12 @@ import serial
 import json
 import time
 import struct
-
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
+    
 class LidarSensor():
-    def __init__(self, address, LIDAR_commands_path=r"RPIs\Sensors\LIDAR\LIDARCommands.json"):
+    def __init__(self, address, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
         """
         Initialize the LIDAR sensor by finding the usb device and resetting it.
 
@@ -149,5 +152,37 @@ class LidarSensor():
         
         # Send the packet to the device
         self.ser_device.write(packet)
+        
+    
+    def polar_plot(self, lidar_data):
+        """
+        Generates a polar scatter plot from LIDAR data and returns the plot image as a bytes object.
 
+        Parameters:
+        - lidar_data: A list of tuples or a 2D array where each tuple/row contains (angle in degrees, distance).
 
+        Returns:
+        - A bytes object containing the image of the polar scatter plot.
+        """
+        # Convert the LIDAR data into two lists: angles and distances
+        angles_degrees, distances, _ = zip(*lidar_data)
+        angles_radians = np.radians(angles_degrees)  # Convert angles to radians for plotting
+
+        # Create a polar scatter plot
+        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+        ax.scatter(angles_radians, distances)
+
+        # Customize the plot (optional)
+        ax.set_title('LIDAR Data Polar Scatter Plot', va='bottom')
+        ax.set_theta_zero_location('N')  # Zero degrees at the top
+        ax.set_theta_direction(-1)  # Clockwise
+
+        # Save the plot to a BytesIO object and return it
+        img_bytes = BytesIO()
+        fig.savefig(img_bytes, format='png')
+        img_bytes.seek(0)  # Go to the beginning of the BytesIO object
+
+        # Close the figure to free up memory
+        plt.close(fig)
+
+        return img_bytes.getvalue()

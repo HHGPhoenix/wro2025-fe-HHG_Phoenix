@@ -20,3 +20,5 @@ logger
 
 while True:
     pass
+
+print("End of scri")

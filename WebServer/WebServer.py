@@ -1,7 +1,5 @@
-from typing import Any
 import flask
 from flask import Response
-import imageio
 
 class WebServer:
     def __init__(self, camera, port=5000):

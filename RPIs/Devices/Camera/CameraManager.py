@@ -4,7 +4,7 @@ import threading
 import time
 import uuid
 from picamera2 import Picamera2
-from picamera2 import controls
+from libcamera import controls
 
 #A class for detecting red and green blocks in the camera stream           
 class Camera():
@@ -29,6 +29,9 @@ class Camera():
 
         self.lower_red2 = np.array([173, 160, 100])
         self.upper_red2 = np.array([180, 220, 200])
+        
+        self.lower_black = np.array([0, 0, 0])
+        self.upper_black = np.array([10, 10, 10])
 
         # Define the kernel for morphological operations
         self.kernel = np.ones((7, 7), np.uint8)
@@ -47,20 +50,18 @@ class Camera():
         mask_red2 = cv2.inRange(framehsv, self.lower_red2, self.upper_red2)
         mask_red = cv2.bitwise_or(mask_red1, mask_red2)
 
-        # Combine red and green masks and then find the inverse to get non-red and non-green areas
-        mask_combined = cv2.bitwise_or(mask_red, mask_green)
-        mask_black = cv2.bitwise_not(mask_combined)
+        mask_black = cv2.inRange(framehsv, self.lower_black, self.upper_black)
 
         # Initialize a blank white image
         height, width = framehsv.shape[:2]
         simplified_image = np.ones((height, width, 3), np.uint8) * 255  # White background
 
         # Apply specified shades to red and green areas
-        simplified_image[mask_green == 255] = shade_of_green
-        simplified_image[mask_red == 255] = shade_of_red
+        simplified_image[mask_green > 0] = shade_of_green
+        simplified_image[mask_red > 0] = shade_of_red
 
         # Apply black color to non-red and non-green areas
-        simplified_image[mask_black == 255] = [0, 0, 0]  # Black
+        simplified_image[mask_black > 0] = [0, 0, 0]  # Black
 
         return simplified_image
          
