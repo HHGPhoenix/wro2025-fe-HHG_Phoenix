@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 class LidarSensor():
-    def __init__(self, address, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
+    def __init__(self, address, shared_data_list, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
         """
         Initialize the LIDAR sensor by finding the usb device and resetting it.
 
@@ -23,6 +23,7 @@ class LidarSensor():
             self.LIDAR_commands = json.load(f)
         
         self.ser_device = serial.Serial(address, 460800)
+        self.shared_data_list = shared_data_list
             
         self.reset_sensor()
     
@@ -98,8 +99,8 @@ class LidarSensor():
         start_time = time.time()  # Start time for measuring the frequency
 
         while True:
-            if self.ser_device.in_waiting >= 200:
-                data = self.ser_device.read(200)
+            if self.ser_device.in_waiting >= 400:
+                data = self.ser_device.read(400)
                 
                 # Ensure proper alignment by checking the start and stop bits
                 i = 0
@@ -123,7 +124,7 @@ class LidarSensor():
 
                         # If the angle has looped back to the start, save the current array and start a new one
                         if len(self.current_array) > 1 and S == 1 and S_bar == 0:
-                            self.data_arrays.append(self.current_array[: -2])
+                            self.shared_data_list.append(self.current_array[: -2])
                             missing_data = self.current_array[-1]
                             self.current_array = [missing_data]
 
@@ -131,16 +132,21 @@ class LidarSensor():
                             end_time = time.time()
                             frequency = 1.0 / (end_time - start_time)
                             # print(f"Frequency: {frequency} Hz")
+                            # print(f"Data points: {shared_data_list[-1]}")
                             start_time = end_time
 
-                        if len(self.data_arrays) > 0 and len(self.data_arrays) > 100:
-                            self.data_arrays.pop(0)
+                        if len(self.shared_data_list) > 0 and len(self.shared_data_list) > 100:
+                            self.shared_data_list.pop(0)
 
                         i += 5  # Move to the next chunk
                     else:
                         # If not correctly aligned, check the next byte
                         i += 1
                         print("Not aligned: ", C, S, S_bar)
+                    # if shared list is not empty print a message
+            # if len(self.shared_data_list) > 0:
+            #     print("Shared list: ", self.shared_data_list[-1])
+            #     print("Length of shared list: ", len(self.shared_data_list))
 
                                     
     def set_motor_speed(self, rpm):

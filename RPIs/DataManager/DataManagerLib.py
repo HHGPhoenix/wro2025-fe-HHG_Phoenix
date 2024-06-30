@@ -4,8 +4,7 @@ import time
 class RemoteFunctions:
     def __init__(self, DataManager):
         self.DataManager = DataManager
-        logger_obj = Logger()
-        self.logger = logger_obj.setup_log()
+        self.logger = DataManager.logger_obj
 
     def log_debug(self, message):
         self.logger.debug(f"--AIController--: {message}")

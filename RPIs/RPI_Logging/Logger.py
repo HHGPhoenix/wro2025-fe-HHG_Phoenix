@@ -27,7 +27,7 @@ class LoggerTemplate:
         Setup the logging configuration.
         
         Returns:
-        logger (logging.Logger): Configured logger instance.
+            logger (logging.Logger): Configured logger instance.
         """
         if not os.path.exists(self.local_log_dir):
             os.makedirs(self.local_log_dir)
@@ -53,7 +53,7 @@ class LoggerTemplate:
         local_file_handler.setLevel(logging.DEBUG)
         
         # Create formatter with timestamp and add it to handlers
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(formatter)
         local_file_handler.setFormatter(formatter)
         
@@ -131,19 +131,43 @@ class Logger():
         return self.logger_template._find_usb_log_dir()
     
     def debug(self, message):
-        self.logger_template.logger.debug(f"--DataManager--: {message}")
+        self.logger_template.logger.debug(f"{message}")
 
     def info(self, message):
-        self.logger_template.logger.info(f"--DataManager--: {message}")
+        self.logger_template.logger.info(f"{message}")
 
     def warning(self, message):
-        self.logger_template.logger.warning(f"--DataManager--: {message}")
+        self.logger_template.logger.warning(f"{message}")
 
     def error(self, message):
-        self.logger_template.logger.error(f"--DataManager--: {message}")
+        self.logger_template.logger.error(f"{message}")
 
     def critical(self, message):
-        self.logger_template.logger.critical(f"--DataManager--: {message}")
+        self.logger_template.logger.critical(f"{message}")
+
+class LoggerDatamanager():
+    def __init__(self, Logger):
+        self.logger = Logger
+
+    def debug(self, message):
+        self.logger.debug(f" --Datamanager-- {message}")
+
+    def info(self, message):
+        self.logger.info(f" --Datamanager-- {message}")
+
+    def warning(self, message):
+        self.logger.warning(f" --Datamanager-- {message}")
+
+    def error(self, message):
+        self.logger.error(f" --Datamanager-- {message}")
+
+    def critical(self, message):
+        self.logger.critical(f" --Datamanager-- {message}")
+
+
+
+    
+
 
         
 # Usage

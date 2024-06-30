@@ -43,19 +43,20 @@ class MessageReceiver:
             return f"LOG: No handler found for command: {command}"
 
     def start_server(self):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((self.ip, self.port))
-        server_socket.listen(5)
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Add this line
+        self.server_socket.bind((self.ip, self.port))
+        self.server_socket.listen(5)
         print(f"Server listening on {self.ip}:{self.port}")
 
         try:
             while True:
-                client_socket, client_address = server_socket.accept()
+                client_socket, client_address = self.server_socket.accept()
                 threading.Thread(target=self.handle_client, args=(client_socket, client_address)).start()
         except KeyboardInterrupt:
             print("Server is shutting down...")
         finally:
-            server_socket.close()
+            self.server_socket.close()
 
     def handle_client(self, client_socket, client_address):
         print(f"Connection from {client_address}")
