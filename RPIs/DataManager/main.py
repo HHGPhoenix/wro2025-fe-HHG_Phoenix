@@ -9,7 +9,7 @@ from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
 import multiprocessing as mp
-from queue import Queue
+import queue
 
 class DataManager:
     def __init__(self):
@@ -26,7 +26,7 @@ class DataManager:
             self.mp_manager = mp.Manager()
             self.frame_list = self.mp_manager.list([None, None, None])
             self.lidar_list = self.mp_manager.list([None])
-            self.lidar_data_list = ["a"]
+            self.lidar_data_list = queue.Queue()
             
             self.communicationestablisher = CommunicationEstablisher(self)
             
