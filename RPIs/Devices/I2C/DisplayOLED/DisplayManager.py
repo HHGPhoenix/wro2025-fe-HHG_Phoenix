@@ -22,6 +22,9 @@ class Display:
         self.header_update_thread = threading.Thread(target=self.update_header_info)
         self.header_update_thread.daemon = True
         self.header_update_thread.start()
+        self.draw_display_thread = threading.Thread(target=self.draw_display)
+        self.draw_display_thread.daemon = True
+        self.draw_display_thread.start()
         
     # Clear the Display
     def clear(self):
@@ -36,22 +39,24 @@ class Display:
         while True:
             self.cpu_usage = psutil.cpu_percent()
             self.memory_usage = psutil.virtual_memory().percent
-            self.draw_display()
-            time.sleep(1)
+            time.sleep(0.5)
 
     def draw_display(self):
-        with canvas(self.device) as draw:
-            # Clear header area
-            draw.rectangle((0, 0, self.device.width, 12), fill="black")
-            # Draw header
-            font = ImageFont.truetype("arial.ttf", 10)
-            header_text = f"CPU: {self.cpu_usage}% MEM: {self.memory_usage}%"
-            text_width, text_height = draw.textbbox((0, 0), header_text, font=font)[2:4]
-            text_x = (self.device.width - text_width) // 2
-            draw.text((text_x, 0), header_text, font=font, fill="white")
-            # Draw main content
-            draw.bitmap((0, 12), self.main_content_image, fill="white")
-                
+        while True:
+            with canvas(self.device) as draw:
+                # Clear header area
+                draw.rectangle((0, 0, self.device.width, 12), fill="black")
+                # Draw header
+                font = ImageFont.truetype("arial.ttf", 10)
+                header_text = f"CPU: {self.cpu_usage}% MEM: {self.memory_usage}%"
+                text_width, text_height = draw.textbbox((0, 0), header_text, font=font)[2:4]
+                text_x = (self.device.width - text_width) // 2
+                draw.text((text_x, 0), header_text, font=font, fill="white")
+                # Draw main content
+                draw.bitmap((0, 12), self.main_content_image, fill="white")
+            
+            time.sleep(0.3)
+                    
     def write_centered_text(self, text, clear_display=True, padding=3):
         width, height = self.device.width, self.device.height
         header_height = 12  # Height of the header
@@ -89,14 +94,14 @@ class Display:
             text_y += text_height
 
     def draw_progress_bar(self, value, max_value=100, text=None, clear_display=True):
-        width, height = self.device.width, self.device.height
+        width, height = self.device.width, self.device.height - 12  # Excluding header height
         bar_width = width - 20
         bar_height = 20
         bar_x = 10
-        bar_y = (height - bar_height) // 2 
+        bar_y = (height - bar_height) // 2 - 6  # Centered in the main content area
 
         progress_length = int((value / max_value) * bar_width)
-        self.main_content_draw.rectangle((0, 0, self.device.width, self.device.height - 12), fill="black")
+        self.main_content_draw.rectangle((0, 0, self.device.width, self.device.height - 0), fill="black")
         self.main_content_draw.rectangle((bar_x, bar_y, bar_x + bar_width, bar_y + bar_height), outline="white", fill="black")
         self.main_content_draw.rectangle((bar_x, bar_y, bar_x + progress_length, bar_y + bar_height), outline="white", fill="white")
 
@@ -107,12 +112,14 @@ class Display:
             text_y = bar_y + bar_height + 5
             self.main_content_draw.text((text_x, text_y), text, font=font, fill="white")
 
+        
+
 
 # Example usage
 if __name__ == "__main__":
     display = Display()
     display.write_centered_text("Hello, World! a a a a a a a a a a")
-    time.sleep(8)
+    time.sleep(1)
     display.draw_progress_bar(value=50, max_value=100, text="Loading...")
 
     for i in range(101):
