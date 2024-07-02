@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 
 class LidarSensor():
-    def __init__(self, address, shared_data_list, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
+    def __init__(self, address, lidar_data_list, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
         """
         Initialize the LIDAR sensor by finding the usb device and resetting it.
 
@@ -23,7 +23,7 @@ class LidarSensor():
             self.LIDAR_commands = json.load(f)
         
         self.ser_device = serial.Serial(address, 460800)
-        self.shared_data_list = shared_data_list
+        self.lidar_data_list = lidar_data_list
             
         self.reset_sensor()
     
@@ -93,14 +93,21 @@ class LidarSensor():
         """
         Read the data from the LIDAR sensor. This function is blocking and will run indefinitely.
         """
+
+        # counter = 0
+        # while True:
+        #     counter += 1
+        #     self.lidar_data_queue.put(counter)
+        #     time.sleep(1)  # Sleep for 1 second to slow down the counting for demonstration purposes
+
         
         self.data_arrays = []  # This will hold the arrays of data
         self.current_array = []  # This will hold the current array of data
         start_time = time.time()  # Start time for measuring the frequency
 
         while True:
-            if self.ser_device.in_waiting >= 400:
-                data = self.ser_device.read(400)
+            if self.ser_device.in_waiting >= 200:
+                data = self.ser_device.read(200)
                 
                 # Ensure proper alignment by checking the start and stop bits
                 i = 0
@@ -124,7 +131,7 @@ class LidarSensor():
 
                         # If the angle has looped back to the start, save the current array and start a new one
                         if len(self.current_array) > 1 and S == 1 and S_bar == 0:
-                            self.shared_data_list.append(self.current_array[: -2])
+                            self.lidar_data_list.append(self.current_array)
                             missing_data = self.current_array[-1]
                             self.current_array = [missing_data]
 
@@ -135,8 +142,8 @@ class LidarSensor():
                             # print(f"Data points: {shared_data_list[-1]}")
                             start_time = end_time
 
-                        if len(self.shared_data_list) > 0 and len(self.shared_data_list) > 100:
-                            self.shared_data_list.pop(0)
+                        if len(self.lidar_data_list) > 0 and len(self.lidar_data_list) > 100:
+                            self.lidar_data_list.pop(0)
 
                         i += 5  # Move to the next chunk
                     else:

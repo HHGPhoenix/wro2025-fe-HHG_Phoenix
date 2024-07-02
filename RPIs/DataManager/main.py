@@ -23,10 +23,12 @@ class DataManager:
             self.mode = None
             self.data_transferer = None
 
+            self.running = False
+
             self.mp_manager = mp.Manager()
             self.frame_list = self.mp_manager.list([None, None, None])
             self.lidar_list = self.mp_manager.list([None])
-            self.lidar_data_list = queue.Queue()
+            self.lidar_data_list = self.mp_manager.list()
             
             self.communicationestablisher = CommunicationEstablisher(self)
             
@@ -59,9 +61,10 @@ class DataManager:
         self.client = Messenger('192.168.1.2', 22222)
         
     def initialize_components(self):
-        cam = Camera()
+        # cam = Camera()
+        cam = None
         
-        lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
+        lidar = LidarSensor("/dev/ttyAMA0", self.lidar_data_list)
         lidar.reset_sensor()
         lidar.start_sensor()
         lidar_thread = threading.Thread(target=lidar.read_data, daemon=True)
@@ -105,8 +108,13 @@ class DataManager:
         self.logger.info("Starting main loop for opening race...")
         
         while self.running:
-            print(f"Lidar data: {self.lidar_data_list}")
-            time.sleep(0.1)  # Add a small delay to avoid excessive printing
+            print("running")
+            self.logger.info(f"LIDAR data: {self.lidar_data_list[-1]}")
+                
+            
+            time.sleep(0.1)
+        
+        print("Opening ended. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ")
         
     def main_loop_obstacle_race(self):
         self.logger.info("Starting main loop for obstacle race...")

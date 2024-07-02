@@ -13,12 +13,12 @@ class DataTransferer:
 
     def start(self):
         camera_thread = threading.Thread(target=self.process_cam_frames)
-        camera_thread.start()
+        # camera_thread.start()
         
         print("Camera thread started")
 
         lidar_thread = threading.Thread(target=self.process_lidar_data)
-        lidar_thread.start()
+        # lidar_thread.start()
         
         print("Lidar thread started")
 

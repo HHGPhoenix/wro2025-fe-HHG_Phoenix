@@ -1,19 +1,22 @@
 import threading
 import time
 import queue
-from oarsch import count_up
+from oarsch import Counter
 
 class CounterThread:
     def __init__(self):
         self.queue = queue.Queue()
         self.counting_thread = None
 
+        self.counter = Counter(self.queue)
+
         self.run()
 
     def run(self):
-        self.counting_thread = threading.Thread(target=lambda: count_up(self.queue))
-        self.counting_thread.daemon = True
+        self.counting_thread = threading.Thread(target=self.counter.count_up, daemon=True)
         self.counting_thread.start()
+        
+        self.run2()
 
     def run2(self):
         try:
@@ -27,4 +30,3 @@ class CounterThread:
 
 # Usage
 counter_thread = CounterThread()
-counter_thread.run2()
