@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Navbar from '../components/Nav/Navbar.js';
 import Home from '../pages/LiDAR.js';
-import About from '../pages/Vidstreams.js';
+import StreamSite from '../pages/Vidstreams.js';
 import Contact from '../pages/CarControl.js';
 import '../tailwind.css';
 
@@ -17,7 +17,7 @@ const App: React.FC = () => {
                     </h1>
                     <Routes>
                         <Route path="/" element={<Home />} />
-                        <Route path="/about" element={<About />} />
+                        <Route path="/about" element={<StreamSite />} />
                         <Route path="/contact" element={<Contact />} />
                     </Routes>
                 </div>
