@@ -132,9 +132,8 @@ class LidarSensor():
                         # If the angle has looped back to the start, save the current array and start a new one
                         if len(self.current_array) > 1 and S == 1 and S_bar == 0:
                             self.lidar_data_list.append(self.current_array)
-                            missing_data = self.current_array[-1]
-                            self.current_array = [missing_data]
-
+                            self.current_array = []
+                            
                             # Calculate and print the frequency
                             end_time = time.time()
                             frequency = 1.0 / (end_time - start_time)

@@ -49,6 +49,12 @@ class RemoteFunctions:
     
     def receive_good(self):
         self.AIController.communicationestablisher.received_message = 'GOOD'
+        
+    def set_analog_stick_values(self, x, y, rx, ry):
+        self.AIController.x = x
+        self.AIController.y = y
+        self.AIController.rx = rx
+        self.AIController.ry = ry
 
 class CommunicationEstablisher():
     def __init__(self, pi):

@@ -2,5 +2,6 @@
     "MODE": "set_mode",
     "START": "start",
     "How is it going?": "send_good",
-    "GOOD": "receive_good"
+    "GOOD": "receive_good",
+    "ANALOG_STICKS": "set_analog_stick_values"
 }

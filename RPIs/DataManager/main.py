@@ -4,10 +4,14 @@ from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.RPI_Logging.Logger import Logger, LoggerDatamanager
 from RPIs.DataManager.DataManagerLib import RemoteFunctions, CommunicationEstablisher
+
 from RPIs.Devices.Camera.CameraManager import Camera
 from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
+from RPIs.Devices.PSController.psController import PSController
+
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
+
 import multiprocessing as mp
 import queue
 
@@ -27,7 +31,7 @@ class DataManager:
 
             self.mp_manager = mp.Manager()
             self.frame_list = self.mp_manager.list([None, None, None])
-            self.lidar_list = self.mp_manager.list([None])
+            self.interpolated_lidar_data = self.mp_manager.list([None])
             self.lidar_data_list = self.mp_manager.list()
             
             self.communicationestablisher = CommunicationEstablisher(self)
@@ -71,11 +75,11 @@ class DataManager:
         lidar_thread.start()
         self.logger.info("Camera and LIDAR initialized.")
         
-        data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_list)
+        data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
         p_transferer = mp.Process(target=data_transferer.start)
         p_transferer.start()
         
-        p_web_server = mp.Process(target=WebServer, args=(self.frame_list, self.lidar_list, 5000, '192.168.178.88'))
+        p_web_server = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
         p_web_server.start()
 
         return cam, lidar, data_transferer
@@ -108,8 +112,8 @@ class DataManager:
         self.logger.info("Starting main loop for opening race...")
         
         while self.running:
-            print("running")
-            self.logger.info(f"LIDAR data: {self.lidar_data_list[-1]}")
+            # print("running")
+            # self.logger.info(f"LIDAR data: {self.lidar_data_list[-1]}")
                 
             
             time.sleep(0.1)
@@ -118,6 +122,19 @@ class DataManager:
         
     def main_loop_obstacle_race(self):
         self.logger.info("Starting main loop for obstacle race...")
+        
+    def main_loop_training(self):
+        self.logger.info("Starting main loop for training...")
+        ps_controller = PSController()
+        ps_controller.calibrate_analog_sticks()
+        
+        while self.running:
+            x, y, rx, ry = ps_controller.get_analog_stick_values()
+            
+            self.client.send_message(f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}")
+            
+            
+            
         
 if __name__ == "__main__":
     try:

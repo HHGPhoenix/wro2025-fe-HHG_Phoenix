@@ -5,11 +5,12 @@ import numpy as np
 import os
 
 class WebServer:
-    def __init__(self, shared_frames_list, shared_lidar_list, port=5000, host='0.0.0.0'):
+    def __init__(self, shared_frames_list, shared_lidar_lists, port=5000, host='0.0.0.0'):
         self.port = port
         self.host = host
         self.shared_frames_list = shared_frames_list
-        self.shared_lidar_list = shared_lidar_list
+        self.shared_lidar_list = shared_lidar_lists[0]
+        self.interpolated_lidar_list = shared_lidar_lists[1]
         
         self.app = flask.Flask(__name__)
         
@@ -32,19 +33,40 @@ class WebServer:
         def simplified_video_stream():
             return Response(self.stream_camera(self.generate_simplified_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-        @self.app.route('/lidar_data')
+        @self.app.route('/lidar/data')
         def lidar_data():
-            lidar_data = np.frombuffer(self.shared_lidar_list[0], dtype=np.float32).tolist()
-            return Response(jsonify(lidar_data), mimetype='application/json')
+            if len(self.shared_lidar_list) == 0:
+                return jsonify({"error": "No LIDAR data available"})
+            
+            lidar_data = self.shared_lidar_list[-1]
+            
+            print(jsonify(lidar_data))
+            
+            return jsonify(lidar_data)
+        
+        @self.app.route('/lidar/interpolated_data')
+        def interpolated_lidar_data():
+            if len(self.interpolated_lidar_list) == 0:
+                return jsonify({"error": "No interpolated LIDAR data available"})
+            
+            interpolated_lidar_data = self.interpolated_lidar_list[-1]
+            
+            print(jsonify(interpolated_lidar_data))
+            
+            return jsonify(interpolated_lidar_data)
         
         @self.app.route('/log_data')
         def log_data():
             logs_folder = 'LOGS'  # Replace with the actual path to the LOGS folder
-            log_files = os.listdir(logs_folder)
-            log_files.sort(key=os.path.getmtime, reverse=True)
-            most_recent_file = log_files[0]
-            log_data = read_log_file(os.path.join(logs_folder, most_recent_file))
-            return Response(jsonify(log_data), mimetype='application/json')
+            log_files = [f for f in os.listdir(logs_folder) if os.path.isfile(os.path.join(logs_folder, f))]
+            log_files.sort(key=lambda f: os.path.getmtime(os.path.join(logs_folder, f)), reverse=True)
+            if log_files:
+                most_recent_file = log_files[0]
+                log_data = read_log_file(os.path.join(logs_folder, most_recent_file))
+                
+                return jsonify(log_data)
+            else:
+                return jsonify({"error": "No log files found"})
 
         def read_log_file(file_path):
             with open(file_path, 'r') as file:

@@ -4,19 +4,33 @@ from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions, CommunicationEstablisher
 
+from RPIs.Devices.Servo.servoClass import Servo
+
 class AIController:
     def __init__(self):
         try:
+            self.servo_pin = 0
+            
             print("Starting AIController...")
             self.receiver = None
             self.client = None
             self.logger = None
             self.mode = None
+            self.servo = None
+            
             self.running = False
+            
+            self.x = 0.5
+            self.y = 0.5
+            self.rx = 0.5
+            self.ry = 0.5
+            
             self.communicationestablisher = CommunicationEstablisher(self)
             self.start_comm()
 
             self.logger.info("AIController started.")
+            
+            self.servo = self.initialize_components()
 
             self.communicationestablisher.spam()
         
@@ -33,6 +47,11 @@ class AIController:
         self.client = Messenger('192.168.1.3', 11111)
 
         self.logger = AICU_Logger(self.client)
+        
+    def initialize_components(self):
+        servo = Servo(self.servo_pin, minAngle=60, middleAngle=90, maxAngle=120)
+        
+        return servo
 
     def main_loop_opening_race(self):
         self.logger.info("Starting main loop for opening race...")
@@ -45,6 +64,13 @@ class AIController:
         
         while self.running:
             pass
+        
+    def main_loop_training(self):
+        self.logger.info("Starting main loop for training...")
+        
+        while self.running:
+            servo_angle = self.servo.mapToServoAngle(self.x)
+            self.servo.setAngle(servo_angle)
         
 if __name__ == "__main__":
     try:
