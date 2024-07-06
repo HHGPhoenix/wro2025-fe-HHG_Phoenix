@@ -34,7 +34,7 @@ class DataTransferer:
             frameraw = self.camera.compress_frame(frameraw)
             framehsv = self.camera.compress_frame(framehsv)
             
-            print(f"frameraw: {frameraw.shape}")
+            # print(f"frameraw: {frameraw.shape}")
             simplified_image = self.camera.simplify_image(framehsv.copy(), [0, 255, 0], [255, 0, 0])
             object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
             
