@@ -15,6 +15,23 @@ class PSController():
             ecodes.ABS_RY: 'right_analog_y'
         }
         
+        self.BUTTON_CODES = {
+            ecodes.BTN_TL: 'left_trigger',
+            ecodes.BTN_TR: 'right_trigger',
+            ecodes.BTN_SOUTH: 'cross',
+            ecodes.BTN_EAST: 'circle',
+            ecodes.BTN_NORTH: 'triangle',
+            ecodes.BTN_WEST: 'square',
+            ecodes.BTN_THUMBL: 'left_analog',
+            ecodes.BTN_THUMBR: 'right_analog',
+            ecodes.BTN_TL2: 'left_bumper',
+            ecodes.BTN_TR2: 'right_bumper',
+            ecodes.BTN_MODE: 'ps_button',
+            ecodes.BTN_START: 'options',
+            ecodes.BTN_SELECT: 'share',
+            ecodes.BTN_TRIGGER_HAPPY1: 'touchpad'
+        }
+        
         self.calibrated_x_value = 128
         self.calibrated_y_value = 128
         self.calibrated_rx_value = 128
@@ -24,6 +41,11 @@ class PSController():
         self.left_analog_y = 128
         self.right_analog_x = 128
         self.right_analog_y = 128
+        
+        self.cross = 0
+        self.circle = 0
+        self.triangle = 0
+        self.square = 0
 
         self.device_path = self.find_ps4_controller()
         print(f"Found PS4 controller at {self.device_path}")
@@ -70,6 +92,19 @@ class PSController():
                     self.right_analog_x = event.value
                 elif self.AXIS_CODES[event.code] == 'right_analog_y':
                     self.right_analog_y = event.value
+                    
+            elif event.type == ecodes.EV_KEY and event.code in self.BUTTON_CODES:
+                if self.BUTTON_CODES[event.code] == 'ps_button' and event.value == 1:
+                    self.calibrate_analog_sticks()
+                elif self.BUTTON_CODES[event.code] == 'cross':
+                    self.cross = event.value
+                elif self.BUTTON_CODES[event.code] == 'circle':
+                    self.circle = event.value
+                elif self.BUTTON_CODES[event.code] == 'triangle':
+                    self.triangle = event.value
+                elif self.BUTTON_CODES[event.code] == 'square':
+                    self.square = event.value
+                    
 
     def get_analog_stick_values(self):
         left_analog_x_value = self.left_analog_x / self.calibrated_x_value / 2

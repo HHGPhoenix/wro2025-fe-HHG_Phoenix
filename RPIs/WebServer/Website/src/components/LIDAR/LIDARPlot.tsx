@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
 
-const LIDARPlot: React.FC = () => {
+const LIDARPlot: React.FC<{ lidarDataURL: string }> = ({ lidarDataURL }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     let chartInstance: Chart | null = null;
 
     async function fetchLidarData() {
         try {
-            const response = await fetch('/lidar/data');
+            const response = await fetch(lidarDataURL); // Use lidarDataURL as the fetch URL
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
