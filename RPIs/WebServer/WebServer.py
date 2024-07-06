@@ -63,7 +63,7 @@ class WebServer:
             
             return jsonify(interpolated_lidar_data)
         
-        @self.app.route('/log_data')
+        @self.app.route('/log/full_data')
         def log_data():
             logs_folder = 'LOGS'  # Replace with the actual path to the LOGS folder
             log_files = [f for f in os.listdir(logs_folder) if os.path.isfile(os.path.join(logs_folder, f))]
@@ -71,6 +71,22 @@ class WebServer:
             if log_files:
                 most_recent_file = log_files[0]
                 log_data = read_log_file(os.path.join(logs_folder, most_recent_file))
+                
+                return jsonify(log_data)
+            else:
+                return jsonify({"error": "No log files found"})
+            
+        @self.app.route('/log/data/<int:lines>')
+        def last_log_data(lines=10):
+            # only read the last 10 entries of the most recent log file
+            logs_folder = 'LOGS'  # Replace with the actual path to the LOGS folder
+            log_files = [f for f in os.listdir(logs_folder) if os.path.isfile(os.path.join(logs_folder, f))]
+            log_files.sort(key=lambda f: os.path.getmtime(os.path.join(logs_folder, f)), reverse=True)
+            if log_files:
+                most_recent_file = log_files[0]
+                log_data = read_log_file(os.path.join(logs_folder, most_recent_file))
+                
+                log_data = log_data.split('\n')[-lines:]
                 
                 return jsonify(log_data)
             else:
