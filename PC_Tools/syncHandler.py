@@ -6,6 +6,7 @@ from watchdog.events import FileSystemEventHandler
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import pathspec  # Import the pathspec library for .gitignore pattern matching
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,22 +28,23 @@ RPI2_USER = os.getenv('RPI2_USER')
 RPI2_PASS = os.getenv('RPI2_PASS')
 RPI2_DEST_DIR = os.getenv('RPI2_DEST_DIR')
 
-GITIGNORE_FILE = os.path.join(WATCHED_DIR, '.gitignore')
+# Update to use GITIGNORE_PATH environment variable
+GITIGNORE_FILE = os.getenv('GITIGNORE_PATH')
 
-# Load .gitignore entries
+# Load .gitignore entries and compile into pathspec
 def load_gitignore_entries():
     if os.path.exists(GITIGNORE_FILE):
         with open(GITIGNORE_FILE, 'r') as f:
-            return [line.strip() for line in f if line.strip() and not line.startswith('#')]
-    return []
+            gitignore_lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            return pathspec.PathSpec.from_lines('gitwildmatch', gitignore_lines)
+    return pathspec.PathSpec([])  # Return an empty PathSpec if no .gitignore file is found
 
-# Check if the file should be ignored
+# Check if the file should be ignored using pathspec
 def is_ignored(file_path):
-    gitignore_entries = load_gitignore_entries()
-    for entry in gitignore_entries:
-        if entry in file_path:
-            return True
-    return False
+    # Convert to relative path from WATCHED_DIR and normalize
+    relative_path = os.path.relpath(file_path, WATCHED_DIR).replace("\\", "/")
+    gitignore_spec = load_gitignore_entries()
+    return gitignore_spec.match_file(relative_path)
 
 # SSH connection setup
 def ssh_connect(host, port, user, password):

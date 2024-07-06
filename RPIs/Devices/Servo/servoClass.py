@@ -31,7 +31,7 @@ class Servo:
         pulseWidthMicroseconds = self.minPulse + (self.maxPulse - self.minPulse) * angle / 180
         # Convert microseconds to a percentage of the 20ms cycle
         pulseWidthPercentage = (pulseWidthMicroseconds / 20000) * 100
-        print("Setting angle to", angle, "with pulse width", pulseWidthPercentage)
+        # print("Setting angle to", angle, "with pulse width", pulseWidthPercentage)
         self.pwm.ChangeDutyCycle(pulseWidthPercentage)
         
     def mapToServoAngle(self, value):

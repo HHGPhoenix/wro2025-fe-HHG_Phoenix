@@ -34,8 +34,9 @@ class MessageReceiver:
         
         if command in self.message_handler_map:
             try:
-                print(f"Executing {command} with arguments {values}")
-                self.message_handler_map[command](*values)
+                # print(f"Executing {command} with arguments {values}")
+                t_handler = threading.Thread(target=self.message_handler_map[command], args=(*values,), daemon=True)
+                t_handler.start()
                 return f"Success: {command} executed with arguments {values}"
             except Exception as e:
                 return f"LOG: Error executing {command} with arguments {values} - {str(e)}"
@@ -52,7 +53,7 @@ class MessageReceiver:
         try:
             while True:
                 client_socket, client_address = self.server_socket.accept()
-                threading.Thread(target=self.handle_client, args=(client_socket, client_address)).start()
+                threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True).start()
         except KeyboardInterrupt:
             print("Server is shutting down...")
         finally:
@@ -62,12 +63,19 @@ class MessageReceiver:
         print(f"Connection from {client_address}")
         
         try:
-            data = client_socket.recv(1024).decode('utf-8')
-            if data:
-                print(f"Received message: {data}")
-                response = self.handle_message(data)
-                print(f"Response: {response}")
-                # client_socket.sendall(response.encode('utf-8'))
+            while True:
+                data = client_socket.recv(1024).decode('utf-8')
+                
+                if data:
+                    data = data.split('\n')
+                    
+                    for message in data:
+                        message = message.strip()
+                        if message:
+                            # print(f"Received message: {message}")
+                            response = self.handle_message(message)
+                            # print(f"Response: {response}")
+                            # client_socket.sendall(response.encode('utf-8'))
         except Exception as e:
             print(f"Error handling client {client_address}: {e}")
         finally:

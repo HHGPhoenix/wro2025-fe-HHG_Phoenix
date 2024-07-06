@@ -17,7 +17,7 @@ class DataTransferer:
 
     def start(self):
         camera_thread = threading.Thread(target=self.process_cam_frames)
-        # camera_thread.start()
+        camera_thread.start()
         
         print("Camera thread started")
 
@@ -31,9 +31,12 @@ class DataTransferer:
         while True:
             frameraw, framehsv = self.camera.capture_array()
             
+            frameraw = self.camera.compress_frame(frameraw)
+            framehsv = self.camera.compress_frame(framehsv)
+            
             print(f"frameraw: {frameraw.shape}")
-            simplified_image = self.camera.simplify_image(framehsv, [0, 255, 0], [255, 0, 0])
-            object_image = self.camera.draw_blocks(frameraw, framehsv)
+            simplified_image = self.camera.simplify_image(framehsv.copy(), [0, 255, 0], [255, 0, 0])
+            object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
             
             # Update shared list with the new frames
             self.frame_list[0] = frameraw.tobytes()
@@ -56,7 +59,7 @@ class DataTransferer:
 
             # Filter out invalid points (distance zero)
             df = df[(df["distance"] != 0)]
-            df["angle"] = (df["angle"] - 90) % 360
+            # df["angle"] = (df["angle"] - 90) % 360
 
             # Sort the data by angle
             df = df.sort_values("angle")

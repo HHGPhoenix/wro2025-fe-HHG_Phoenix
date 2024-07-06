@@ -12,7 +12,7 @@ class WebServer:
         self.shared_lidar_list = shared_lidar_lists[0]
         self.interpolated_lidar_list = shared_lidar_lists[1]
         
-        self.app = flask.Flask(__name__)
+        self.app = flask.Flask(__name__, static_folder='Website/dist', template_folder='Website/dist', static_url_path='/')
         
         self.app_routes()
         self.start()
@@ -27,15 +27,19 @@ class WebServer:
     def app_routes(self):
         @self.app.route('/')
         def index():
-            return open('RPIs/WebServer/polar_test.html').read()
+            return render_template('index.html')
         
-        @self.app.route('/raw_video_stream')
+        @self.app.route('/cam/raw_video_stream')
         def raw_video_stream():
             return Response(self.stream_camera(self.generate_raw_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-        @self.app.route('/simplified_video_stream')
+        @self.app.route('/cam/simplified_video_stream')
         def simplified_video_stream():
             return Response(self.stream_camera(self.generate_simplified_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
+        
+        @self.app.route('/cam/object_video_stream')
+        def object_video_stream():
+            return Response(self.stream_camera(self.generate_object_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
         @self.app.route('/lidar/data')
         def lidar_data():
@@ -80,13 +84,19 @@ class WebServer:
     def generate_raw_frame(self):
         frameraw_bytes = self.shared_frames_list[0]
         if frameraw_bytes:
-            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 640, 3))  # Adjust shape as needed
+            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 853, 3))  # Adjust shape as needed
             return frame
                 
     def generate_simplified_frame(self):
         simplified_image_bytes = self.shared_frames_list[1]
         if simplified_image_bytes:
-            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((480, 640, 3))  # Adjust shape as needed
+            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((480, 853, 3))  # Adjust shape as needed
+            return frame
+        
+    def generate_object_frame(self):
+        object_image_bytes = self.shared_frames_list[2]
+        if object_image_bytes:
+            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((480, 853, 3))  # Adjust shape as needed
             return frame
         
     def stream_camera(self, image_function):

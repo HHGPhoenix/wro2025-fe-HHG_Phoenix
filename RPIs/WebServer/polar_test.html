@@ -30,9 +30,17 @@
                 const lidarData = await fetchLidarData();
                 if (!lidarData) return;
 
-                // Transform the data for the radar chart
-                const labels = lidarData.map((point) => Math.round(point[0])); // Rounded angles
-                const dataPoints = lidarData.map((point) => point[1]); // Distances
+                const completeData = new Array(360).fill(null); // Initialize an array for all angles with null values
+
+                lidarData.forEach((point) => {
+                    const angle = Math.round(point[0]);
+                    if (angle >= 0 && angle < 360) {
+                        completeData[angle] = point[1];
+                    }
+                });
+
+                const labels = completeData.map((_, index) => index);
+                const dataPoints = completeData;
 
                 const data = {
                     labels: labels,
@@ -40,12 +48,12 @@
                         {
                             label: "LIDAR Data Points",
                             data: dataPoints,
-                            backgroundColor: "rgba(255, 99, 132, 0.2)",
+                            backgroundColor: "rgba(255, 99, 132, 0)",
                             borderColor: "rgba(255, 99, 132, 1)",
-                            borderWidth: 0, // No lines
+                            borderWidth: 0,
                             pointBackgroundColor: "rgba(255, 99, 132, 1)",
                             pointBorderColor: "rgba(255, 99, 132, 1)",
-                            pointRadius: 3, // Size of the points
+                            pointRadius: 3,
                         },
                     ],
                 };
@@ -57,8 +65,8 @@
                         scales: {
                             r: {
                                 beginAtZero: true,
-                                suggestedMin: 0, // Adjust based on your data's minimum expected value
-                                suggestedMax: 2500, // Adjust based on your data's maximum expected value
+                                suggestedMin: 0,
+                                suggestedMax: 2500,
                                 angleLines: {
                                     display: true,
                                 },
@@ -69,29 +77,26 @@
                         },
                         elements: {
                             line: {
-                                borderWidth: 0, // Ensure no lines are drawn
+                                borderWidth: 0,
                             },
                             point: {
-                                radius: 3, // Size of the points
+                                radius: 3,
                             },
                         },
-                        animation: false, // Disable animation
+                        animation: false,
                         plugins: {
                             legend: {
-                                display: false, // Adjust based on your preference
+                                display: false,
                             },
                         },
-                        // Set the start angle to -90 degrees to align 0 degrees at the top
                         startAngle: 0,
                     },
                 };
 
-                // Destroy the existing chart instance if it exists
                 if (chartInstance) {
                     chartInstance.destroy();
                 }
 
-                // Create a new chart instance
                 chartInstance = new Chart(
                     document.getElementById("polarPlot"),
                     config

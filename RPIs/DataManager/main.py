@@ -5,7 +5,7 @@ from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.RPI_Logging.Logger import Logger, LoggerDatamanager
 from RPIs.DataManager.DataManagerLib import RemoteFunctions, CommunicationEstablisher
 
-from RPIs.Devices.Camera.CameraManager import Camera
+from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
 from RPIs.Devices.PSController.psController import PSController
 
@@ -40,11 +40,11 @@ class DataManager:
 
             self.logger.info("DataManager started.")
             
-            self.mode = self.choose_mode()
             
             self.cam, self.lidar, self.data_transferer = self.initialize_components()
 
             self.communicationestablisher.spam()
+            self.mode = self.choose_mode()
 
             for i in range(3):
                 time.sleep(1)
@@ -65,8 +65,7 @@ class DataManager:
         self.client = Messenger('192.168.1.2', 22222)
         
     def initialize_components(self):
-        # cam = Camera()
-        cam = None
+        cam = Camera()
         
         lidar = LidarSensor("/dev/ttyAMA0", self.lidar_data_list)
         lidar.reset_sensor()
@@ -136,8 +135,8 @@ class DataManager:
             
             self.client.send_message(f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}")
             
-            
-            
+            time.sleep(0.1)
+
         
 if __name__ == "__main__":
     try:

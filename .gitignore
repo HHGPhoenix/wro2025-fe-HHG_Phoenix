@@ -3,7 +3,6 @@ Delete
 __pycache__/
 /LOGS
 .env
-/node_modules
+node_modules
 /.vscode
-/Website/node_modules
 PC_Tools/sync_handler_data.json
