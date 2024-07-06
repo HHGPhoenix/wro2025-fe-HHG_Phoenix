@@ -9,7 +9,7 @@ from RPIs.Devices.Servo.servoClass import Servo
 class AIController:
     def __init__(self):
         try:
-            self.servo_pin = 0
+            self.servo_pin = 4
             
             print("Starting AIController...")
             self.receiver = None
@@ -31,10 +31,13 @@ class AIController:
             self.logger.info("AIController started.")
             
             self.servo = self.initialize_components()
+            
+            self.logger.info("Spamming...")
 
             self.communicationestablisher.spam()
         
-        except:
+        except Exception as e:
+            print(e)
             self.receiver.server_socket.close()
 
     def start_comm(self):
@@ -49,7 +52,7 @@ class AIController:
         self.logger = AICU_Logger(self.client)
         
     def initialize_components(self):
-        servo = Servo(self.servo_pin, minAngle=60, middleAngle=90, maxAngle=120)
+        servo = Servo(self.servo_pin, minAngle=80, middleAngle=100, maxAngle=140)
         
         return servo
 

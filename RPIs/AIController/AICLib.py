@@ -40,6 +40,9 @@ class RemoteFunctions:
         elif self.AIController.mode == 'ObstacleRace':
             self.AIController.main_loop_obstacle_race()
             
+        elif self.AIController.mode == 'Training':
+            self.AIController.main_loop_training()
+            
         else:
             self.AIController.logger.error(f'Unknown mode: {self.AIController.mode}')
             self.AIController.running = False

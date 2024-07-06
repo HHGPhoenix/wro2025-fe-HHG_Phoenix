@@ -1,5 +1,5 @@
 import flask
-from flask import Response, jsonify
+from flask import Response, jsonify, render_template
 import cv2
 import numpy as np
 import os
@@ -25,6 +25,10 @@ class WebServer:
         print("Web server stopped")
         
     def app_routes(self):
+        @self.app.route('/')
+        def index():
+            return open('RPIs/WebServer/polar_test.html').read()
+        
         @self.app.route('/raw_video_stream')
         def raw_video_stream():
             return Response(self.stream_camera(self.generate_raw_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -40,8 +44,8 @@ class WebServer:
             
             lidar_data = self.shared_lidar_list[-1]
             
-            print(jsonify(lidar_data))
-            
+            lidar_data.sort(key=lambda x: x[0])
+
             return jsonify(lidar_data)
         
         @self.app.route('/lidar/interpolated_data')

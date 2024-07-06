@@ -2,6 +2,8 @@ import RPi.GPIO as GPIO
 
 class Servo:
     def __init__(self, pin, minPulse=500, maxPulse=2500, minAngle=0, middleAngle=90, maxAngle=180):
+        GPIO.setmode(GPIO.BCM)
+        
         self.pin = pin
         
         self.minPulse = minPulse
@@ -11,8 +13,10 @@ class Servo:
         self.middleAngle = middleAngle
         self.maxAngle = maxAngle
         
+        GPIO.setup(pin, GPIO.OUT)
+        
         self.pwm = GPIO.PWM(pin, 50)
-        self.pwm.start(0)
+        self.pwm.start(50)
         
         self.angle = 0
 
@@ -23,8 +27,12 @@ class Servo:
             angle = 180
             
         self.angle = angle
-        pulseWidth = self.minPulse + (self.maxPulse - self.minPulse) * angle / 180
-        self.pwm.ChangeDutyCycle(pulseWidth / 10)
+        # Calculate pulse width in microseconds
+        pulseWidthMicroseconds = self.minPulse + (self.maxPulse - self.minPulse) * angle / 180
+        # Convert microseconds to a percentage of the 20ms cycle
+        pulseWidthPercentage = (pulseWidthMicroseconds / 20000) * 100
+        print("Setting angle to", angle, "with pulse width", pulseWidthPercentage)
+        self.pwm.ChangeDutyCycle(pulseWidthPercentage)
         
     def mapToServoAngle(self, value):
         if value <= 0.5:

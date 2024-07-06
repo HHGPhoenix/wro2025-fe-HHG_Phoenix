@@ -104,6 +104,9 @@ class DataManager:
         elif self.mode == 'ObstacleRace':
             self.main_loop_obstacle_race()
             
+        elif self.mode == 'Training':
+            self.main_loop_training()
+            
         else:
             self.logger.error(f'Unknown mode: {self.mode}')
             self.running = False
