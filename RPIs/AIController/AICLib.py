@@ -58,6 +58,9 @@ class RemoteFunctions:
         self.AIController.y = y
         self.AIController.rx = rx
         self.AIController.ry = ry
+        
+    def set_lidar_data(self, data):
+        self.AIController.lidar_data = data
 
 class CommunicationEstablisher():
     def __init__(self, pi):

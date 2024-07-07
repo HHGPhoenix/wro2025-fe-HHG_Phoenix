@@ -3,5 +3,6 @@
     "START": "start",
     "How is it going?": "send_good",
     "GOOD": "receive_good",
-    "ANALOG_STICKS": "set_analog_stick_values"
+    "ANALOG_STICKS": "set_analog_stick_values",
+    "LIDAR_DATA": "set_lidar_data"
 }

@@ -17,6 +17,7 @@ class AIController:
             self.logger = None
             self.mode = None
             self.servo = None
+            self.lidar_data = None
             
             self.running = False
             
@@ -24,6 +25,7 @@ class AIController:
             self.y = 0.5
             self.rx = 0.5
             self.ry = 0.5
+            
             
             self.communicationestablisher = CommunicationEstablisher(self)
             self.start_comm()

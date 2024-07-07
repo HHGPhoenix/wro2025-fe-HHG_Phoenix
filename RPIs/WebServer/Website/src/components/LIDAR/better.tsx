@@ -91,7 +91,7 @@ const LIDARPlot: React.FC<{ lidarDataURL: string }> = ({ lidarDataURL }) => {
         };
 
         drawPolarPlot();
-        const interval = setInterval(drawPolarPlot, 400);
+        const interval = setInterval(drawPolarPlot, 200);
 
         return () => {
             clearInterval(interval);

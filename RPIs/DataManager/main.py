@@ -14,6 +14,16 @@ from RPIs.WebServer.WebServer import WebServer
 
 import multiprocessing as mp
 import queue
+import os
+
+def set_nice_priority(nice_value):
+    os.nice(nice_value)
+
+def target_with_nice_priority(target, nice_value):
+    def wrapper(*args, **kwargs):
+        set_nice_priority(nice_value)
+        target(*args, **kwargs)
+    return wrapper
 
 class DataManager:
     def __init__(self):
@@ -67,18 +77,18 @@ class DataManager:
     def initialize_components(self):
         cam = Camera()
         
-        lidar = LidarSensor("/dev/ttyAMA0", self.lidar_data_list)
+        lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
         lidar.reset_sensor()
         lidar.start_sensor()
-        lidar_thread = threading.Thread(target=lidar.read_data, daemon=True)
+        lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
         lidar_thread.start()
         self.logger.info("Camera and LIDAR initialized.")
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
-        p_transferer = mp.Process(target=data_transferer.start)
+        p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
         p_transferer.start()
         
-        p_web_server = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
+        p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
         p_web_server.start()
 
         return cam, lidar, data_transferer
@@ -131,11 +141,14 @@ class DataManager:
         ps_controller.calibrate_analog_sticks()
         
         while self.running:
-            x, y, rx, ry = ps_controller.get_analog_stick_values()
-            
-            self.client.send_message(f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}")
-            
-            time.sleep(0.1)
+            if len(self.lidar_data_list) > 0:
+                self.client.send_message(f"LIDAR_DATA#{self.lidar_data_list[-1]}")
+                
+                x, y, rx, ry = ps_controller.get_analog_stick_values()
+                
+                self.client.send_message(f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}")
+                
+                time.sleep(0.1)
 
         
 if __name__ == "__main__":
