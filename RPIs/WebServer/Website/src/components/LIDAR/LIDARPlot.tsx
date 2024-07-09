@@ -1,10 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
 import { io } from 'socket.io-client';
 
 const LIDARPlot: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const chartRef = useRef<Chart | null>(null);
+    const [dataType, setDataType] = useState<'normal' | 'interpolated'>(
+        'normal'
+    );
 
     useEffect(() => {
         const socket = io();
@@ -13,12 +16,21 @@ const LIDARPlot: React.FC = () => {
             console.log('WebSocket connection established');
         });
 
-        socket.on('lidar_data', (data: any) => {
+        const handleLidarData = (data: any) => {
             const updatedData = data.map(
                 (arr: [number, number, number]) => arr
-            ); // Assuming data is now [angle, distance, intensity]
+            );
+            // console.log(updatedData);
             updateChart(updatedData);
-        });
+        };
+
+        if (dataType === 'normal') {
+            socket.on('lidar_data', handleLidarData);
+            socket.off('interpolated_lidar_data');
+        } else {
+            socket.on('interpolated_lidar_data', handleLidarData);
+            socket.off('lidar_data');
+        }
 
         socket.on('disconnect', () => {
             console.log('WebSocket connection closed');
@@ -31,7 +43,7 @@ const LIDARPlot: React.FC = () => {
                 chartRef.current = null;
             }
         };
-    }, []);
+    }, [dataType]);
 
     const interpolateColor = (
         startColor: number[],
@@ -124,6 +136,28 @@ const LIDARPlot: React.FC = () => {
 
     return (
         <div className="w-full h-auto max-w-3xl mx-auto p-4">
+            <div className="flex justify-center mb-4">
+                <label className="mr-4">
+                    <input
+                        type="radio"
+                        name="lidar-data-type"
+                        value="normal"
+                        checked={dataType === 'normal'}
+                        onChange={() => setDataType('normal')}
+                    />
+                    Normal Data
+                </label>
+                <label>
+                    <input
+                        type="radio"
+                        name="lidar-data-type"
+                        value="interpolated"
+                        checked={dataType === 'interpolated'}
+                        onChange={() => setDataType('interpolated')}
+                    />
+                    Interpolated Data
+                </label>
+            </div>
             <canvas ref={canvasRef} className="w-full h-full"></canvas>
         </div>
     );
