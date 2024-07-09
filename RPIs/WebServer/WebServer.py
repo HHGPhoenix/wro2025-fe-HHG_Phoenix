@@ -3,6 +3,10 @@ from flask import Response, jsonify, render_template
 import cv2
 import numpy as np
 import os
+from flask_socketio import SocketIO, emit
+import threading
+import time
+import logging
 
 class WebServer:
     def __init__(self, shared_frames_list, shared_lidar_lists, port=5000, host='0.0.0.0'):
@@ -11,8 +15,19 @@ class WebServer:
         self.shared_frames_list = shared_frames_list
         self.shared_lidar_list = shared_lidar_lists[0]
         self.interpolated_lidar_list = shared_lidar_lists[1]
+        self.last_shared_lidar_list = []
+        self.last_interpolated_lidar_list = []
         
         self.app = flask.Flask(__name__, static_folder='Website/dist', template_folder='Website/dist', static_url_path='/')
+        self.socketio = SocketIO(self.app, cors_allowed_origins='*')
+
+        # Set log level to WARNING
+        self.app.logger.setLevel(logging.WARNING)
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.WARNING)
+        
+        tupdate = threading.Thread(target=self.check_for_new_data)
+        tupdate.start()
         
         self.app_routes()
         self.start()
@@ -21,8 +36,20 @@ class WebServer:
     
     def start(self):
         print("Web server running")
-        self.app.run(host=self.host, port=self.port, debug=True, threaded=True, use_reloader=False)
+        self.socketio.run(self.app, host=self.host, port=self.port, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
         print("Web server stopped")
+        
+    def check_for_new_data(self):
+        while True:
+            if len(self.shared_lidar_list) > 0 and self.shared_lidar_list[-1] != self.last_shared_lidar_list:
+                self.last_shared_lidar_list = self.shared_lidar_list[-1]
+                self.socketio.emit('lidar_data', self.last_shared_lidar_list)
+                
+            if len(self.interpolated_lidar_list) > 0 and self.interpolated_lidar_list[-1] != self.last_interpolated_lidar_list:
+                self.last_interpolated_lidar_list = self.interpolated_lidar_list[-1]
+                self.socketio.emit('interpolated_lidar_data', self.last_interpolated_lidar_list)
+                
+            time.sleep(0.1)
         
     def app_routes(self):
         @self.app.route('/')
@@ -47,20 +74,14 @@ class WebServer:
                 return jsonify({"error": "No LIDAR data available"})
             
             lidar_data = self.shared_lidar_list[-1]
-            
-            lidar_data.sort(key=lambda x: x[0])
-
             return jsonify(lidar_data)
-        
+
         @self.app.route('/lidar/interpolated_data')
         def interpolated_lidar_data():
             if len(self.interpolated_lidar_list) == 0:
                 return jsonify({"error": "No interpolated LIDAR data available"})
             
             interpolated_lidar_data = self.interpolated_lidar_list[-1]
-            
-            print(jsonify(interpolated_lidar_data))
-            
             return jsonify(interpolated_lidar_data)
         
         @self.app.route('/log/full_data')

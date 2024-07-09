@@ -9,7 +9,7 @@ const Overview: React.FC = () => {
                 <h2 className="text-center text-xl font-bold p-4">
                     Polar plot of LIDAR data
                 </h2>
-                <LIDARPlot lidarDataURL={'/lidar/data'} />
+                <LIDARPlot />
             </div>
         </div>
     );

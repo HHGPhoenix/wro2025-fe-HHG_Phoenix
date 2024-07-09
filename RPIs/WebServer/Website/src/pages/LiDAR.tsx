@@ -43,7 +43,7 @@ const LIDAR: React.FC = () => {
                     </label>
                 </div>
             </div>
-            <LIDARPlot lidarDataURL={lidarDataURL} />
+            <LIDARPlot />
         </div>
     );
 };

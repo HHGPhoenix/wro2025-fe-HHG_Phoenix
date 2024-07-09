@@ -53,6 +53,8 @@ class DataTransferer:
             
             lidar_data = self.lidar_data_list[-1]
             
+            lidar_data.sort(key=lambda x: x[0], reverse=True)
+            
             df = pd.DataFrame(lidar_data, columns=["angle", "distance", "intensity"])
             
             df = df.drop(columns=["intensity"])
@@ -85,6 +87,8 @@ class DataTransferer:
             df_interpolated_list = df_interpolated.values.tolist()  
             
             self.interpolated_lidar_data[0] = df_interpolated_list
+            
+            self.interpolated_lidar_data[0].sort(key=lambda x: x[0], reverse=True)
             
             elapsed_time = time.time() - start_time  # Calculate elapsed time
             wait_time = max(0.1 - elapsed_time, 0)  # Adjust wait time to ensure loop runs every 100ms
