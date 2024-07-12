@@ -7,10 +7,11 @@ from RPIs.DataManager.DataManagerLib import RemoteFunctions, CommunicationEstabl
 
 from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
-from RPIs.Devices.PSController.psController import PSController
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
+
+from RPIs.DataManager.Mainloops.TrainingLoop import main_loop_training
 
 import multiprocessing as mp
 import queue
@@ -50,12 +51,16 @@ class DataManager:
 
             self.logger.info("DataManager started.")
             
+            self.mode = self.choose_mode()
             
             self.cam, self.lidar, self.data_transferer = self.initialize_components()
 
             self.communicationestablisher.spam()
-            self.mode = self.choose_mode()
-
+            
+            self.logger.info("DataManager initialized.")
+            
+            self.client.send_message(f"MODE#{self.mode}")
+            
             for i in range(3):
                 time.sleep(1)
                 self.logger.info(f"Waiting ... {i}")
@@ -77,6 +82,8 @@ class DataManager:
     def initialize_components(self):
         cam = Camera()
         
+        self.logger.info("Initializing LIDAR sensor...")
+        
         lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
         lidar.reset_sensor()
         lidar.start_sensor()
@@ -97,8 +104,8 @@ class DataManager:
         with open ("RPIs/DataManager/mode.txt", "r") as file:
             mode = file.read().strip()
             
-        self.client.send_message(f"MODE#{mode}")
-        
+            print(f"Mode: {mode}")
+                    
         return mode
     
     def start(self):
@@ -114,7 +121,7 @@ class DataManager:
             self.main_loop_obstacle_race()
             
         elif self.mode == 'Training':
-            self.main_loop_training()
+            main_loop_training(self)
             
         else:
             self.logger.error(f'Unknown mode: {self.mode}')
@@ -134,26 +141,12 @@ class DataManager:
         
     def main_loop_obstacle_race(self):
         self.logger.info("Starting main loop for obstacle race...")
-        
-    def main_loop_training(self):
-        self.logger.info("Starting main loop for training...")
-        ps_controller = PSController()
-        ps_controller.calibrate_analog_sticks()
-        
-        while self.running:
-            if len(self.lidar_data_list) > 0:
-                self.client.send_message(f"LIDAR_DATA#{self.lidar_data_list[-1]}")
-                
-                x, y, rx, ry = ps_controller.get_analog_stick_values()
-                
-                self.client.send_message(f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}")
-                
-                time.sleep(0.1)
 
         
 if __name__ == "__main__":
     try:
         data_manager = DataManager()
+        # time.sleep(10)
         data_manager.start()
     finally:
         data_manager.lidar.stop_sensor()

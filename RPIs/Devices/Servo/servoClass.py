@@ -1,9 +1,7 @@
-import RPi.GPIO as GPIO
+from rpi_hardware_pwm import HardwarePWM
 
 class Servo:
     def __init__(self, pin, minPulse=500, maxPulse=2500, minAngle=0, middleAngle=90, maxAngle=180):
-        GPIO.setmode(GPIO.BCM)
-        
         self.pin = pin
         
         self.minPulse = minPulse
@@ -13,26 +11,36 @@ class Servo:
         self.middleAngle = middleAngle
         self.maxAngle = maxAngle
         
-        GPIO.setup(pin, GPIO.OUT)
+        self.normalMinAngle = 0
+        self.normalMiddleAngle = 90
+        self.normalMaxAngle = 180
         
-        self.pwm = GPIO.PWM(pin, 50)
-        self.pwm.start(50)
+        # Initialize PWM with the specified pin
+        self.pwm = HardwarePWM(pwm_channel=0, hz=50, chip=0)
+        self.pwm.start(17)  # 7.5% duty cycle corresponds to 1.5ms pulse width (90 degrees)
         
-        self.angle = 0
+        self.angle = middleAngle  # Initialize to middle angle
 
     def setAngle(self, angle):
-        if angle < 0:
-            angle = 0
-        elif angle > 180:
-            angle = 180
+        print(f"angle: {angle:.2f}", end=' ')
+        if angle < self.minAngle:
+            angle = self.minAngle
+        elif angle > self.maxAngle:
+            angle = self.maxAngle
             
         self.angle = angle
-        # Calculate pulse width in microseconds
-        pulseWidthMicroseconds = self.minPulse + (self.maxPulse - self.minPulse) * angle / 180
-        # Convert microseconds to a percentage of the 20ms cycle
-        pulseWidthPercentage = (pulseWidthMicroseconds / 20000) * 100
-        # print("Setting angle to", angle, "with pulse width", pulseWidthPercentage)
-        self.pwm.ChangeDutyCycle(pulseWidthPercentage)
+        
+        # Calculate the pulse width in microseconds based on the angle
+        pulseWidthMicroseconds = self.minPulse + ((self.maxPulse - self.minPulse) * (angle - self.normalMinAngle) / (self.normalMaxAngle - self.normalMinAngle))
+        
+        # Correctly calculate the duty cycle based on the pulse width
+        dutyCycle = (pulseWidthMicroseconds / 10000) * 100
+        
+        print(f"!###! duty_cycle: {dutyCycle:.4f} !###!", end=' ')
+        print(f"dutyCycle = (self.minPulse + (({self.maxPulse} - {self.minPulse}) * ({angle} - {self.minAngle}) / ({self.maxAngle} - {self.minAngle}))) / 20000 * 100")
+        self.pwm.change_duty_cycle(duty_cycle=dutyCycle)
+        
+
         
     def mapToServoAngle(self, value):
         if value <= 0.5:

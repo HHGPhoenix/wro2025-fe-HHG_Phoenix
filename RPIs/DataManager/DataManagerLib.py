@@ -38,5 +38,5 @@ class CommunicationEstablisher():
 
     def spam(self):
         while self.received_message == None:
-            self.pi.client.send_message("How is it going?")
+            self.pi.client.send_message("SPAM")
             time.sleep(1)

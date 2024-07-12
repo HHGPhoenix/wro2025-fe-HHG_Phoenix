@@ -20,6 +20,9 @@ class MessageReceiver:
     def parse_message(self, message):
         parts = message.split('#')
         command = parts[0]
+        #print message if command starts with 'ANALOG'
+        # if command.startswith('ANALOG'):
+            # print(f"Received message: {message}")
         values = [self.parse_value(part) for part in parts[1:]]
         return command, values
 
@@ -61,6 +64,8 @@ class MessageReceiver:
 
     def handle_client(self, client_socket, client_address):
         print(f"Connection from {client_address}")
+
+        buffer = ""
         
         try:
             while True:
@@ -69,6 +74,13 @@ class MessageReceiver:
                 if data:
                     data = data.split('\n')
                     
+                    if buffer:
+                        data[0] = buffer + data[0]
+                        buffer = ""
+                    
+                    if not "\n" in data[-1]:
+                        buffer = data.pop(-1)
+                    
                     for message in data:
                         message = message.strip()
                         if message:
@@ -76,6 +88,7 @@ class MessageReceiver:
                             response = self.handle_message(message)
                             # print(f"Response: {response}")
                             # client_socket.sendall(response.encode('utf-8'))
+                    
         except Exception as e:
             print(f"Error handling client {client_address}: {e}")
         finally:

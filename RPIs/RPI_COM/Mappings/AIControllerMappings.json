@@ -1,7 +1,7 @@
 {
     "MODE": "set_mode",
     "START": "start",
-    "How is it going?": "send_good",
+    "SPAM": "send_good",
     "GOOD": "receive_good",
     "ANALOG_STICKS": "set_analog_stick_values",
     "LIDAR_DATA": "set_lidar_data"

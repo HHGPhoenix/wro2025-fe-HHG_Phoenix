@@ -5,6 +5,7 @@ from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions, CommunicationEstablisher
 
 from RPIs.Devices.Servo.servoClass import Servo
+from RPIs.Devices.MotorController.MotorController import MotorController
 
 class AIController:
     def __init__(self):
@@ -15,7 +16,7 @@ class AIController:
             self.receiver = None
             self.client = None
             self.logger = None
-            self.mode = None
+            self.mode = "Training"
             self.servo = None
             self.lidar_data = None
             
@@ -26,13 +27,12 @@ class AIController:
             self.rx = 0.5
             self.ry = 0.5
             
-            
             self.communicationestablisher = CommunicationEstablisher(self)
             self.start_comm()
 
             self.logger.info("AIController started.")
             
-            self.servo = self.initialize_components()
+            self.servo, self.motor_controller = self.initialize_components()
             
             self.logger.info("Spamming...")
 
@@ -54,9 +54,11 @@ class AIController:
         self.logger = AICU_Logger(self.client)
         
     def initialize_components(self):
-        servo = Servo(self.servo_pin, minAngle=80, middleAngle=100, maxAngle=140)
+        servo = Servo(self.servo_pin, minAngle=94, middleAngle=120, maxAngle=137)
         
-        return servo
+        motor_controller = MotorController()
+        
+        return servo, motor_controller
 
     def main_loop_opening_race(self):
         self.logger.info("Starting main loop for opening race...")
@@ -76,6 +78,10 @@ class AIController:
         while self.running:
             servo_angle = self.servo.mapToServoAngle(self.x)
             self.servo.setAngle(servo_angle)
+            
+            self.motor_controller.send_speed(self.ry)
+            
+            time.sleep(0.05)
         
 if __name__ == "__main__":
     try:

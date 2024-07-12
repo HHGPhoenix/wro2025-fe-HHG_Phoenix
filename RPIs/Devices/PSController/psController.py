@@ -119,14 +119,3 @@ class PSController():
         right_analog_y_value = max(0, min(right_analog_y_value, 1))
         
         return left_analog_x_value, left_analog_y_value, right_analog_x_value, right_analog_y_value    
-    
-    def map_servo_angle(self, value):
-        if value <= 0.5:
-            # Map the value from 0-0.5 to 5-6.7
-            return (value * 2) * (self.servo_middle_angle - self.servo_min_angle) + self.servo_min_angle
-        else:
-            # Map the value from 0.5-1 to 6.7-10
-            return ((value - 0.5) * 2) * (self.servo_max_angle - self.servo_middle_angle) + self.servo_middle_angle
-        
-    def map_speed_value(self, value):
-        return (1 - value - 0.5) * 300
