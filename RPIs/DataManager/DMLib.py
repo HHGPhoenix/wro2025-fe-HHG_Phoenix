@@ -31,6 +31,7 @@ class RemoteFunctions:
 ###########################################################################
     
     def send_heartbeat(self):
+        global COM_HANDLE_ACTIVE
         with COM_LOCK:
             if COM_HANDLE_ACTIVE:
                 return
@@ -52,7 +53,7 @@ class RemoteFunctions:
     def receive_heartbeat(self):
         self.DataManager.communicationestablisher.received_message = True
 
-    def handle_alread_running(self):
+    def handle_already_running(self):
         self.DataManager.logger.error('DataManager already running!')
 
 ###########################################################################

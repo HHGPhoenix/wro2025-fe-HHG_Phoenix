@@ -40,51 +40,46 @@ def target_with_nice_priority(target, nice_value):
 class DataManager:
     def __init__(self):
         self.initialized = False
-        try:
-            print("Starting DataManager...")
-            self.receiver = None
-            self.client = None
-            self.logger = None
-            self.cam = None
-            self.lidar = None
-            self.mode = None
-            self.data_transferer = None
+        print("Starting DataManager...")
+        self.receiver = None
+        self.client = None
+        self.logger = None
+        self.cam = None
+        self.lidar = None
+        self.mode = None
+        self.data_transferer = None
 
-            self.running = False
+        self.running = False
 
-            self.mp_manager = mp.Manager()
-            self.frame_list = self.mp_manager.list([None, None, None])
-            self.interpolated_lidar_data = self.mp_manager.list([None])
-            self.lidar_data_list = self.mp_manager.list()
-            
-            self.communicationestablisher = CommunicationEstablisher(self)
-            
-            self.start_comm()
+        self.mp_manager = mp.Manager()
+        self.frame_list = self.mp_manager.list([None, None, None])
+        self.interpolated_lidar_data = self.mp_manager.list([None])
+        self.lidar_data_list = self.mp_manager.list()
+        
+        self.communicationestablisher = CommunicationEstablisher(self)
+        
+        self.start_comm()
 
-            self.logger.info("DataManager started.")
-            
-            self.mode = self.choose_mode()
-            
-            self.cam, self.lidar, self.data_transferer = self.initialize_components()
+        self.logger.info("DataManager started.")
+        
+        self.mode = self.choose_mode()
+        
+        self.cam, self.lidar, self.data_transferer = self.initialize_components()
 
-            self.initialized = True
+        self.initialized = True
 
-            self.communicationestablisher.spam()
+        self.communicationestablisher.establish_communication()
 
-            time.sleep(10000000)
-            
-            self.logger.info("DataManager initialized.")
-            
-            self.client.send_message(f"MODE#{self.mode}")
-            
-            for i in range(3):
-                time.sleep(1)
-                self.logger.info(f"Waiting ... {i}")
+        time.sleep(10000000)
+        
+        self.logger.info("DataManager initialized.")
+        
+        self.client.send_message(f"MODE#{self.mode}")
+        
+        for i in range(3):
+            time.sleep(1)
+            self.logger.info(f"Waiting ... {i}")
                 
-        except Exception as e:
-            print(e)
-            self.receiver.server_socket.close()
-
     def start_comm(self):
         logger_obj = Logger()
         self.logger_obj = logger_obj.setup_log()

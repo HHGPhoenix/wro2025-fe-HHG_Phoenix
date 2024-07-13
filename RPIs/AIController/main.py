@@ -20,41 +20,37 @@ class AIController:
 
         self.initialized = False
 
-        try:
-            self.servo_pin = 4
-            
-            print("Starting AIController...")
-            self.receiver = None
-            self.client = None
-            self.logger = None
-            self.mode = "Training"
-            self.servo = None
-            self.lidar_data = None
-            
-            self.running = False
-            
-            self.x = 0.5
-            self.y = 0.5
-            self.rx = 0.5
-            self.ry = 0.5
-            
-            self.communicationestablisher = CommunicationEstablisher(self)
-            self.start_comm()
-
-            self.logger.info("AIController started.")
-            
-            self.servo, self.motor_controller = self.initialize_components()
-            
-            self.logger.info("Spamming...")
-
-            self.initialized = True
-
-            # self.communicationestablisher.spam()
+        self.servo_pin = 4
         
-        except Exception as e:
-            print(e)
-            self.receiver.server_socket.close()
+        print("Starting AIController...")
+        self.receiver = None
+        self.client = None
+        self.logger = None
+        self.mode = "Training"
+        self.servo = None
+        self.lidar_data = None
+        
+        self.running = False
+        
+        self.x = 0.5
+        self.y = 0.5
+        self.rx = 0.5
+        self.ry = 0.5
+        
+        self.communicationestablisher = CommunicationEstablisher(self)
 
+        # self.logger.info("AIController started.")
+        
+        self.servo, self.motor_controller = self.initialize_components()
+        
+        # self.logger.info("Spamming...")
+
+        self.initialized = True
+
+        self.start_comm()
+
+        self.communicationestablisher.establish_communication()
+    
     def start_comm(self):
         self.remote_functions = RemoteFunctions(self)
         
@@ -121,8 +117,8 @@ if __name__ == "__main__":
     ai_controller = None 
     try:
         ai_controller = AIController()  
-        while True:
-            time.sleep(1)
+        # while True:
+        #     time.sleep(1)
     except KeyboardInterrupt:
         if ai_controller and ai_controller.logger:  
             ai_controller.logger.info("KeyboardInterrupt")

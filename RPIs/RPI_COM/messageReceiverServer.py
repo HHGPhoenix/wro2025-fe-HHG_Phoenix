@@ -21,8 +21,8 @@ class MessageReceiver:
         parts = message.split('#')
         command = parts[0]
         #print message if command starts with 'ANALOG'
-        # if command.startswith('ANALOG'):
-            # print(f"Received message: {message}")
+        if command.startswith('ANALOG'):
+            print(f"Received message: {message}")
         values = [self.parse_value(part) for part in parts[1:]]
         return command, values
 
@@ -37,7 +37,7 @@ class MessageReceiver:
         
         if command in self.message_handler_map:
             try:
-                # print(f"Executing {command} with arguments {values}")
+                print(f"Executing {command} with arguments {values}")
                 t_handler = threading.Thread(target=self.message_handler_map[command], args=(*values,), daemon=True)
                 t_handler.start()
                 # return f"Success: {command} executed with arguments {values}"
