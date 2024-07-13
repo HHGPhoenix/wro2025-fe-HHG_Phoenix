@@ -59,21 +59,28 @@ class LidarSensor():
         """
         Simulate reading data from the LIDAR sensor.
         """
-        start_time = time.time()
-        
-        while True:
-            time.sleep(0.1)  # Simulate data reading delay
-            current_lidar_data = []
-            
-            for i in range(360):
-                distance = random.uniform(100, 3000)
-                intensity = random.randint(0, 255)
-                current_lidar_data.append((i, distance, intensity))
+        # start_time = time.time()
+
+        try:
+
+            while True:
+                time.sleep(0.1)  # Simulate data reading delay
+                current_lidar_data = []
                 
-            self.lidar_data_list.append(current_lidar_data)
-            
-            if len(self.lidar_data_list) > 10:
-                self.lidar_data_list.pop(0)
+                for i in range(360):
+                    distance = random.uniform(100, 3000)
+                    intensity = random.randint(0, 255)
+                    current_lidar_data.append((i, distance, intensity))
+                    
+                self.lidar_data_list.append(current_lidar_data)
+                
+                if len(self.lidar_data_list) > 10:
+                    self.lidar_data_list.pop(0)
+
+        except KeyboardInterrupt:
+            pass
+        except BrokenPipeError:
+            pass
 
     def set_motor_speed(self, rpm):
         if not (0 <= rpm <= 65535):

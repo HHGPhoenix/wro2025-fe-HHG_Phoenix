@@ -75,7 +75,7 @@ class RemoteFunctions:
             time.sleep(0.1)
 
         if self.AIController.running:
-            self.AIController.error('AIController already running!')
+            self.AIController.logger.error('AIController already running!')
             self.AIController.client.send_message("ALREADY_RUNNING")
             COM_HANDLE_ACTIVE = False
             return

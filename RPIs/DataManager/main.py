@@ -70,7 +70,7 @@ class DataManager:
 
         self.communicationestablisher.establish_communication()
 
-        time.sleep(10000000)
+        # time.sleep(10000000)
         
         self.logger.info("DataManager initialized.")
         
@@ -106,26 +106,26 @@ class DataManager:
         lidar.start_sensor()
         
         if not START_LOCAL_SERVER:
-            lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
+            self.lidarProcess = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
         else:
-            lidar_thread = mp.Process(target=lidar.read_data, daemon=True)
-        lidar_thread.start()
+            self.lidarProcess = mp.Process(target=lidar.read_data, daemon=True)
+        self.lidarProcess.start()
         self.logger.info("Camera and LIDAR initialized.")
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
         if not START_LOCAL_SERVER:
-            p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+            self.dataTransferProcess = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
         else:
-            p_transferer = mp.Process(target=data_transferer.start)
-        p_transferer.start()
+            self.dataTransferProcess = mp.Process(target=data_transferer.start)
+        self.dataTransferProcess.start()
         
         if not START_LOCAL_SERVER:
-            p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
-            p_web_server.start()
+            self.webServerProcess = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
+            self.webServerProcess.start()
             
         else:
-            p_web_server = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
-            p_web_server.start()
+            self.webServerProcess = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
+            self.webServerProcess.start()
 
         return cam, lidar, data_transferer
     
@@ -179,15 +179,28 @@ class DataManager:
 
 def cleanup(data_manager):
     if data_manager:
+        if data_manager.webServerProcess:
+            data_manager.webServerProcess.terminate()
+            data_manager.webServerProcess.join()
         if data_manager.logger:
             data_manager.logger.info("Stopping DataManager...")
         data_manager.running = False
         if data_manager.lidar:
             data_manager.lidar.stop_sensor()
+        if data_manager.lidarProcess:
+            data_manager.lidarProcess.terminate()
+            data_manager.lidarProcess.join()
+        if data_manager.data_transferer:
+            data_manager.data_transferer.stop()
+        if data_manager.dataTransferProcess:
+            data_manager.dataTransferProcess.terminate()
+            data_manager.dataTransferProcess.join()
         if data_manager.receiver:
             data_manager.receiver.server_socket.close()
         if data_manager.client:
-            data_manager.client.close_connection()
+            data_manager.client.close_socket()
+        if data_manager.mp_manager:
+            data_manager.mp_manager.shutdown()
         if data_manager.logger:
             data_manager.logger.info("DataManager stopped.")
 
@@ -203,4 +216,4 @@ if __name__ == "__main__":
             data_manager.logger.info("KeyboardInterrupt")
     finally:
         cleanup(data_manager)
-        print("DataManager stopped.")
+        print("\nDataManager stopped.")

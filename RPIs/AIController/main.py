@@ -109,7 +109,7 @@ def cleanup(ai_controller):
         if ai_controller.receiver:
             ai_controller.receiver.server_socket.close()
         if ai_controller.client:
-            ai_controller.client.close_connection()
+            ai_controller.client.close_socket()
         if ai_controller.logger:
             ai_controller.logger.info("AIController stopped.")
         
@@ -117,11 +117,11 @@ if __name__ == "__main__":
     ai_controller = None 
     try:
         ai_controller = AIController()  
-        # while True:
-        #     time.sleep(1)
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         if ai_controller and ai_controller.logger:  
             ai_controller.logger.info("KeyboardInterrupt")
     finally:
         cleanup(ai_controller)
-        print("AIController stopped.")
+        print("\nAIController stopped.")

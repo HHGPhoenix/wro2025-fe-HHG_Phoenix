@@ -48,6 +48,9 @@ def main_loop_training(self):
         end_time = time.time()
         print(f"Loop iteration time: {end_time - start_time} seconds")
 
-        time.sleep(0.1 - (end_time - start_time))
+        sleep_time = 0.1 - (end_time - start_time)
+
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
         start_time = time.time()

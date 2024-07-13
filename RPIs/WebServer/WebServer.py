@@ -17,7 +17,7 @@ class WebServer:
         self.interpolated_lidar_list = shared_lidar_lists[1]
         self.last_shared_lidar_list = []
         self.last_interpolated_lidar_list = []
-        
+
         self.app = flask.Flask(__name__, static_folder='Website/dist', template_folder='Website/dist', static_url_path='/')
         self.socketio = SocketIO(self.app, cors_allowed_origins='*')
 
@@ -25,32 +25,43 @@ class WebServer:
         self.app.logger.setLevel(logging.WARNING)
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.WARNING)
-        
+
         tupdate = threading.Thread(target=self.check_for_new_data)
         tupdate.start()
-        
+
         self.app_routes()
         self.start()
 
-        print("Web server initialized")
-    
     def start(self):
         print("Web server running")
-        self.socketio.run(self.app, host=self.host, port=self.port, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
-        print("Web server stopped")
+        try:
+            self.socketio.run(self.app, host=self.host, port=self.port, debug=False, use_reloader=False, allow_unsafe_werkzeug=True, log_output=False)
+        except Exception as e:
+            # print(f"An error occurred: {e}")
+            pass
+        finally:
+            print("Web server stopped")
         
     def check_for_new_data(self):
-        while True:
-            if len(self.shared_lidar_list) > 0 and self.shared_lidar_list[-1] != self.last_shared_lidar_list:
-                self.last_shared_lidar_list = self.shared_lidar_list[-1]
-                self.socketio.emit('lidar_data', self.last_shared_lidar_list)
+        try:
+            while True:
+                if len(self.shared_lidar_list) > 0 and self.shared_lidar_list[-1] != self.last_shared_lidar_list:
+                    self.last_shared_lidar_list = self.shared_lidar_list[-1]
+                    self.socketio.emit('lidar_data', self.last_shared_lidar_list)
+                    
+                if len(self.interpolated_lidar_list) > 0 and self.interpolated_lidar_list[-1] != self.last_interpolated_lidar_list:
+                    self.last_interpolated_lidar_list = self.interpolated_lidar_list[-1]
+                    self.socketio.emit('interpolated_lidar_data', self.last_interpolated_lidar_list)
+                    
+                time.sleep(0.1)
+
+        except KeyboardInterrupt:
+            pass
+        except BrokenPipeError:
+            pass
+        except EOFError:
+            pass
                 
-            if len(self.interpolated_lidar_list) > 0 and self.interpolated_lidar_list[-1] != self.last_interpolated_lidar_list:
-                self.last_interpolated_lidar_list = self.interpolated_lidar_list[-1]
-                self.socketio.emit('interpolated_lidar_data', self.last_interpolated_lidar_list)
-                
-            time.sleep(0.1)
-        
     def app_routes(self):
         @self.app.route('/')
         def index():
@@ -149,6 +160,10 @@ class WebServer:
                 else:
                     yield (b'--frame\r\n'
                         b'Content-Type: image/jpeg\r\n\r\n' + b'\r\n')
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            print(f"An error occurred: {e}")
         finally: 
             print("Video closed! 💀")
 
