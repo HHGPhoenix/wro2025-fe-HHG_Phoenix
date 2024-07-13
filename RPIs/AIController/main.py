@@ -96,20 +96,22 @@ class AIController:
             time.sleep(0.05)
         
 if __name__ == "__main__":
+    ai_controller = None 
     try:
-        ai_controller = AIController()
+        ai_controller = AIController()  
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        if ai_controller.logger:
+        if ai_controller and ai_controller.logger:  
             ai_controller.logger.log_info("KeyboardInterrupt")
     finally:
-        if ai_controller.logger:
-            ai_controller.logger.log_info("Stopping AIController...")
-        ai_controller.running = False
-        if ai_controller.receiver:
-            ai_controller.receiver.server_socket.close()
-        if ai_controller.client:
-            ai_controller.client.close_connection()
-        if ai_controller.logger:
-            ai_controller.logger.log_info("AIController stopped.")
+        if ai_controller:  
+            if ai_controller.logger:
+                ai_controller.logger.log_info("Stopping AIController...")
+            ai_controller.running = False
+            if ai_controller.receiver:
+                ai_controller.receiver.server_socket.close()
+            if ai_controller.client:
+                ai_controller.client.close_connection()
+            if ai_controller.logger:
+                ai_controller.logger.log_info("AIController stopped.")

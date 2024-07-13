@@ -52,44 +52,52 @@ class MessageReceiver:
         self.server_socket.bind((self.ip, self.port))
         self.server_socket.listen(5)
         print(f"Server listening on {self.ip}:{self.port}")
-    
-        while True:
-            # Check if the server_socket is still a valid socket
-            if not self.server_socket.fileno() == -1:
-                client_socket, client_address = self.server_socket.accept()
-                threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True).start()
-            else:
-                print("Socket is no longer valid.")
-                break
+
+        try:
+            while True:
+                try:
+                    client_socket, client_address = self.server_socket.accept()
+                    threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True).start()
+                except socket.error as e:
+                    print(f"Socket error on accept: {e}")
+                    break
+        except KeyboardInterrupt:
+            print("Server is shutting down...")
+        finally:
+            if self.server_socket:
+                self.server_socket.close()
+                print("Server socket closed.")
 
     def handle_client(self, client_socket, client_address):
         print(f"Connection from {client_address}")
-
         buffer = ""
-        
+
         try:
             while True:
                 data = client_socket.recv(1024).decode('utf-8')
-                
-                if data:
-                    data = data.split('\n')
-                    
-                    if buffer:
-                        data[0] = buffer + data[0]
-                        buffer = ""
-                    
-                    if not "\n" in data[-1]:
-                        buffer = data.pop(-1)
-                    
-                    for message in data:
-                        message = message.strip()
-                        if message:
-                            # print(f"Received message: {message}")
-                            response = self.handle_message(message)
-                            # print(f"Response: {response}")
-                            # client_socket.sendall(response.encode('utf-8'))
-                    
+                if not data:
+                    break  # Connection closed by the client
+                data = data.split('\n')
+
+                if buffer:
+                    data[0] = buffer + data[0]
+                    buffer = ""
+
+                if not data[-1].endswith('\n'):
+                    buffer = data.pop(-1)
+
+                for message in data:
+                    message = message.strip()
+                    if message:
+                        print(f"Received message: {message}")
+                        response = self.handle_message(message)
+                        print(f"Response: {response}")
+                        client_socket.sendall(response.encode('utf-8'))
+
+        except socket.error as e:
+            print(f"Socket error handling client {client_address}: {e}")
         except Exception as e:
             print(f"Error handling client {client_address}: {e}")
         finally:
             client_socket.close()
+            print(f"Connection to {client_address} closed")
