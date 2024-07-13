@@ -30,6 +30,13 @@ class RemoteFunctions:
         self.AIController.mode = mode
         
     def start(self):
+        if self.AIController.running:
+            self.AIController.logger.error('AIController already running!')
+            return
+        
+        while not self.AIController.initialized:
+            time.sleep(0.1)
+
         self.AIController.logger.info('Starting AIController...')
         
         self.AIController.running = True

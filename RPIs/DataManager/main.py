@@ -17,6 +17,8 @@ import multiprocessing as mp
 import queue
 import os
 
+START_LOCAL_SERVER = True
+
 def set_nice_priority(nice_value):
     os.nice(nice_value)
 
@@ -74,11 +76,16 @@ class DataManager:
         self.logger = LoggerDatamanager(self.logger_obj)
         
         self.remotefunctions = RemoteFunctions(self)
-        self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='192.168.1.3')
-        threading.Thread(target=self.receiver.start_server, daemon=True).start()
 
-        self.client = Messenger('192.168.1.2', 22222)
-        
+        if not START_LOCAL_SERVER:
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='192.168.1.3')
+            threading.Thread(target=self.receiver.start_server, daemon=True).start()
+            self.client = Messenger('192.168.1.2', port=22222)
+        else:
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions)
+            threading.Thread(target=self.receiver.start_server, daemon=True).start()
+            self.client = Messenger(port=22222)
+
     def initialize_components(self):
         cam = Camera()
         
@@ -149,11 +156,17 @@ if __name__ == "__main__":
         # time.sleep(10)
         data_manager.start()
     except KeyboardInterrupt:
-        data_manager.logger.info("KeyboardInterrupt")
+        if data_manager.logger:
+            data_manager.logger.info("KeyboardInterrupt")
     finally:
-        data_manager.logger.info("Stopping DataManager...")
+        if data_manager.logger:
+            data_manager.logger.info("Stopping DataManager...")
         data_manager.running = False
-        data_manager.lidar.stop_sensor()
-        data_manager.receiver.server_socket.close()
-        data_manager.client.close_connection()
-        data_manager.logger.info("DataManager stopped.")
+        if data_manager.lidar:
+            data_manager.lidar.stop_sensor()
+        if data_manager.receiver:
+            data_manager.receiver.server_socket.close()
+        if data_manager.client:
+            data_manager.client.close_connection()
+        if data_manager.logger:
+            data_manager.logger.info("DataManager stopped.")

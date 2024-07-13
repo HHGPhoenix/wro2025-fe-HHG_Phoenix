@@ -4,7 +4,7 @@ import json
 import threading
 
 class MessageReceiver:
-    def __init__(self, mappings_file, port, handler_instance, ip='0.0.0.0'):
+    def __init__(self, mappings_file, port, handler_instance, ip='127.0.0.1'):
         self.handler_instance = handler_instance
         self.message_handler_map = {}
         self.load_mappings_from_json(mappings_file)
@@ -48,19 +48,19 @@ class MessageReceiver:
 
     def start_server(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Add this line
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.ip, self.port))
         self.server_socket.listen(5)
         print(f"Server listening on {self.ip}:{self.port}")
-
-        try:
-            while True:
+    
+        while True:
+            # Check if the server_socket is still a valid socket
+            if not self.server_socket.fileno() == -1:
                 client_socket, client_address = self.server_socket.accept()
                 threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True).start()
-        except KeyboardInterrupt:
-            print("Server is shutting down...")
-        finally:
-            self.server_socket.close()
+            else:
+                print("Socket is no longer valid.")
+                break
 
     def handle_client(self, client_socket, client_address):
         print(f"Connection from {client_address}")
