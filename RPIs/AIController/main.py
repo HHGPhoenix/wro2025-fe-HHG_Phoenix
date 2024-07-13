@@ -4,8 +4,8 @@ from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions, CommunicationEstablisher
 
-from RPIs.Devices.Servo.servoClass import Servo
-from RPIs.Devices.MotorController.MotorController import MotorController
+from RPIs.Devices.Dummy.Servo.Servo import Servo
+from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 
 class AIController:
     def __init__(self):
@@ -88,7 +88,11 @@ if __name__ == "__main__":
         ai_controller = AIController()
         while True:
             time.sleep(1)
+    except KeyboardInterrupt:
+        ai_controller.logger.log_info("KeyboardInterrupt")
     finally:
+        ai_controller.logger.log_info("Stopping AIController...")
         ai_controller.running = False
-        ai_controller.logger.log_info("Shutting down AIController...")
         ai_controller.receiver.server_socket.close()
+        ai_controller.client.close_connection()
+        ai_controller.logger.log_info("AIController stopped.")

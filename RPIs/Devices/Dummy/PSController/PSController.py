@@ -1,8 +1,22 @@
 import time
-from RPIs.Devices.Dummy.PSController.PSController import PSController
 from uuid import uuid4
 import datetime
 from copy import deepcopy
+import random
+
+class PSController:
+    def __init__(self):
+        self.cross = 0
+
+    def calibrate_analog_sticks(self):
+        pass
+
+    def get_analog_stick_values(self):
+        x = random.uniform(-1, 1)
+        y = random.uniform(-1, 1)
+        rx = random.uniform(-1, 1)
+        ry = random.uniform(-1, 1)
+        return x, y, rx, ry
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")

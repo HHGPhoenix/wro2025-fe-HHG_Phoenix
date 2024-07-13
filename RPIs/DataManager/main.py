@@ -6,7 +6,7 @@ from RPIs.RPI_Logging.Logger import Logger, LoggerDatamanager
 from RPIs.DataManager.DataManagerLib import RemoteFunctions, CommunicationEstablisher
 
 from RPIs.Devices.Dummy.Camera.CameraManager import Camera
-from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
+from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
@@ -148,8 +148,12 @@ if __name__ == "__main__":
         data_manager = DataManager()
         # time.sleep(10)
         data_manager.start()
+    except KeyboardInterrupt:
+        data_manager.logger.info("KeyboardInterrupt")
     finally:
+        data_manager.logger.info("Stopping DataManager...")
+        data_manager.running = False
         data_manager.lidar.stop_sensor()
         data_manager.receiver.server_socket.close()
+        data_manager.client.close_connection()
         data_manager.logger.info("DataManager stopped.")
-        data_manager.logger.info("Exiting...")
