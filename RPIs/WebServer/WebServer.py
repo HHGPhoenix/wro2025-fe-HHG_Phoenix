@@ -37,7 +37,7 @@ class WebServer:
         try:
             self.socketio.run(self.app, host=self.host, port=self.port, debug=False, use_reloader=False, allow_unsafe_werkzeug=True, log_output=False)
         except Exception as e:
-            # print(f"An error occurred: {e}")
+            print(f"An error occurred: {e}")
             pass
         finally:
             print("Web server stopped")

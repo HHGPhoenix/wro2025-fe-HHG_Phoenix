@@ -114,18 +114,29 @@ class DataManager:
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
         if not START_LOCAL_SERVER:
-            self.dataTransferProcess = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+            self.dataTransferProcess = mp.Process(target=target_with_nice_priority(data_transferer.start, 0), daemon=True)
         else:
-            self.dataTransferProcess = mp.Process(target=data_transferer.start)
+            self.dataTransferProcess = mp.Process(target=data_transferer.start, daemon=True)
         self.dataTransferProcess.start()
         
         if not START_LOCAL_SERVER:
-            self.webServerProcess = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
+            self.webServerProcess = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'), daemon=True)
             self.webServerProcess.start()
             
         else:
-            self.webServerProcess = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
+            self.webServerProcess = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
             self.webServerProcess.start()
+
+        # for testing:
+
+        # self.lidarProcess.terminate()
+        # self.lidarProcess.join()
+
+        # self.dataTransferProcess.terminate()
+        # self.dataTransferProcess.join()
+
+        # self.webServerProcess.terminate()
+        # self.webServerProcess.join()
 
         return cam, lidar, data_transferer
     
@@ -177,34 +188,43 @@ class DataManager:
 
     ###########################################################################
 
-def cleanup(data_manager):
+def cleanup():
     if data_manager:
-        if data_manager.webServerProcess:
-            data_manager.webServerProcess.terminate()
-            data_manager.webServerProcess.join()
         if data_manager.logger:
             data_manager.logger.info("Stopping DataManager...")
+
         data_manager.running = False
-        if data_manager.lidar:
-            data_manager.lidar.stop_sensor()
+
         if data_manager.lidarProcess:
             data_manager.lidarProcess.terminate()
             data_manager.lidarProcess.join()
+
         if data_manager.data_transferer:
             data_manager.data_transferer.stop()
+
         if data_manager.dataTransferProcess:
             data_manager.dataTransferProcess.terminate()
             data_manager.dataTransferProcess.join()
+
+        if data_manager.webServerProcess:
+            data_manager.webServerProcess.terminate()
+            data_manager.webServerProcess.join()
+
+        if data_manager.lidar:
+            data_manager.lidar.stop_sensor()
+
         if data_manager.receiver:
             data_manager.receiver.server_socket.close()
+
         if data_manager.client:
             data_manager.client.close_socket()
+
         if data_manager.mp_manager:
             data_manager.mp_manager.shutdown()
+
         if data_manager.logger:
             data_manager.logger.info("DataManager stopped.")
 
-        
 if __name__ == "__main__":
     data_manager = None
     try:
@@ -215,5 +235,5 @@ if __name__ == "__main__":
         if data_manager and data_manager.logger:
             data_manager.logger.info("KeyboardInterrupt")
     finally:
-        cleanup(data_manager)
+        cleanup()
         print("\nDataManager stopped.")
