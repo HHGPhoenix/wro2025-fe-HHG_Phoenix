@@ -40,7 +40,7 @@ class MessageReceiver:
                 # print(f"Executing {command} with arguments {values}")
                 t_handler = threading.Thread(target=self.message_handler_map[command], args=(*values,), daemon=True)
                 t_handler.start()
-                return f"Success: {command} executed with arguments {values}"
+                # return f"Success: {command} executed with arguments {values}"
             except Exception as e:
                 return f"LOG: Error executing {command} with arguments {values} - {str(e)}"
         else:
@@ -89,15 +89,15 @@ class MessageReceiver:
                 for message in data:
                     message = message.strip()
                     if message:
-                        print(f"Received message: {message}")
+                        # print(f"Received message: {message}")
                         response = self.handle_message(message)
-                        print(f"Response: {response}")
-                        client_socket.sendall(response.encode('utf-8'))
+                        # print(f"Response: {response}")
+                        # client_socket.sendall(response.encode('utf-8'))
 
         except socket.error as e:
             print(f"Socket error handling client {client_address}: {e}")
-        except Exception as e:
-            print(f"Error handling client {client_address}: {e}")
+        # except Exception as e:
+        #     print(f"Error handling client {client_address}: {e}")
         finally:
             client_socket.close()
             print(f"Connection to {client_address} closed")

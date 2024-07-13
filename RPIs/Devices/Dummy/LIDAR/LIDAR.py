@@ -63,26 +63,16 @@ class LidarSensor():
         
         while True:
             time.sleep(0.1)  # Simulate data reading delay
-            if random.random() > 0.95:  # Simulate the end of a scan cycle with a 5% chance
-                break
+            current_lidar_data = []
             
-            # Generate random LIDAR data
-            angle = random.uniform(0, 360)
-            distance = random.uniform(100, 3000)  # Random distance in mm
-            quality = random.randint(0, 255)  # Random quality measure
-
-            self.lidar_data_list.append((angle, distance, quality))
-
-            # Simulate frequency calculation
-            if len(self.lidar_data_list) > 1 and angle < 1:  # Simulate a loop back to start
-                self.lidar_data_list.append(self.lidar_data_list[-1])
-                missing_data = self.lidar_data_list[-1]
-                self.lidar_data_list.append((angle, distance, quality))
-                frequency = 1.0 / (time.time() - start_time)
-                # print(f"Dummy Frequency: {frequency} Hz")
-                start_time = time.time()
+            for i in range(360):
+                distance = random.uniform(100, 3000)
+                intensity = random.randint(0, 255)
+                current_lidar_data.append((i, distance, intensity))
+                
+            self.lidar_data_list.append(current_lidar_data)
             
-            if len(self.lidar_data_list) > 100:  # Limit the data list size
+            if len(self.lidar_data_list) > 10:
                 self.lidar_data_list.pop(0)
 
     def set_motor_speed(self, rpm):

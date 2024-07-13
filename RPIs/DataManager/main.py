@@ -16,6 +16,7 @@ from RPIs.DataManager.Mainloops.TrainingLoop import main_loop_training
 import multiprocessing as mp
 import queue
 import os
+import platform
 
 START_LOCAL_SERVER = True
 
@@ -67,7 +68,8 @@ class DataManager:
                 time.sleep(1)
                 self.logger.info(f"Waiting ... {i}")
                 
-        except:
+        except Exception as e:
+            print(e)
             self.receiver.server_socket.close()
 
     def start_comm(self):
@@ -94,16 +96,28 @@ class DataManager:
         lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
         lidar.reset_sensor()
         lidar.start_sensor()
-        lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
+        
+        if not START_LOCAL_SERVER:
+            lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
+        else:
+            lidar_thread = mp.Process(target=lidar.read_data, daemon=True)
         lidar_thread.start()
         self.logger.info("Camera and LIDAR initialized.")
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
-        p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+        if not START_LOCAL_SERVER:
+            p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+        else:
+            p_transferer = mp.Process(target=data_transferer.start)
         p_transferer.start()
         
-        p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
-        p_web_server.start()
+        if not START_LOCAL_SERVER:
+            p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
+            p_web_server.start()
+            
+        else:
+            p_web_server = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
+            p_web_server.start()
 
         return cam, lidar, data_transferer
     
