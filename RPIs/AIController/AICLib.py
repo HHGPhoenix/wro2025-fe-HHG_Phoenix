@@ -30,6 +30,13 @@ class RemoteFunctions:
         self.AIController.mode = mode
         
     def start(self):
+        if self.AIController.running:
+            self.AIController.logger.error('AIController already running!')
+            return
+        
+        while not self.AIController.initialized:
+            time.sleep(0.1)
+
         self.AIController.logger.info('Starting AIController...')
         
         self.AIController.running = True
@@ -70,5 +77,5 @@ class CommunicationEstablisher():
 
     def spam(self):
         while self.received_message == None:
-            self.pi.client.send_message("How is it going?")
+            self.pi.client.send_message("SPAM")
             time.sleep(1)

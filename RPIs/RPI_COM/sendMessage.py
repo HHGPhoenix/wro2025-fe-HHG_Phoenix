@@ -2,7 +2,7 @@ import socket
 import time
 
 class Messenger:
-    def __init__(self, ip_address, port):
+    def __init__(self, ip_address="127.0.0.1", port=11111):
         self.ip_address = ip_address
         self.port = port
         self.socket = None

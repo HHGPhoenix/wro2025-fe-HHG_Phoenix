@@ -7,8 +7,13 @@ from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions, Communication
 from RPIs.Devices.Dummy.Servo.Servo import Servo
 from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 
+START_LOCAL_SERVER = True
+
 class AIController:
     def __init__(self):
+
+        self.initialized = False
+
         try:
             self.servo_pin = 4
             
@@ -36,6 +41,8 @@ class AIController:
             
             self.logger.info("Spamming...")
 
+            self.initialized = True
+
             self.communicationestablisher.spam()
         
         except Exception as e:
@@ -46,10 +53,15 @@ class AIController:
         self.remote_functions = RemoteFunctions(self)
         
         # Start the server
-        self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/AIControllerMappings.json', 22222, handler_instance=self.remote_functions, ip='192.168.1.2')
-        threading.Thread(target=self.receiver.start_server, daemon=True).start()
+        if not START_LOCAL_SERVER:
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/AIControllerMappings.json', 22222, handler_instance=self.remote_functions, ip='192.168.1.2')
+            threading.Thread(target=self.receiver.start_server, daemon=True).start()
+            self.client = Messenger('192.168.1.3', port=11111)
 
-        self.client = Messenger('192.168.1.3', 11111)
+        else:
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/AIControllerMappings.json', 22222, handler_instance=self.remote_functions)
+            threading.Thread(target=self.receiver.start_server, daemon=True).start()
+            self.client = Messenger(port=11111)
 
         self.logger = AICU_Logger(self.client)
         
@@ -84,15 +96,22 @@ class AIController:
             time.sleep(0.05)
         
 if __name__ == "__main__":
+    ai_controller = None 
     try:
-        ai_controller = AIController()
+        ai_controller = AIController()  
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        ai_controller.logger.log_info("KeyboardInterrupt")
+        if ai_controller and ai_controller.logger:  
+            ai_controller.logger.log_info("KeyboardInterrupt")
     finally:
-        ai_controller.logger.log_info("Stopping AIController...")
-        ai_controller.running = False
-        ai_controller.receiver.server_socket.close()
-        ai_controller.client.close_connection()
-        ai_controller.logger.log_info("AIController stopped.")
+        if ai_controller:  
+            if ai_controller.logger:
+                ai_controller.logger.log_info("Stopping AIController...")
+            ai_controller.running = False
+            if ai_controller.receiver:
+                ai_controller.receiver.server_socket.close()
+            if ai_controller.client:
+                ai_controller.client.close_connection()
+            if ai_controller.logger:
+                ai_controller.logger.log_info("AIController stopped.")

@@ -16,6 +16,9 @@ from RPIs.DataManager.Mainloops.TrainingLoop import main_loop_training
 import multiprocessing as mp
 import queue
 import os
+import platform
+
+START_LOCAL_SERVER = True
 
 def set_nice_priority(nice_value):
     os.nice(nice_value)
@@ -65,7 +68,8 @@ class DataManager:
                 time.sleep(1)
                 self.logger.info(f"Waiting ... {i}")
                 
-        except:
+        except Exception as e:
+            print(e)
             self.receiver.server_socket.close()
 
     def start_comm(self):
@@ -74,11 +78,16 @@ class DataManager:
         self.logger = LoggerDatamanager(self.logger_obj)
         
         self.remotefunctions = RemoteFunctions(self)
-        self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='192.168.1.3')
-        threading.Thread(target=self.receiver.start_server, daemon=True).start()
 
-        self.client = Messenger('192.168.1.2', 22222)
-        
+        if not START_LOCAL_SERVER:
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='192.168.1.3')
+            threading.Thread(target=self.receiver.start_server, daemon=True).start()
+            self.client = Messenger('192.168.1.2', port=22222)
+        else:
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions)
+            threading.Thread(target=self.receiver.start_server, daemon=True).start()
+            self.client = Messenger(port=22222)
+
     def initialize_components(self):
         cam = Camera()
         
@@ -87,16 +96,28 @@ class DataManager:
         lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
         lidar.reset_sensor()
         lidar.start_sensor()
-        lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
+        
+        if not START_LOCAL_SERVER:
+            lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
+        else:
+            lidar_thread = mp.Process(target=lidar.read_data, daemon=True)
         lidar_thread.start()
         self.logger.info("Camera and LIDAR initialized.")
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
-        p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+        if not START_LOCAL_SERVER:
+            p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+        else:
+            p_transferer = mp.Process(target=data_transferer.start)
         p_transferer.start()
         
-        p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
-        p_web_server.start()
+        if not START_LOCAL_SERVER:
+            p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
+            p_web_server.start()
+            
+        else:
+            p_web_server = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
+            p_web_server.start()
 
         return cam, lidar, data_transferer
     
@@ -149,11 +170,17 @@ if __name__ == "__main__":
         # time.sleep(10)
         data_manager.start()
     except KeyboardInterrupt:
-        data_manager.logger.info("KeyboardInterrupt")
+        if data_manager.logger:
+            data_manager.logger.info("KeyboardInterrupt")
     finally:
-        data_manager.logger.info("Stopping DataManager...")
+        if data_manager.logger:
+            data_manager.logger.info("Stopping DataManager...")
         data_manager.running = False
-        data_manager.lidar.stop_sensor()
-        data_manager.receiver.server_socket.close()
-        data_manager.client.close_connection()
-        data_manager.logger.info("DataManager stopped.")
+        if data_manager.lidar:
+            data_manager.lidar.stop_sensor()
+        if data_manager.receiver:
+            data_manager.receiver.server_socket.close()
+        if data_manager.client:
+            data_manager.client.close_connection()
+        if data_manager.logger:
+            data_manager.logger.info("DataManager stopped.")

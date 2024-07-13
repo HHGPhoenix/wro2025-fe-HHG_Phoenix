@@ -31,7 +31,7 @@ class LidarSensor():
         """
         Simulate resetting the LIDAR sensor.
         """
-        print("Dummy reset sensor")
+        # print("Dummy reset sensor")
         time.sleep(0.5)  # Simulate time delay for reset
 
     def start_sensor(self, response_size=7, mode="normal"):
@@ -44,7 +44,7 @@ class LidarSensor():
         Returns:
             str: A dummy response from the LIDAR sensor.
         """
-        print(f"Dummy start sensor in {mode} mode")
+        # print(f"Dummy start sensor in {mode} mode")
         # Generate a random byte response
         response = bytes(random.getrandbits(8) for _ in range(response_size))
         return response
@@ -53,7 +53,7 @@ class LidarSensor():
         """
         Simulate stopping the LIDAR sensor.
         """
-        print("Dummy stop sensor")
+        # print("Dummy stop sensor")
 
     def read_data(self):
         """
@@ -63,26 +63,16 @@ class LidarSensor():
         
         while True:
             time.sleep(0.1)  # Simulate data reading delay
-            if random.random() > 0.95:  # Simulate the end of a scan cycle with a 5% chance
-                break
+            current_lidar_data = []
             
-            # Generate random LIDAR data
-            angle = random.uniform(0, 360)
-            distance = random.uniform(100, 3000)  # Random distance in mm
-            quality = random.randint(0, 255)  # Random quality measure
-
-            self.lidar_data_list.append((angle, distance, quality))
-
-            # Simulate frequency calculation
-            if len(self.lidar_data_list) > 1 and angle < 1:  # Simulate a loop back to start
-                self.lidar_data_list.append(self.lidar_data_list[-1])
-                missing_data = self.lidar_data_list[-1]
-                self.lidar_data_list.append((angle, distance, quality))
-                frequency = 1.0 / (time.time() - start_time)
-                print(f"Dummy Frequency: {frequency} Hz")
-                start_time = time.time()
+            for i in range(360):
+                distance = random.uniform(100, 3000)
+                intensity = random.randint(0, 255)
+                current_lidar_data.append((i, distance, intensity))
+                
+            self.lidar_data_list.append(current_lidar_data)
             
-            if len(self.lidar_data_list) > 100:  # Limit the data list size
+            if len(self.lidar_data_list) > 10:
                 self.lidar_data_list.pop(0)
 
     def set_motor_speed(self, rpm):
@@ -90,7 +80,7 @@ class LidarSensor():
             raise ValueError("RPM value must be between 0 and 65535")
         
         # Simulate setting motor speed
-        print(f"Dummy set motor speed to {rpm} RPM")
+        # print(f"Dummy set motor speed to {rpm} RPM")
 
     def polar_plot(self, lidar_data):
         """
@@ -157,7 +147,7 @@ if __name__ == "__main__":
     
     dummy_sensor.reset_sensor()
     response = dummy_sensor.start_sensor()
-    print(f"Start response: {response}")
+    # print(f"Start response: {response}")
     
     dummy_sensor.read_data()
     dummy_sensor.set_motor_speed(300)
@@ -166,5 +156,5 @@ if __name__ == "__main__":
     img_bytes = dummy_sensor.polar_plot(lidar_data)
     
     interpolated_data = dummy_sensor.interpolate_data(lidar_data)
-    print(f"Interpolated data: {interpolated_data[:5]}")  # Print first 5 entries of interpolated data
-    print(f"Interpolated data length: {len(interpolated_data)}")
+    # # print(f"Interpolated data: {interpolated_data[:5]}")  # Print first 5 entries of interpolated data
+    # print(f"Interpolated data length: {len(interpolated_data)}")
