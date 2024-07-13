@@ -40,51 +40,46 @@ def target_with_nice_priority(target, nice_value):
 class DataManager:
     def __init__(self):
         self.initialized = False
-        try:
-            print("Starting DataManager...")
-            self.receiver = None
-            self.client = None
-            self.logger = None
-            self.cam = None
-            self.lidar = None
-            self.mode = None
-            self.data_transferer = None
+        print("Starting DataManager...")
+        self.receiver = None
+        self.client = None
+        self.logger = None
+        self.cam = None
+        self.lidar = None
+        self.mode = None
+        self.data_transferer = None
 
-            self.running = False
+        self.running = False
 
-            self.mp_manager = mp.Manager()
-            self.frame_list = self.mp_manager.list([None, None, None])
-            self.interpolated_lidar_data = self.mp_manager.list([None])
-            self.lidar_data_list = self.mp_manager.list()
-            
-            self.communicationestablisher = CommunicationEstablisher(self)
-            
-            self.start_comm()
+        self.mp_manager = mp.Manager()
+        self.frame_list = self.mp_manager.list([None, None, None])
+        self.interpolated_lidar_data = self.mp_manager.list([None])
+        self.lidar_data_list = self.mp_manager.list()
+        
+        self.communicationestablisher = CommunicationEstablisher(self)
+        
+        self.start_comm()
 
-            self.logger.info("DataManager started.")
-            
-            self.mode = self.choose_mode()
-            
-            self.cam, self.lidar, self.data_transferer = self.initialize_components()
+        self.logger.info("DataManager started.")
+        
+        self.mode = self.choose_mode()
+        
+        self.cam, self.lidar, self.data_transferer = self.initialize_components()
 
-            self.initialized = True
+        self.initialized = True
 
-            self.communicationestablisher.spam()
+        self.communicationestablisher.establish_communication()
 
-            time.sleep(10000000)
-            
-            self.logger.info("DataManager initialized.")
-            
-            self.client.send_message(f"MODE#{self.mode}")
-            
-            for i in range(3):
-                time.sleep(1)
-                self.logger.info(f"Waiting ... {i}")
+        # time.sleep(10000000)
+        
+        self.logger.info("DataManager initialized.")
+        
+        self.client.send_message(f"MODE#{self.mode}")
+        
+        for i in range(3):
+            time.sleep(1)
+            self.logger.info(f"Waiting ... {i}")
                 
-        except Exception as e:
-            print(e)
-            self.receiver.server_socket.close()
-
     def start_comm(self):
         logger_obj = Logger()
         self.logger_obj = logger_obj.setup_log()
@@ -111,26 +106,26 @@ class DataManager:
         lidar.start_sensor()
         
         if not START_LOCAL_SERVER:
-            lidar_thread = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
+            self.lidarProcess = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
         else:
-            lidar_thread = mp.Process(target=lidar.read_data, daemon=True)
-        lidar_thread.start()
+            self.lidarProcess = mp.Process(target=lidar.read_data, daemon=True)
+        self.lidarProcess.start()
         self.logger.info("Camera and LIDAR initialized.")
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
         if not START_LOCAL_SERVER:
-            p_transferer = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
+            self.dataTransferProcess = mp.Process(target=target_with_nice_priority(data_transferer.start, 0))
         else:
-            p_transferer = mp.Process(target=data_transferer.start)
-        p_transferer.start()
+            self.dataTransferProcess = mp.Process(target=data_transferer.start)
+        self.dataTransferProcess.start()
         
         if not START_LOCAL_SERVER:
-            p_web_server = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
-            p_web_server.start()
+            self.webServerProcess = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'))
+            self.webServerProcess.start()
             
         else:
-            p_web_server = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
-            p_web_server.start()
+            self.webServerProcess = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000))
+            self.webServerProcess.start()
 
         return cam, lidar, data_transferer
     
@@ -184,15 +179,28 @@ class DataManager:
 
 def cleanup(data_manager):
     if data_manager:
+        if data_manager.webServerProcess:
+            data_manager.webServerProcess.terminate()
+            data_manager.webServerProcess.join()
         if data_manager.logger:
             data_manager.logger.info("Stopping DataManager...")
         data_manager.running = False
         if data_manager.lidar:
             data_manager.lidar.stop_sensor()
+        if data_manager.lidarProcess:
+            data_manager.lidarProcess.terminate()
+            data_manager.lidarProcess.join()
+        if data_manager.data_transferer:
+            data_manager.data_transferer.stop()
+        if data_manager.dataTransferProcess:
+            data_manager.dataTransferProcess.terminate()
+            data_manager.dataTransferProcess.join()
         if data_manager.receiver:
             data_manager.receiver.server_socket.close()
         if data_manager.client:
-            data_manager.client.close_connection()
+            data_manager.client.close_socket()
+        if data_manager.mp_manager:
+            data_manager.mp_manager.shutdown()
         if data_manager.logger:
             data_manager.logger.info("DataManager stopped.")
 
@@ -208,4 +216,4 @@ if __name__ == "__main__":
             data_manager.logger.info("KeyboardInterrupt")
     finally:
         cleanup(data_manager)
-        print("DataManager stopped.")
+        print("\nDataManager stopped.")

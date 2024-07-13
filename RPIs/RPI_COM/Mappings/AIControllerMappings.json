@@ -2,7 +2,8 @@
     "MODE": "set_mode",
     "START": "start",
     "HEART": "send_heartbeat",
-    "BEAT": "set_analog_stick_values",
+    "BEAT": "receive_heartbeat",
     "ALREADY_RUNNING": "handle_already_running",
+    "ANALOG_STICKS": "set_analog_stick_values",
     "LIDAR_DATA": "set_lidar_data"
 }

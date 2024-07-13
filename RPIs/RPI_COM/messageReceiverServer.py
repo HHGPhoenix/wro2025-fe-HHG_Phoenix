@@ -10,6 +10,7 @@ class MessageReceiver:
         self.load_mappings_from_json(mappings_file)
         self.ip = ip
         self.port = port
+        self.server_socket = None
 
     def load_mappings_from_json(self, file_path):
         with open(file_path, 'r') as file:
@@ -21,8 +22,8 @@ class MessageReceiver:
         parts = message.split('#')
         command = parts[0]
         #print message if command starts with 'ANALOG'
-        # if command.startswith('ANALOG'):
-            # print(f"Received message: {message}")
+        if command.startswith('ANALOG'):
+            print(f"Received message: {message}")
         values = [self.parse_value(part) for part in parts[1:]]
         return command, values
 
@@ -57,12 +58,14 @@ class MessageReceiver:
             while True:
                 try:
                     client_socket, client_address = self.server_socket.accept()
+                    # print(f"Accepted connection from {client_address}")
                     threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True).start()
+                    # self.handle_client(client_socket, client_address)
                 except socket.error as e:
                     print(f"Socket error on accept: {e}")
                     break
         except KeyboardInterrupt:
-            print("Server is shutting down...")
+            raise KeyboardInterrupt
         finally:
             if self.server_socket:
                 self.server_socket.close()
@@ -89,15 +92,13 @@ class MessageReceiver:
                 for message in data:
                     message = message.strip()
                     if message:
-                        # print(f"Received message: {message}")
+                        # Process the message
                         response = self.handle_message(message)
-                        # print(f"Response: {response}")
+                        # Uncomment the line below to send a response back to the client
                         # client_socket.sendall(response.encode('utf-8'))
 
         except socket.error as e:
             print(f"Socket error handling client {client_address}: {e}")
-        # except Exception as e:
-        #     print(f"Error handling client {client_address}: {e}")
         finally:
             client_socket.close()
             print(f"Connection to {client_address} closed")

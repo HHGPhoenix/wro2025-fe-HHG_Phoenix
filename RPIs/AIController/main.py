@@ -20,41 +20,37 @@ class AIController:
 
         self.initialized = False
 
-        try:
-            self.servo_pin = 4
-            
-            print("Starting AIController...")
-            self.receiver = None
-            self.client = None
-            self.logger = None
-            self.mode = "Training"
-            self.servo = None
-            self.lidar_data = None
-            
-            self.running = False
-            
-            self.x = 0.5
-            self.y = 0.5
-            self.rx = 0.5
-            self.ry = 0.5
-            
-            self.communicationestablisher = CommunicationEstablisher(self)
-            self.start_comm()
-
-            self.logger.info("AIController started.")
-            
-            self.servo, self.motor_controller = self.initialize_components()
-            
-            self.logger.info("Spamming...")
-
-            self.initialized = True
-
-            # self.communicationestablisher.spam()
+        self.servo_pin = 4
         
-        except Exception as e:
-            print(e)
-            self.receiver.server_socket.close()
+        print("Starting AIController...")
+        self.receiver = None
+        self.client = None
+        self.logger = None
+        self.mode = "Training"
+        self.servo = None
+        self.lidar_data = None
+        
+        self.running = False
+        
+        self.x = 0.5
+        self.y = 0.5
+        self.rx = 0.5
+        self.ry = 0.5
+        
+        self.communicationestablisher = CommunicationEstablisher(self)
 
+        # self.logger.info("AIController started.")
+        
+        self.servo, self.motor_controller = self.initialize_components()
+        
+        # self.logger.info("Spamming...")
+
+        self.initialized = True
+
+        self.start_comm()
+
+        self.communicationestablisher.establish_communication()
+    
     def start_comm(self):
         self.remote_functions = RemoteFunctions(self)
         
@@ -113,7 +109,7 @@ def cleanup(ai_controller):
         if ai_controller.receiver:
             ai_controller.receiver.server_socket.close()
         if ai_controller.client:
-            ai_controller.client.close_connection()
+            ai_controller.client.close_socket()
         if ai_controller.logger:
             ai_controller.logger.info("AIController stopped.")
         
@@ -128,4 +124,4 @@ if __name__ == "__main__":
             ai_controller.logger.info("KeyboardInterrupt")
     finally:
         cleanup(ai_controller)
-        print("AIController stopped.")
+        print("\nAIController stopped.")

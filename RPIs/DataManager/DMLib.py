@@ -11,26 +11,27 @@ class RemoteFunctions:
         self.logger = DataManager.logger_obj
 
     def log_debug(self, message):
-        self.logger.debug(f"--DataManager--: {message}")
+        self.logger.debug(f"--AIController--: {message}")
 
     def log_info(self, message):
-        self.logger.info(f"--DataManager--: {message}")
+        self.logger.info(f"--AIController--: {message}")
 
     def log_warning(self, message):
-        self.logger.warning(f"--DataManager--: {message}")
+        self.logger.warning(f"--AIController--: {message}")
 
     def log_error(self, message):
-        self.logger.error(f"--DataManager--: {message}")
+        self.logger.error(f"--AIController--: {message}")
 
     def log_critical(self, message):
-        self.logger.critical(f"--DataManager--: {message}")
+        self.logger.critical(f"--AIController--: {message}")
 
     def log_exception(self, message):
-        self.logger.exception(f"--DataManager--: {message}")
+        self.logger.exception(f"--AIController--: {message}")
 
 ###########################################################################
     
     def send_heartbeat(self):
+        global COM_HANDLE_ACTIVE
         with COM_LOCK:
             if COM_HANDLE_ACTIVE:
                 return
@@ -52,7 +53,7 @@ class RemoteFunctions:
     def receive_heartbeat(self):
         self.DataManager.communicationestablisher.received_message = True
 
-    def handle_alread_running(self):
+    def handle_already_running(self):
         self.DataManager.logger.error('DataManager already running!')
 
 ###########################################################################

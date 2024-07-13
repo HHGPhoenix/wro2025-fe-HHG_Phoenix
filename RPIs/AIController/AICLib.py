@@ -64,6 +64,7 @@ class RemoteFunctions:
 ###########################################################################
         
     def send_heartbeat(self):
+        global COM_HANDLE_ACTIVE
         with COM_LOCK:
             if COM_HANDLE_ACTIVE:
                 return
@@ -74,7 +75,7 @@ class RemoteFunctions:
             time.sleep(0.1)
 
         if self.AIController.running:
-            self.AIController.error('AIController already running!')
+            self.AIController.logger.error('AIController already running!')
             self.AIController.client.send_message("ALREADY_RUNNING")
             COM_HANDLE_ACTIVE = False
             return
@@ -85,7 +86,7 @@ class RemoteFunctions:
     def receive_heartbeat(self):
         self.AIController.communicationestablisher.received_message = True
 
-    def handle_alread_running(self):
+    def handle_already_running(self):
         self.AIController.logger.error('AIController already running!')
 
 ###########################################################################
