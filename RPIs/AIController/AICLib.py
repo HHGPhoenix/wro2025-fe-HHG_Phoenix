@@ -1,4 +1,9 @@
 import time
+import threading
+
+COM_LOCK = threading.Lock()
+COM_HANDLE_ACTIVE = False
+
 class AICU_Logger:
     def __init__(self, client):
         self.client = client
@@ -24,11 +29,9 @@ class AICU_Logger:
 class RemoteFunctions:
     def __init__(self, AIController):
         self.AIController = AIController
+
+###########################################################################
     
-    def set_mode(self, mode):
-        self.AIController.logger.info(f'Setting mode to {mode}')
-        self.AIController.mode = mode
-        
     def start(self):
         if self.AIController.running:
             self.AIController.logger.error('AIController already running!')
@@ -54,12 +57,39 @@ class RemoteFunctions:
             self.AIController.logger.error(f'Unknown mode: {self.AIController.mode}')
             self.AIController.running = False
         
-    def send_good(self):
-        self.AIController.client.send_message('GOOD')
-    
-    def receive_good(self):
-        self.AIController.communicationestablisher.received_message = 'GOOD'
+    def set_mode(self, mode):
+        self.AIController.logger.info(f'Setting mode to {mode}')
+        self.AIController.mode = mode
+
+###########################################################################
         
+    def send_heartbeat(self):
+        with COM_LOCK:
+            if COM_HANDLE_ACTIVE:
+                return
+            
+            COM_HANDLE_ACTIVE = True
+
+        while not self.AIController.initialized:
+            time.sleep(0.1)
+
+        if self.AIController.running:
+            self.AIController.error('AIController already running!')
+            self.AIController.client.send_message("ALREADY_RUNNING")
+            COM_HANDLE_ACTIVE = False
+            return
+
+        self.AIController.client.send_message('BEAT')
+        COM_HANDLE_ACTIVE = False
+    
+    def receive_heartbeat(self):
+        self.AIController.communicationestablisher.received_message = True
+
+    def handle_alread_running(self):
+        self.AIController.logger.error('AIController already running!')
+
+###########################################################################
+
     def set_analog_stick_values(self, x, y, rx, ry):
         self.AIController.x = x
         self.AIController.y = y
@@ -68,14 +98,3 @@ class RemoteFunctions:
         
     def set_lidar_data(self, data):
         self.AIController.lidar_data = data
-
-class CommunicationEstablisher():
-    def __init__(self, pi):
-        self.pi = pi
-        self.received_message = None
-
-
-    def spam(self):
-        while self.received_message == None:
-            self.pi.client.send_message("SPAM")
-            time.sleep(1)

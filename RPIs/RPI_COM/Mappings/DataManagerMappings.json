@@ -5,6 +5,7 @@
     "LOG_ERROR": "log_error",
     "LOG_CRITICAL": "log_critical",
     "LOG_EXCEPTION": "log_exception",
-    "SPAM": "send_good",
-    "GOOD": "receive_good"
+    "HEART": "send_heartbeat",
+    "BEAT": "receive_heartbeat",
+    "ALREADY_RUNNING": "handle_already_running"
 }

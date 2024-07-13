@@ -164,11 +164,6 @@ class LoggerDatamanager():
     def critical(self, message):
         self.logger.critical(f" --Datamanager-- {message}")
 
-
-
-    
-
-
         
 # Usage
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 {
     "MODE": "set_mode",
     "START": "start",
-    "SPAM": "send_good",
-    "GOOD": "receive_good",
-    "ANALOG_STICKS": "set_analog_stick_values",
+    "HEART": "send_heartbeat",
+    "BEAT": "set_analog_stick_values",
+    "ALREADY_RUNNING": "handle_already_running",
     "LIDAR_DATA": "set_lidar_data"
 }

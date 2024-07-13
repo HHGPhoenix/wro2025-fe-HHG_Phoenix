@@ -3,7 +3,9 @@ import threading
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.RPI_Logging.Logger import Logger, LoggerDatamanager
-from RPIs.DataManager.DataManagerLib import RemoteFunctions, CommunicationEstablisher
+from RPIs.DataManager.DMLib import RemoteFunctions
+
+from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
@@ -18,7 +20,11 @@ import queue
 import os
 import platform
 
+###########################################################################
+
 START_LOCAL_SERVER = True
+
+###########################################################################
 
 def set_nice_priority(nice_value):
     os.nice(nice_value)
@@ -29,8 +35,11 @@ def target_with_nice_priority(target, nice_value):
         target(*args, **kwargs)
     return wrapper
 
+###########################################################################
+
 class DataManager:
     def __init__(self):
+        self.initialized = False
         try:
             print("Starting DataManager...")
             self.receiver = None
@@ -58,7 +67,11 @@ class DataManager:
             
             self.cam, self.lidar, self.data_transferer = self.initialize_components()
 
+            self.initialized = True
+
             self.communicationestablisher.spam()
+
+            time.sleep(10000000)
             
             self.logger.info("DataManager initialized.")
             
@@ -121,6 +134,8 @@ class DataManager:
 
         return cam, lidar, data_transferer
     
+    ###########################################################################
+    
     def choose_mode(self):
         with open ("RPIs/DataManager/mode.txt", "r") as file:
             mode = file.read().strip()
@@ -147,6 +162,8 @@ class DataManager:
         else:
             self.logger.error(f'Unknown mode: {self.mode}')
             self.running = False
+
+    ###########################################################################
     
     def main_loop_opening_race(self):
         self.logger.info("Starting main loop for opening race...")
@@ -163,16 +180,10 @@ class DataManager:
     def main_loop_obstacle_race(self):
         self.logger.info("Starting main loop for obstacle race...")
 
-        
-if __name__ == "__main__":
-    try:
-        data_manager = DataManager()
-        # time.sleep(10)
-        data_manager.start()
-    except KeyboardInterrupt:
-        if data_manager.logger:
-            data_manager.logger.info("KeyboardInterrupt")
-    finally:
+    ###########################################################################
+
+def cleanup(data_manager):
+    if data_manager:
         if data_manager.logger:
             data_manager.logger.info("Stopping DataManager...")
         data_manager.running = False
@@ -184,3 +195,17 @@ if __name__ == "__main__":
             data_manager.client.close_connection()
         if data_manager.logger:
             data_manager.logger.info("DataManager stopped.")
+
+        
+if __name__ == "__main__":
+    data_manager = None
+    try:
+        data_manager = DataManager()
+        # time.sleep(10)
+        data_manager.start()
+    except KeyboardInterrupt:
+        if data_manager and data_manager.logger:
+            data_manager.logger.info("KeyboardInterrupt")
+    finally:
+        cleanup(data_manager)
+        print("DataManager stopped.")
