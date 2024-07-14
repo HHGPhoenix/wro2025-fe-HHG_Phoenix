@@ -16,7 +16,6 @@ from RPIs.WebServer.WebServer import WebServer
 from RPIs.DataManager.Mainloops.TrainingLoop import main_loop_training
 
 import multiprocessing as mp
-import queue
 import os
 import platform
 
@@ -27,13 +26,15 @@ START_LOCAL_SERVER = True
 ###########################################################################
 
 def set_nice_priority(nice_value):
-    os.nice(nice_value)
+    try:
+        os.nice(nice_value)
+    except AttributeError:
+        pass  # os.nice() is not available on Windows
 
-def target_with_nice_priority(target, nice_value):
-    def wrapper(*args, **kwargs):
+def target_with_nice_priority(target, nice_value, *args, **kwargs):
+    if platform.system() != 'Windows':
         set_nice_priority(nice_value)
-        target(*args, **kwargs)
-    return wrapper
+    target(*args, **kwargs)
 
 ###########################################################################
 
@@ -76,10 +77,6 @@ class DataManager:
         
         self.client.send_message(f"MODE#{self.mode}")
         
-        for i in range(3):
-            time.sleep(1)
-            self.logger.info(f"Waiting ... {i}")
-                
     def start_comm(self):
         logger_obj = Logger()
         self.logger_obj = logger_obj.setup_log()
@@ -105,38 +102,20 @@ class DataManager:
         lidar.reset_sensor()
         lidar.start_sensor()
         
-        if not START_LOCAL_SERVER:
-            self.lidarProcess = mp.Process(target=target_with_nice_priority(lidar.read_data, -10), daemon=True)
-        else:
-            self.lidarProcess = mp.Process(target=lidar.read_data, daemon=True)
+        self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)
         self.lidarProcess.start()
         self.logger.info("Camera and LIDAR initialized.")
         
         data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
-        if not START_LOCAL_SERVER:
-            self.dataTransferProcess = mp.Process(target=target_with_nice_priority(data_transferer.start, 0), daemon=True)
-        else:
-            self.dataTransferProcess = mp.Process(target=data_transferer.start, daemon=True)
+        self.dataTransferProcess = mp.Process(target=target_with_nice_priority, args=(data_transferer.start, 0), daemon=True)
         self.dataTransferProcess.start()
         
         if not START_LOCAL_SERVER:
-            self.webServerProcess = mp.Process(target=target_with_nice_priority(WebServer, 0), args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'), daemon=True)
-            self.webServerProcess.start()
-            
+            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'), daemon=True)
         else:
-            self.webServerProcess = mp.Process(target=WebServer, args=(self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
-            self.webServerProcess.start()
+            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
 
-        # for testing:
-
-        # self.lidarProcess.terminate()
-        # self.lidarProcess.join()
-
-        # self.dataTransferProcess.terminate()
-        # self.dataTransferProcess.join()
-
-        # self.webServerProcess.terminate()
-        # self.webServerProcess.join()
+        self.webServerProcess.start()
 
         return cam, lidar, data_transferer
     
@@ -151,6 +130,10 @@ class DataManager:
         return mode
     
     def start(self):
+        for i in range(3):
+            time.sleep(1)
+            self.logger.info(f"Waiting ... {i}")
+
         self.logger.info('Starting AIController...')
         self.client.send_message('START')
         
@@ -175,10 +158,9 @@ class DataManager:
         self.logger.info("Starting main loop for opening race...")
         
         while self.running:
-            # print("running")
+            print("running")
             # self.logger.info(f"LIDAR data: {self.lidar_data_list[-1]}")
                 
-            
             time.sleep(0.1)
         
         print("Opening ended. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ")
@@ -188,43 +170,6 @@ class DataManager:
 
     ###########################################################################
 
-def cleanup():
-    if data_manager:
-        if data_manager.logger:
-            data_manager.logger.info("Stopping DataManager...")
-
-        data_manager.running = False
-
-        if data_manager.lidarProcess:
-            data_manager.lidarProcess.terminate()
-            data_manager.lidarProcess.join()
-
-        if data_manager.data_transferer:
-            data_manager.data_transferer.stop()
-
-        if data_manager.dataTransferProcess:
-            data_manager.dataTransferProcess.terminate()
-            data_manager.dataTransferProcess.join()
-
-        if data_manager.webServerProcess:
-            data_manager.webServerProcess.terminate()
-            data_manager.webServerProcess.join()
-
-        if data_manager.lidar:
-            data_manager.lidar.stop_sensor()
-
-        if data_manager.receiver:
-            data_manager.receiver.server_socket.close()
-
-        if data_manager.client:
-            data_manager.client.close_socket()
-
-        if data_manager.mp_manager:
-            data_manager.mp_manager.shutdown()
-
-        if data_manager.logger:
-            data_manager.logger.info("DataManager stopped.")
-
 if __name__ == "__main__":
     data_manager = None
     try:
@@ -232,8 +177,6 @@ if __name__ == "__main__":
         # time.sleep(10)
         data_manager.start()
     except KeyboardInterrupt:
-        if data_manager and data_manager.logger:
-            data_manager.logger.info("KeyboardInterrupt")
+        print("\nKeyboardInterrupt")
     finally:
-        cleanup()
         print("\nDataManager stopped.")

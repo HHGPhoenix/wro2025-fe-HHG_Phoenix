@@ -7,6 +7,8 @@ from flask_socketio import SocketIO, emit
 import threading
 import time
 import logging
+import signal
+import sys
 
 class WebServer:
     def __init__(self, shared_frames_list, shared_lidar_lists, port=5000, host='0.0.0.0'):
@@ -17,6 +19,7 @@ class WebServer:
         self.interpolated_lidar_list = shared_lidar_lists[1]
         self.last_shared_lidar_list = []
         self.last_interpolated_lidar_list = []
+        self.should_run = True
 
         self.app = flask.Flask(__name__, static_folder='Website/dist', template_folder='Website/dist', static_url_path='/')
         self.socketio = SocketIO(self.app, cors_allowed_origins='*')
@@ -30,6 +33,11 @@ class WebServer:
         tupdate.start()
 
         self.app_routes()
+
+        # Set up signal handling for graceful shutdown
+        signal.signal(signal.SIGINT, self.shutdown)
+        signal.signal(signal.SIGTERM, self.shutdown)
+
         self.start()
 
     def start(self):
@@ -38,13 +46,18 @@ class WebServer:
             self.socketio.run(self.app, host=self.host, port=self.port, debug=False, use_reloader=False, allow_unsafe_werkzeug=True, log_output=False)
         except Exception as e:
             print(f"An error occurred: {e}")
-            pass
         finally:
             print("Web server stopped")
-        
+
+    def shutdown(self, signum, frame):
+        print("Gracefully shutting down web server...")
+        self.should_run = False
+        self.socketio.stop()
+        sys.exit(0)
+
     def check_for_new_data(self):
         try:
-            while True:
+            while self.should_run:
                 if len(self.shared_lidar_list) > 0 and self.shared_lidar_list[-1] != self.last_shared_lidar_list:
                     self.last_shared_lidar_list = self.shared_lidar_list[-1]
                     self.socketio.emit('lidar_data', self.last_shared_lidar_list)

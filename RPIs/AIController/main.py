@@ -17,7 +17,6 @@ START_LOCAL_SERVER = True
 
 class AIController:
     def __init__(self):
-
         self.initialized = False
 
         self.servo_pin = 4
@@ -39,12 +38,10 @@ class AIController:
         
         self.communicationestablisher = CommunicationEstablisher(self)
 
-        # self.logger.info("AIController started.")
+        self.logger.info("AIController started.")
         
         self.servo, self.motor_controller = self.initialize_components()
         
-        # self.logger.info("Spamming...")
-
         self.initialized = True
 
         self.start_comm()
@@ -74,7 +71,38 @@ class AIController:
         
         return servo, motor_controller
     
-###########################################################################
+    ###########################################################################
+    
+    def start(self):
+        for i in range(3):
+            time.sleep(1)
+            self.logger.info(f"Waiting ... {i}")
+
+        if self.running:
+            self.logger.error('AIController already running!')
+            return
+        
+        while not self.initialized:
+            time.sleep(0.1)
+
+        self.logger.info('Starting AIController...')
+        
+        self.running = True
+        
+        if self.mode == 'OpeningRace':
+            self.main_loop_opening_race()
+            
+        elif self.mode == 'ObstacleRace':
+            self.main_loop_obstacle_race()
+            
+        elif self.mode == 'Training':
+            self.main_loop_training()
+            
+        else:
+            self.logger.error(f'Unknown mode: {self.mode}')
+            self.running = False
+    
+    ###########################################################################
 
     def main_loop_opening_race(self):
         self.logger.info("Starting main loop for opening race...")
@@ -101,18 +129,6 @@ class AIController:
 
 ###########################################################################
 
-def cleanup(ai_controller):
-    if ai_controller:
-        if ai_controller.logger:
-            ai_controller.logger.info("Stopping AIController...")
-        ai_controller.running = False
-        if ai_controller.receiver:
-            ai_controller.receiver.server_socket.close()
-        if ai_controller.client:
-            ai_controller.client.close_socket()
-        if ai_controller.logger:
-            ai_controller.logger.info("AIController stopped.")
-        
 if __name__ == "__main__":
     ai_controller = None 
     try:
@@ -120,8 +136,6 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        if ai_controller and ai_controller.logger:  
-            ai_controller.logger.info("KeyboardInterrupt")
+        print("\nKeyboardInterrupt")
     finally:
-        cleanup(ai_controller)
         print("\nAIController stopped.")

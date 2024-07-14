@@ -48,7 +48,7 @@ def main_loop_training(self):
                         file.write(f"{x}\n")
             
             end_time = time.time()
-            print(f"Loop iteration time: {end_time - start_time} seconds")
+            # print(f"Loop iteration time: {end_time - start_time} seconds")
 
             sleep_time = 0.1 - (end_time - start_time)
 

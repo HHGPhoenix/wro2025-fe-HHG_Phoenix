@@ -33,29 +33,10 @@ class RemoteFunctions:
 ###########################################################################
     
     def start(self):
-        if self.AIController.running:
-            self.AIController.logger.error('AIController already running!')
-            return
-        
-        while not self.AIController.initialized:
-            time.sleep(0.1)
 
-        self.AIController.logger.info('Starting AIController...')
-        
-        self.AIController.running = True
-        
-        if self.AIController.mode == 'OpeningRace':
-            self.AIController.main_loop_opening_race()
-            
-        elif self.AIController.mode == 'ObstacleRace':
-            self.AIController.main_loop_obstacle_race()
-            
-        elif self.AIController.mode == 'Training':
-            self.AIController.main_loop_training()
-            
-        else:
-            self.AIController.logger.error(f'Unknown mode: {self.AIController.mode}')
-            self.AIController.running = False
+        self.AIController.start()
+
+
         
     def set_mode(self, mode):
         self.AIController.logger.info(f'Setting mode to {mode}')

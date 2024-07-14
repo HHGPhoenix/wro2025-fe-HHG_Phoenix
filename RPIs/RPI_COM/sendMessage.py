@@ -42,6 +42,7 @@ class Messenger:
     def connect_wrapper(self):
         """Start the connection attempt in a new thread."""
         connection_thread = threading.Thread(target=self.connect)
+        connection_thread.daemon = True
         connection_thread.start()
 
     def send_message(self, message, attempts=5):

@@ -10,7 +10,8 @@ class MotorController:
     def send_speed(self, value):
         mapped_value = self.map_speed_value(value)
         self.ser.write(("SPEED " + str(mapped_value) + "\n").encode())
-        if mapped_value >= 0:
-            print(f"Sent message: SPEED +{mapped_value:.4f}", end=' ')
-        else:
-            print(f"Sent message: SPEED {mapped_value:.4f}", end=' ')
+        # if mapped_value >= 0:
+        #     print(f"Sent message: SPEED +{mapped_value:.4f}", end=' ')
+        # else:
+        #     print(f"Sent message: SPEED {mapped_value:.4f}", end=' ')
+        print(f"Sent message: SPEED {mapped_value:.4f}")
