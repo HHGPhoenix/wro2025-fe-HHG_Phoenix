@@ -38,13 +38,13 @@ class AIController:
         
         self.communicationestablisher = CommunicationEstablisher(self)
 
+        self.start_comm()
+
         self.logger.info("AIController started.")
         
         self.servo, self.motor_controller = self.initialize_components()
         
         self.initialized = True
-
-        self.start_comm()
 
         self.communicationestablisher.establish_communication()
     
