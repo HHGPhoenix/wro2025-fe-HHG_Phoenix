@@ -10,6 +10,8 @@ import logging
 import signal
 import sys
 
+###########################################################################
+
 class WebServer:
     def __init__(self, shared_frames_list, shared_lidar_lists, port=5000, host='0.0.0.0'):
         self.port = port
@@ -40,6 +42,8 @@ class WebServer:
 
         self.start()
 
+    ###########################################################################
+
     def start(self):
         print("Web server running")
         try:
@@ -54,6 +58,8 @@ class WebServer:
         self.should_run = False
         self.socketio.stop()
         sys.exit(0)
+
+    ###########################################################################
 
     def check_for_new_data(self):
         try:
@@ -74,6 +80,8 @@ class WebServer:
             pass
         except EOFError:
             pass
+
+    ###########################################################################
                 
     def app_routes(self):
         @self.app.route('/')
@@ -142,23 +150,27 @@ class WebServer:
                 log_data = file.read()
             return log_data
         
+    ###########################################################################
+        
     def generate_raw_frame(self):
         frameraw_bytes = self.shared_frames_list[0]
         if frameraw_bytes:
-            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 853, 3))  # Adjust shape as needed
+            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 853, 3))
             return frame
                 
     def generate_simplified_frame(self):
         simplified_image_bytes = self.shared_frames_list[1]
         if simplified_image_bytes:
-            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((480, 853, 3))  # Adjust shape as needed
+            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((480, 853, 3))
             return frame
         
     def generate_object_frame(self):
         object_image_bytes = self.shared_frames_list[2]
         if object_image_bytes:
-            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((480, 853, 3))  # Adjust shape as needed
+            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((480, 853, 3))
             return frame
+        
+    ###########################################################################
         
     def stream_camera(self, image_function):
         try:
@@ -179,6 +191,8 @@ class WebServer:
             print(f"An error occurred: {e}")
         finally: 
             print("Video closed! 💀")
+
+###########################################################################
 
 def compress_image(image):
     height, width = image.shape[:2]

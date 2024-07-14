@@ -80,3 +80,5 @@ class RemoteFunctions:
         
     def set_lidar_data(self, data):
         self.AIController.lidar_data = data
+        
+###########################################################################
