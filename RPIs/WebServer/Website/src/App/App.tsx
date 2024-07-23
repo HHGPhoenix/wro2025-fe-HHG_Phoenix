@@ -10,7 +10,7 @@ import Header from '../components/Misc/Header.js';
 const App: React.FC = () => {
     return (
         <Router>
-            <div className="App flex">
+            <div className="App flex bg-white dark:bg-slate-700">
                 <Navbar />
                 <div className="flex-grow ml-32 p-2">
                     <Header />
