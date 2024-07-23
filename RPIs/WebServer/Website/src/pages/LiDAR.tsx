@@ -13,36 +13,10 @@ const LIDAR: React.FC = () => {
         : '/lidar/data';
 
     return (
-        <div>
+        <div className="bg-white dark:bg-slate-700 text-black dark:text-white">
             <h2 className="text-center text-3xl font-bold p-4">
                 Polar plot of LIDAR data
             </h2>
-            <div className="flex justify-center p-4">
-                <div className="flex items-center space-x-3">
-                    <label>
-                        <input
-                            type="radio"
-                            value="interpolated"
-                            checked={useInterpolated}
-                            onChange={handleToggle}
-                            name="dataSelection"
-                            className="form-radio"
-                        />
-                        <span className="text-lg">Use Interpolated Data</span>
-                    </label>
-                    <label>
-                        <input
-                            type="radio"
-                            value="raw"
-                            checked={!useInterpolated}
-                            onChange={handleToggle}
-                            name="dataSelection"
-                            className="form-radio"
-                        />
-                        <span className="text-lg">Use Raw Data</span>
-                    </label>
-                </div>
-            </div>
             <LIDARPlot />
         </div>
     );
