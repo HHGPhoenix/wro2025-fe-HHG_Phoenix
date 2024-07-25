@@ -8,7 +8,9 @@ from RPIs.DataManager.DMLib import RemoteFunctions
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 from RPIs.Devices.Dummy.Camera.CameraManager import Camera
-from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
+# from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
+# from RPIs.Devices.Camera.CameraManager import Camera
+from RPIs.Devices.LIDAR.LIDAR import LidarSensor
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
@@ -21,7 +23,7 @@ import platform
 
 ###########################################################################
 
-START_LOCAL_SERVER = True
+START_LOCAL_SERVER = False
 
 ###########################################################################
 
@@ -70,8 +72,6 @@ class DataManager:
         self.initialized = True
 
         self.communicationestablisher.establish_communication()
-
-        # time.sleep(10000000)
         
         self.logger.info("DataManager initialized.")
         

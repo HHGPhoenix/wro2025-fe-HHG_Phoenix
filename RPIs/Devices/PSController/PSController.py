@@ -113,9 +113,9 @@ class PSController():
         right_analog_y_value = self.right_analog_y / self.calibrated_ry_value / 2
         
         # Limit the values to the range of 0 - 1
-        left_analog_x_value = max(0, min(left_analog_x_value, 1))
-        left_analog_y_value = max(0, min(left_analog_y_value, 1))
-        right_analog_x_value = max(0, min(right_analog_x_value, 1))
-        right_analog_y_value = max(0, min(right_analog_y_value, 1))
+        left_analog_x_value = round(max(0, min(left_analog_x_value, 1)), 3)
+        left_analog_y_value = round(max(0, min(left_analog_y_value, 1)), 3)
+        right_analog_x_value = round(max(0, min(right_analog_x_value, 1)), 3)
+        right_analog_y_value = round(max(0, min(right_analog_y_value, 1)), 3)
         
         return left_analog_x_value, left_analog_y_value, right_analog_x_value, right_analog_y_value    

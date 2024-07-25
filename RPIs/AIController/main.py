@@ -6,12 +6,14 @@ from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions
 
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
-from RPIs.Devices.Dummy.Servo.Servo import Servo
-from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
+# from RPIs.Devices.Dummy.Servo.Servo import Servo
+# from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
+from RPIs.Devices.Servo.Servo import Servo
+from RPIs.Devices.MotorController.MotorController import MotorController
 
 ###########################################################################
 
-START_LOCAL_SERVER = True
+START_LOCAL_SERVER = False
 
 ###########################################################################
 

@@ -17,13 +17,13 @@ class DataTransferer:
 
     def start(self):
         self.camera_thread = threading.Thread(target=self.process_cam_frames)
-        self.camera_thread.daemon = True
+        self.camera_thread.daemon = False
         self.camera_thread.start()
         
         print("Camera thread started")
 
         self.lidar_thread = threading.Thread(target=self.process_lidar_data)
-        self.lidar_thread.daemon = True
+        self.lidar_thread.daemon = False
         self.lidar_thread.start()
         
         print("Lidar thread started")
@@ -63,8 +63,9 @@ class DataTransferer:
         print("Processing LIDAR data", self.lidar)
         try:
             while True:
-                if len(self.lidar_data_list) == 0:
-                    continue
+                while len(self.lidar_data_list) == 0:
+                    print("No LIDAR data available")
+                    time.sleep(0.1)
                 
                 start_time = time.time()
                 
@@ -102,6 +103,9 @@ class DataTransferer:
                 
                 df_interpolated_list = df_interpolated.values.tolist()
                 
+                # Round every number to three decimal places
+                df_interpolated_list = [[round(angle, 3), round(distance, 3), round(intensity, 3)] for angle, distance, intensity in df_interpolated_list]
+                
                 self.interpolated_lidar_data[0] = df_interpolated_list
                 
                 self.interpolated_lidar_data[0].sort(key=lambda x: x[0], reverse=True)
@@ -109,7 +113,7 @@ class DataTransferer:
                 elapsed_time = time.time() - start_time  # Calculate elapsed time
                 wait_time = max(0.1 - elapsed_time, 0)  # Adjust wait time to ensure loop runs every 100ms
                 time.sleep(wait_time)  # Wait for the adjusted time
-
+                
         except KeyboardInterrupt:
             pass
         except BrokenPipeError:

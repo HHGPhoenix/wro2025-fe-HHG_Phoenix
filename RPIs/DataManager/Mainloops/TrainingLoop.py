@@ -1,5 +1,8 @@
 import time
-from RPIs.Devices.Dummy.PSController.PSController import PSController
+
+# from RPIs.Devices.Dummy.PSController.PSController import PSController
+from RPIs.Devices.PSController.PSController import PSController
+
 from uuid import uuid4
 import datetime
 from copy import deepcopy
