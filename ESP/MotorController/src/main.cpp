@@ -14,7 +14,7 @@ int lastSpeed = 0;	  // Last measured speed
 unsigned long lastTime = 0;
 
 // Adjust PD controller gains
-float Kp = 0.3; // Reduced Proportional gain
+float Kp = 0.5; // Reduced Proportional gain
 float Kd = 0.2; // Reduced Derivative gain
 float Ka = 1;	// Acceleration gain
 
