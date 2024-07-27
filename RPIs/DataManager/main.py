@@ -158,9 +158,14 @@ class DataManager:
         self.logger.info("Starting main loop for opening race...")
         
         while self.running:
-            print("running")
-            # self.logger.info(f"LIDAR data: {self.lidar_data_list[-1]}")
-                
+            if len(self.interpolated_lidar_data) == 0:
+                time.sleep(0.1)
+                continue
+            
+            lidar_data = self.interpolated_lidar_data[-1]
+            
+            self.client.send_message(f"LIDAR_DATA#{lidar_data}")
+            
             time.sleep(0.1)
         
         print("Opening ended. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ")

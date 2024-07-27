@@ -10,6 +10,7 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 # from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 from RPIs.Devices.Servo.Servo import Servo
 from RPIs.Devices.MotorController.MotorController import MotorController
+import tensorflow as tf
 
 ###########################################################################
 
@@ -109,8 +110,22 @@ class AIController:
     def main_loop_opening_race(self):
         self.logger.info("Starting main loop for opening race...")
         
+        self.model = tf.keras.models.load_model('RPIs/AIController/model.h5')
+        
         while self.running:
-            pass
+            # run the model
+            if len(self.lidar_data) == 0:
+                time.sleep(0.1)
+                continue
+            
+            prediction = self.model.predict(self.lidar_data[-1])
+            
+            servo_angle = self.servo.mapToServoAngle(prediction)
+            self.servo.setAngle(servo_angle)
+            
+            motor_speed = 0.7
+            
+            self.motor_controller.send_speed(motor_speed)
         
     def main_loop_obstacle_race(self):
         self.logger.info("Starting main loop for obstacle race...")
