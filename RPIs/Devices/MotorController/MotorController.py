@@ -14,4 +14,4 @@ class MotorController:
         #     print(f"Sent message: SPEED +{mapped_value:.4f}", end=' ')
         # else:
         #     print(f"Sent message: SPEED {mapped_value:.4f}", end=' ')
-        print(f"Sent message: SPEED {mapped_value:.4f}")
+        # print(f"Sent message: SPEED {mapped_value:.4f}")

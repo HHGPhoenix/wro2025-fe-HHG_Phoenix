@@ -67,7 +67,7 @@ class AIController:
         self.logger = AICU_Logger(self.client)
         
     def initialize_components(self):
-        servo = Servo(self.servo_pin, minAngle=94, middleAngle=120, maxAngle=137)
+        servo = Servo(self.servo_pin, minAngle=94, middleAngle=120, maxAngle=150)
         
         motor_controller = MotorController()
         
@@ -123,9 +123,15 @@ class AIController:
         
         while self.running:
             servo_angle = self.servo.mapToServoAngle(self.x)
+            # print(f"servo_angle: {servo_angle:.2f}", end=' ')
             self.servo.setAngle(servo_angle)
             
-            self.motor_controller.send_speed(self.ry)
+            if self.ry < 0.55 and self.ry > 0.45:
+                motor_speed = 0.5
+            else:
+                motor_speed = self.ry
+            
+            self.motor_controller.send_speed(motor_speed)
             
             time.sleep(0.05)
 
