@@ -162,9 +162,9 @@ class DataManager:
                 time.sleep(0.1)
                 continue
             
-            lidar_data = self.interpolated_lidar_data[-1]
+            interpolated_lidar_data = self.interpolated_lidar_data[-1]
             
-            self.client.send_message(f"LIDAR_DATA#{lidar_data}")
+            self.client.send_message(f"LIDAR_DATA#{interpolated_lidar_data}")
             
             time.sleep(0.1)
         

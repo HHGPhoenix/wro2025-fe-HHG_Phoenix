@@ -16,21 +16,30 @@ def main_loop_training(self):
     date = datetime.date.today()
     
     recording_status = False
-    cross_pressed = False
+    button_pressed = False  # Use a single flag for both buttons
 
     start_time = time.time()
 
     try:
-    
+
         while self.running:
-            if ps_controller.cross == 1 and not cross_pressed:
-                cross_pressed = True
-                recording_status = not recording_status
-                self.logger.info(f"Recording status: {recording_status}")
-            elif ps_controller.cross == 0:
-                cross_pressed = False
-                # self.logger.info("Cross button released")
             
+            # Check for cross button press
+            if ps_controller.cross == 1 and not button_pressed:
+                button_pressed = True
+                recording_status = not recording_status
+                self.logger.info(f"Recording status toggled by cross: {recording_status}")
+            elif ps_controller.cross == 0 and button_pressed:
+                button_pressed = False
+
+            # Check for right trigger press
+            if ps_controller.right_trigger == 1 and not button_pressed:
+                button_pressed = True
+                recording_status = not recording_status  # Toggle recording status
+                self.logger.info(f"Recording status toggled by right trigger: {recording_status}")
+            elif ps_controller.right_trigger == 0 and button_pressed:
+                button_pressed = False
+
             if len(self.interpolated_lidar_data) > 0:
                 lidar_data = deepcopy(self.interpolated_lidar_data[-1])
                 x, y, rx, ry = ps_controller.get_analog_stick_values()
@@ -38,11 +47,9 @@ def main_loop_training(self):
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
 
-                # print(f"Analogdatastr: {analog_sticks_str}")
-                
                 self.client.send_message(lidar_data_str)
                 self.client.send_message(analog_sticks_str)
-                
+
                 if recording_status:
                     with open(f"RPIs/DataManager/Data/lidar_data_{file_uuid}_{date}.txt", "a") as file:
                         file.write(f"{lidar_data}\n")
@@ -51,8 +58,6 @@ def main_loop_training(self):
                         file.write(f"{x}\n")
             
             end_time = time.time()
-            # print(f"Loop iteration time: {end_time - start_time} seconds")
-
             sleep_time = 0.1 - (end_time - start_time)
 
             if sleep_time > 0:

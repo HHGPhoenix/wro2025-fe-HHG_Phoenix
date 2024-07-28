@@ -46,6 +46,7 @@ class PSController():
         self.circle = 0
         self.triangle = 0
         self.square = 0
+        self.right_trigger = 0  # Add this line
 
         self.device_path = self.find_ps4_controller()
         print(f"Found PS4 controller at {self.device_path}")
@@ -104,6 +105,8 @@ class PSController():
                     self.triangle = event.value
                 elif self.BUTTON_CODES[event.code] == 'square':
                     self.square = event.value
+                elif self.BUTTON_CODES[event.code] == 'right_trigger':  # Add this block
+                    self.right_trigger = event.value
                     
 
     def get_analog_stick_values(self):
