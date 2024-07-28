@@ -16,6 +16,8 @@ from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
 
 from RPIs.DataManager.Mainloops.TrainingLoop import main_loop_training
+from RPIs.DataManager.Mainloops.OpeningRace import main_loop_opening_race
+from RPIs.DataManager.Mainloops.ObstacleRace import main_loop_obstacle_race
 
 import multiprocessing as mp
 import os
@@ -140,10 +142,10 @@ class DataManager:
         self.running = True
         
         if self.mode == 'OpeningRace':
-            self.main_loop_opening_race()
+            main_loop_opening_race(self)
             
         elif self.mode == 'ObstacleRace':
-            self.main_loop_obstacle_race()
+            main_loop_obstacle_race(self)
             
         elif self.mode == 'Training':
             main_loop_training(self)
@@ -151,27 +153,6 @@ class DataManager:
         else:
             self.logger.error(f'Unknown mode: {self.mode}')
             self.running = False
-
-    ###########################################################################
-    
-    def main_loop_opening_race(self):
-        self.logger.info("Starting main loop for opening race...")
-        
-        while self.running:
-            if len(self.interpolated_lidar_data) == 0:
-                time.sleep(0.1)
-                continue
-            
-            interpolated_lidar_data = self.interpolated_lidar_data[-1]
-            
-            self.client.send_message(f"LIDAR_DATA#{interpolated_lidar_data}")
-            
-            time.sleep(0.1)
-        
-        print("Opening ended. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ")
-        
-    def main_loop_obstacle_race(self):
-        self.logger.info("Starting main loop for obstacle race...")
 
     ###########################################################################
 

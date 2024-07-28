@@ -6,6 +6,10 @@ from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions
 
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
+from RPIs.AIController.Mainloops.OpeningRace import main_loop_opening_race
+from RPIs.AIController.Mainloops.ObstacleRace import main_loop_obstacle_race
+from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
+
 # from RPIs.Devices.Dummy.Servo.Servo import Servo
 # from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 from RPIs.Devices.Servo.Servo import Servo
@@ -93,80 +97,18 @@ class AIController:
         self.running = True
         
         if self.mode == 'OpeningRace':
-            self.main_loop_opening_race()
+            main_loop_opening_race(self)
             
         elif self.mode == 'ObstacleRace':
-            self.main_loop_obstacle_race()
+            main_loop_obstacle_race(self)
             
         elif self.mode == 'Training':
-            self.main_loop_training()
+            main_loop_training(self)
             
         else:
             self.logger.error(f'Unknown mode: {self.mode}')
             self.running = False
     
-    ###########################################################################
-
-    def main_loop_opening_race(self):
-        import pandas as pd
-        self.logger.info("Starting main loop for opening race...")
-        
-        self.model = tf.keras.models.load_model('RPIs/AIController/model.h5')
-        
-        while self.running:
-            # run the model
-            if len(self.interpolated_lidar_data) == 0:
-                time.sleep(0.1)
-                continue
-            
-            lidar_data = []
-            
-            # print(f"len(self.lidar_data): {len(self.lidar_data)}, self.lidar_data[-1]: {self.lidar_data}")
-            
-            df = pd.DataFrame(self.interpolated_lidar_data, columns=["angle", "distance", "intensity"])
-            
-            df = df.drop(columns=["intensity"])
-
-            df_interpolated_list = df.values.tolist()  
-            
-            lidar_data.append(df_interpolated_list)
-            
-            # print(f"lidar_data: {lidar_data}")
-            
-            prediction = self.model.predict(lidar_data)
-            
-            print(f"prediction: {prediction}")
-            
-            servo_angle = self.servo.mapToServoAngle(prediction[0][0])
-            self.servo.setAngle(servo_angle)
-            
-            motor_speed = 0.3
-            
-            self.motor_controller.send_speed(motor_speed)
-        
-    def main_loop_obstacle_race(self):
-        self.logger.info("Starting main loop for obstacle race...")
-        
-        while self.running:
-            pass
-        
-    def main_loop_training(self):
-        self.logger.info("Starting main loop for training...")
-        
-        while self.running:
-            servo_angle = self.servo.mapToServoAngle(self.x)
-            # print(f"servo_angle: {servo_angle:.2f}", end=' ')
-            self.servo.setAngle(servo_angle)
-            
-            if self.ry < 0.55 and self.ry > 0.45:
-                motor_speed = 0.5
-            else:
-                motor_speed = self.ry
-            
-            self.motor_controller.send_speed(motor_speed)
-            
-            time.sleep(0.05)
-
 ###########################################################################
 
 if __name__ == "__main__":
