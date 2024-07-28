@@ -30,7 +30,7 @@ class AIController:
         self.logger = None
         self.mode = "OpeningRace"
         self.servo = None
-        self.lidar_data = None
+        self.interpolated_lidar_data = None
         
         self.running = False
         
@@ -115,7 +115,7 @@ class AIController:
         
         while self.running:
             # run the model
-            if len(self.lidar_data) == 0:
+            if len(self.interpolated_lidar_data) == 0:
                 time.sleep(0.1)
                 continue
             
@@ -123,7 +123,7 @@ class AIController:
             
             # print(f"len(self.lidar_data): {len(self.lidar_data)}, self.lidar_data[-1]: {self.lidar_data}")
             
-            df = pd.DataFrame(self.lidar_data, columns=["angle", "distance", "intensity"])
+            df = pd.DataFrame(self.interpolated_lidar_data, columns=["angle", "distance", "intensity"])
             
             df = df.drop(columns=["intensity"])
 

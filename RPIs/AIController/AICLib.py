@@ -36,7 +36,6 @@ class RemoteFunctions:
 
         self.AIController.start()
 
-
         
     def set_mode(self, mode):
         self.AIController.logger.info(f'Setting mode to {mode}')
@@ -78,7 +77,7 @@ class RemoteFunctions:
         self.AIController.rx = rx
         self.AIController.ry = ry
         
-    def set_lidar_data(self, data):
-        self.AIController.lidar_data = data
+    def set_lidar_data(self, interpolated_lidar_data):
+        self.AIController.interpolated_lidar_data = interpolated_lidar_data
         
 ###########################################################################
