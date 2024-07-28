@@ -14,7 +14,7 @@ from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
 # from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 from RPIs.Devices.Servo.Servo import Servo
 from RPIs.Devices.MotorController.MotorController import MotorController
-import tensorflow as tf
+# import tensorflow as tf
 
 ###########################################################################
 
@@ -32,7 +32,7 @@ class AIController:
         self.receiver = None
         self.client = None
         self.logger = None
-        self.mode = "OpeningRace"
+        self.mode = None
         self.servo = None
         self.interpolated_lidar_data = None
         

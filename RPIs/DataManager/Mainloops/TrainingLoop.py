@@ -16,29 +16,28 @@ def main_loop_training(self):
     date = datetime.date.today()
     
     recording_status = False
-    button_pressed = False  # Use a single flag for both buttons
+    cross_button_pressed = False
+    right_trigger_pressed = False
 
     start_time = time.time()
 
     try:
-
         while self.running:
-            
             # Check for cross button press
-            if ps_controller.cross == 1 and not button_pressed:
-                button_pressed = True
+            if ps_controller.cross == 1 and not cross_button_pressed:
+                cross_button_pressed = True
                 recording_status = not recording_status
                 self.logger.info(f"Recording status toggled by cross: {recording_status}")
-            elif ps_controller.cross == 0 and button_pressed:
-                button_pressed = False
+            elif ps_controller.cross == 0 and cross_button_pressed:
+                cross_button_pressed = False
 
             # Check for right trigger press
-            if ps_controller.right_trigger == 1 and not button_pressed:
-                button_pressed = True
+            if ps_controller.right_trigger == 1 and not right_trigger_pressed:
+                right_trigger_pressed = True
                 recording_status = not recording_status  # Toggle recording status
                 self.logger.info(f"Recording status toggled by right trigger: {recording_status}")
-            elif ps_controller.right_trigger == 0 and button_pressed:
-                button_pressed = False
+            elif ps_controller.right_trigger == 0 and right_trigger_pressed:
+                right_trigger_pressed = False
 
             if len(self.interpolated_lidar_data) > 0:
                 lidar_data = deepcopy(self.interpolated_lidar_data[-1])

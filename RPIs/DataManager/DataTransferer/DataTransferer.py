@@ -75,44 +75,43 @@ class DataTransferer:
                 
                 df = pd.DataFrame(lidar_data, columns=["angle", "distance", "intensity"])
                 
-                # Instead of dropping the "intensity" column, keep it
-                df = df[(df["distance"] != 0)]
+                df = df[df["distance"] != 0]
                 
-                # Sort the data by angle
                 df = df.sort_values("angle")
                 
-                # Define the desired angles (one point per angle from 0 to 359)
                 desired_angles = np.arange(0, 360, 1)
                 
-                # Interpolate distance and intensity for missing angles, use nearest for fill_value
                 interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate")
                 interp_intensity = interp1d(df["angle"], df["intensity"], kind="linear", bounds_error=False, fill_value="extrapolate")
-                
-                # Generate the interpolated values for distance and intensity
+
                 interpolated_distances = interp_distance(desired_angles)
                 interpolated_intensities = interp_intensity(desired_angles)
-                
-                # Create the new list with interpolated data including intensity
-                interpolated_data = list(zip(desired_angles, interpolated_distances, interpolated_intensities))
-                
-                # Convert to DataFrame for easier manipulation, now including intensity
-                df_interpolated = pd.DataFrame(interpolated_data, columns=["angle", "distance", "intensity"])
-                
-                # Remove data from 110 to 250 degrees
+
+                df_interpolated = pd.DataFrame({
+                    "angle": desired_angles,
+                    "distance": interpolated_distances,
+                    "intensity": interpolated_intensities
+                })
+
+                df_interpolated["distance"] = df_interpolated["distance"].fillna(method='ffill').fillna(method='bfill')
+                df_interpolated["intensity"] = df_interpolated["intensity"].fillna(method='ffill').fillna(method='bfill')
+
                 df_interpolated = df_interpolated[(df_interpolated["angle"] < 140) | (df_interpolated["angle"] > 220)]
-                
+
                 df_interpolated_list = df_interpolated.values.tolist()
-                
-                # Round every number to three decimal places
+
                 df_interpolated_list = [[round(angle, 3), round(distance, 3), round(intensity, 3)] for angle, distance, intensity in df_interpolated_list]
-                
+
                 self.interpolated_lidar_data[0] = df_interpolated_list
-                
                 self.interpolated_lidar_data[0].sort(key=lambda x: x[0], reverse=True)
-                
-                elapsed_time = time.time() - start_time  # Calculate elapsed time
-                wait_time = max(0.1 - elapsed_time, 0)  # Adjust wait time to ensure loop runs every 100ms
-                time.sleep(wait_time)  # Wait for the adjusted time
+
+                elapsed_time = time.time() - start_time
+                wait_time = max(0.1 - elapsed_time, 0)
+                time.sleep(wait_time)
+
+                if wait_time < 0:
+                    print(f"Processing LIDAR data took longer than 100ms: {elapsed_time}")
+
                 
         except KeyboardInterrupt:
             pass
