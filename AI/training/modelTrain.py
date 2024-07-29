@@ -40,6 +40,8 @@ PATIENCE = 50
 
 BATCH_SIZE = 32
 
+CONTROLLER_SHIFT = 0
+
 ##############################################################################################
 
 def create_model(input_shape):
@@ -78,19 +80,18 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None, pr
 
         total_lines = len(lidar_lines)
         
-        for index, (lidar_line, controller_line) in enumerate(zip(lidar_lines, controller_lines)):
+        for index, lidar_line in enumerate(lidar_lines):
             data = eval(lidar_line.strip())
-            
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
-            
             df = df.drop(columns=["intensity"])
+            df_interpolated_list = df.values.tolist()
 
-            df_interpolated_list = df.values.tolist()  
-            
-            lidar_data.append(df_interpolated_list)
-            
-            controller_line = controller_line.strip()
-            controller_data.append(float(controller_line))
+            # Apply the shift to controller data
+            shifted_index = index + CONTROLLER_SHIFT
+            if shifted_index < len(controller_lines):
+                controller_line = controller_lines[shifted_index].strip()
+                controller_data.append(float(controller_line))
+                lidar_data.append(df_interpolated_list)
 
             # Calculate progress
             if progress_callback:
