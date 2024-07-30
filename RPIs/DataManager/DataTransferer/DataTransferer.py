@@ -5,10 +5,10 @@ import time
 import threading
 import pandas as pd
 from scipy.interpolate import interp1d
+from RPIs.Devices.Camera.CameraManager import Camera
 
 class DataTransferer:
-    def __init__(self, cam, lidar, frame_list=None, lidar_data_list=None, interpolated_lidar_data=None):
-        self.camera = cam
+    def __init__(self, lidar, frame_list=None, lidar_data_list=None, interpolated_lidar_data=None):
         self.frame_list = frame_list
         
         self.lidar = lidar
@@ -36,6 +36,7 @@ class DataTransferer:
         self.lidar_thread.join()
 
     def process_cam_frames(self):
+        self.camera = Camera()
         print("Processing camera frames", self.camera)
         try:
             while True:

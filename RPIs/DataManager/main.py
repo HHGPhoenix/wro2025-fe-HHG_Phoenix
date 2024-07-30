@@ -7,9 +7,8 @@ from RPIs.DataManager.DMLib import RemoteFunctions
 
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
-from RPIs.Devices.Dummy.Camera.CameraManager import Camera
+# from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
-# from RPIs.Devices.Camera.CameraManager import Camera
 from RPIs.Devices.LIDAR.LIDAR import LidarSensor
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
@@ -69,7 +68,7 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.cam, self.lidar, self.data_transferer = self.initialize_components()
+        self.lidar, self.data_transferer = self.initialize_components()
 
         self.initialized = True
 
@@ -96,8 +95,6 @@ class DataManager:
             self.client = Messenger(port=22222)
 
     def initialize_components(self):
-        cam = Camera()
-        
         self.logger.info("Initializing LIDAR sensor...")
         
         lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
@@ -108,7 +105,7 @@ class DataManager:
         self.lidarProcess.start()
         self.logger.info("Camera and LIDAR initialized.")
         
-        data_transferer = DataTransferer(cam, lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
+        data_transferer = DataTransferer(lidar, self.frame_list, self.lidar_data_list, self.interpolated_lidar_data)
         self.dataTransferProcess = mp.Process(target=target_with_nice_priority, args=(data_transferer.start, 0), daemon=True)
         self.dataTransferProcess.start()
         
@@ -119,7 +116,7 @@ class DataManager:
 
         self.webServerProcess.start()
 
-        return cam, lidar, data_transferer
+        return lidar, data_transferer
     
     ###########################################################################
     
