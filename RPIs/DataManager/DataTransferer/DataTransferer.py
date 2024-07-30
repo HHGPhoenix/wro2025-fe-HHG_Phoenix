@@ -15,6 +15,8 @@ class DataTransferer:
         self.lidar_data_list = lidar_data_list
         self.interpolated_lidar_data = interpolated_lidar_data
 
+        self.camera = Camera()
+
     def start(self):
         self.camera_thread = threading.Thread(target=self.process_cam_frames)
         self.camera_thread.daemon = False
@@ -36,7 +38,6 @@ class DataTransferer:
         self.lidar_thread.join()
 
     def process_cam_frames(self):
-        self.camera = Camera()
         print("Processing camera frames", self.camera)
         try:
             while True:
