@@ -94,15 +94,7 @@ class LidarSensor():
         Read the data from the LIDAR sensor. This function is blocking and will run indefinitely.
         """
 
-        # counter = 0
-        # while True:
-        #     counter += 1
-        #     self.lidar_data_queue.put(counter)
-        #     time.sleep(1)  # Sleep for 1 second to slow down the counting for demonstration purposes
-
-        
-        self.data_arrays = []  # This will hold the arrays of data
-        self.current_array = []  # This will hold the current array of data
+        self.current_array = []  # Holds the current array of data
         start_time = time.time()  # Start time for measuring the frequency
 
         try:
@@ -110,58 +102,50 @@ class LidarSensor():
             while True:
                 if self.ser_device.in_waiting >= 200:
                     data = self.ser_device.read(200)
-                    
-                    # Ensure proper alignment by checking the start and stop bits
                     i = 0
+
                     while i <= len(data) - 5:
                         chunk = data[i:i+5]
-                        
-                        # Extract the S and S_bar bits from the first byte
-                        S = (chunk[0]) & 0x01  # Bit 1 of the first byte
-                        S_bar = (chunk[0] >> 1) & 0x01  # Bit 2 of the first byte
-                        C = (chunk[1]) & 0x01  # Bit 3 of the first byte
-                        
-                        # print(C)
-                        
-                        # Check if the start and stop bits are correct (S and S_bar should complement each other)
+                        byte1 = chunk[0]
+                        byte2 = chunk[1]
+
+                        # Extract the S, S_bar, and C bits from the first byte
+                        S = byte1 & 0x01
+                        S_bar = (byte1 >> 1) & 0x01
+                        C = byte2 & 0x01
+
                         if C == 1 and S == (1 - S_bar):
-                            quality = chunk[0] >> 2  # Extracts the quality from the first byte
-                            angle = ((chunk[2] << 7) + (chunk[1] >> 1)) / 64.0  # Extracts the angle from the second and third bytes
-                            distance = ((chunk[3]) + (chunk[4] << 8)) / 4.0  # Extracts the distance from the fourth and fifth bytes
+                            quality = byte1 >> 2
+                            angle = ((chunk[2] << 7) + (byte2 >> 1)) / 64.0
+                            distance = ((chunk[3]) + (chunk[4] << 8)) / 4.0
 
                             self.current_array.append((angle, distance, quality))
 
-                            # If the angle has looped back to the start, save the current array and start a new one
+                            # Check if the angle has looped back to the start
                             if len(self.current_array) > 1 and S == 1 and S_bar == 0:
                                 self.lidar_data_list.append(self.current_array)
                                 self.current_array = []
-                                
+
                                 # Calculate and print the frequency
                                 end_time = time.time()
                                 frequency = 1.0 / (end_time - start_time)
-                                # print(f"Frequency: {frequency} Hz")
-                                # print(f"Data points: {shared_data_list[-1]}")
                                 start_time = end_time
 
-                            if len(self.lidar_data_list) > 0 and len(self.lidar_data_list) > 100:
+                            # Remove the oldest data if the list size exceeds 100
+                            if len(self.lidar_data_list) > 100:
                                 self.lidar_data_list.pop(0)
 
                             i += 5  # Move to the next chunk
                         else:
-                            # If not correctly aligned, check the next byte
-                            i += 1
+                            i += 1  # Move to the next byte if not correctly aligned
                             print("Not aligned: ", C, S, S_bar)
-                        # if shared list is not empty print a message
-                # if len(self.shared_data_list) > 0:
-                #     print("Shared list: ", self.shared_data_list[-1])
-                #     print("Length of shared list: ", len(self.shared_data_list))
 
         except KeyboardInterrupt:
             pass
         except BrokenPipeError:
             pass
 
-                                    
+
     def set_motor_speed(self, rpm):
         if not (0 <= rpm <= 65535):
             raise ValueError("RPM value must be between 0 and 65535")
