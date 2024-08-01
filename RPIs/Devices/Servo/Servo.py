@@ -19,7 +19,7 @@ class Servo:
         self.pwm = HardwarePWM(pwm_channel=0, hz=50, chip=0)
         self.pwm.start(17)  # 7.5% duty cycle corresponds to 1.5ms pulse width (90 degrees)
         
-        self.angle = middleAngle  # Initialize to middle angle
+        self.angle = None  # Initialize to None
 
     def setAngle(self, angle):
         print(f"angle: {angle:.2f}", end=' ')

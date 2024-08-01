@@ -10,6 +10,7 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 # from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
 from RPIs.Devices.LIDAR.LIDAR import LidarSensor
+from RPIs.Devices.I2C.I2Chandler import I2Chandler
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
@@ -68,7 +69,7 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.lidar, self.data_transferer = self.initialize_components()
+        self.lidar, self.data_transferer, self.i2c_handler = self.initialize_components()
 
         self.initialized = True
 
@@ -97,6 +98,9 @@ class DataManager:
     def initialize_components(self):
         self.logger.info("Initializing LIDAR sensor...")
         
+        i2c_handler = I2Chandler()
+        i2c_handler.start_threads()
+        
         lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
         lidar.reset_sensor()
         lidar.start_sensor()
@@ -113,12 +117,11 @@ class DataManager:
             self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'), daemon=True)
         else:
             self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
-
         self.webServerProcess.start()
 
-        return lidar, data_transferer
+        return lidar, data_transferer, i2c_handler
     
-    ###########################################################################
+###########################################################################
     
     def choose_mode(self):
         with open ("RPIs/DataManager/mode.txt", "r") as file:
@@ -129,29 +132,35 @@ class DataManager:
         return mode
     
     def start(self):
-        for i in range(3):
-            time.sleep(1)
-            self.logger.info(f"Waiting ... {i}")
+        try:
+            for i in range(3):
+                time.sleep(1)
+                self.logger.info(f"Waiting ... {i}")
 
-        self.logger.info('Starting AIController...')
-        self.client.send_message('START')
+            self.logger.info('Starting AIController...')
+            self.client.send_message('START')
+            
+            self.running = True
+            
+            if self.mode == 'OpeningRace':
+                main_loop_opening_race(self)
+                
+            elif self.mode == 'ObstacleRace':
+                main_loop_obstacle_race(self)
+                
+            elif self.mode == 'Training':
+                main_loop_training(self)
+                
+            else:
+                self.logger.error(f'Unknown mode: {self.mode}')
+                self.running = False
         
-        self.running = True
-        
-        if self.mode == 'OpeningRace':
-            main_loop_opening_race(self)
+        except:
+            self.lidar.stop_sensor()
+            self.i2c_handler.stop_threads()
             
-        elif self.mode == 'ObstacleRace':
-            main_loop_obstacle_race(self)
-            
-        elif self.mode == 'Training':
-            main_loop_training(self)
-            
-        else:
-            self.logger.error(f'Unknown mode: {self.mode}')
-            self.running = False
 
-    ###########################################################################
+###########################################################################
 
 if __name__ == "__main__":
     data_manager = None

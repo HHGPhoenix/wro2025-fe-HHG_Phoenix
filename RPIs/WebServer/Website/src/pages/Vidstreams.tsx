@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 // Define the video streams array
 const videoStreams = [
-    { label: "Raw Video Stream", url: "/cam/raw_video_stream" },
-    { label: "Simplified Video Stream", url: "/cam/simplified_video_stream" },
-    { label: "Object Video Stream", url: "/cam/object_video_stream" },
+    { label: 'Raw Video Stream', url: '/cam/raw_video_stream' },
+    { label: 'Simplified Video Stream', url: '/cam/simplified_video_stream' },
+    { label: 'Object Video Stream', url: '/cam/object_video_stream' },
     // Add more streams here if needed
 ];
 
@@ -28,7 +28,7 @@ const StreamSite: React.FC = () => {
                     </button>
                 ))}
             </div>
-            <div style={{ marginTop: "20px" }}>
+            <div style={{ marginTop: '20px' }}>
                 <VideoStream url={`${currentStream}`} />
             </div>
         </div>
@@ -46,7 +46,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ url }) => {
             <img
                 src={url}
                 alt="Video Stream"
-                style={{ width: "640px", height: "480px" }}
+                style={{ width: '640px', height: '360px' }}
             />
         </div>
     );

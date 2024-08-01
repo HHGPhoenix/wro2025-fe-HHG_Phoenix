@@ -11,7 +11,7 @@ class GyroSensor():
     def __init__(self):
         i2c = busio.I2C(board.D1, board.D0)
         self.sensor = adafruit_mpu6050.MPU6050(i2c)
-        self.sensor.gyro_range = 0
+        self.sensor.gyro_range = adafruit_mpu6050.GyroRange.RANGE_250_DPS
         
         self.angle = 0.0  # Initial angle
         self.last_time = time.monotonic()
@@ -51,6 +51,8 @@ class GyroSensor():
 
             # Update the last time for the next iteration
             self.last_time = current_time
+            
+            print(f"Angle: {self.angle}")
 
     def start(self):
         if not self._running:

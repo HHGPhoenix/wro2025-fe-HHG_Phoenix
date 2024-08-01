@@ -73,6 +73,7 @@ class AIController:
         
     def initialize_components(self):
         servo = Servo(self.servo_pin, minAngle=94, middleAngle=120, maxAngle=150)
+        servo.setAngle(120)
         
         motor_controller = MotorController()
         
@@ -81,33 +82,38 @@ class AIController:
     ###########################################################################
     
     def start(self):
-        for i in range(3):
-            time.sleep(1)
-            self.logger.info(f"Waiting ... {i}")
+        try:
+            for i in range(3):
+                time.sleep(1)
+                self.logger.info(f"Waiting ... {i}")
 
-        if self.running:
-            self.logger.error('AIController already running!')
-            return
-        
-        while not self.initialized:
-            time.sleep(0.1)
+            if self.running:
+                self.logger.error('AIController already running!')
+                return
+            
+            while not self.initialized:
+                time.sleep(0.1)
 
-        self.logger.info('Starting AIController...')
+            self.logger.info('Starting AIController...')
+            
+            self.running = True
+            
+            if self.mode == 'OpeningRace':
+                main_loop_opening_race(self)
+                
+            elif self.mode == 'ObstacleRace':
+                main_loop_obstacle_race(self)
+                
+            elif self.mode == 'Training':
+                main_loop_training(self)
+                
+            else:
+                self.logger.error(f'Unknown mode: {self.mode}')
+                self.running = False
         
-        self.running = True
-        
-        if self.mode == 'OpeningRace':
-            main_loop_opening_race(self)
-            
-        elif self.mode == 'ObstacleRace':
-            main_loop_obstacle_race(self)
-            
-        elif self.mode == 'Training':
-            main_loop_training(self)
-            
-        else:
-            self.logger.error(f'Unknown mode: {self.mode}')
-            self.running = False
+        except:
+            self.motor_controller.send_speed(0)
+            self.servo.stop()
     
 ###########################################################################
 
