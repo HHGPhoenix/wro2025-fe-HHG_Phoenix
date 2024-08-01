@@ -95,16 +95,17 @@ class LidarSensor():
         """
 
         self.current_array = []  # Holds the current array of data
-        start_time = time.time()  # Start time for measuring the frequency
+        # start_time = time.time()  # Start time for measuring the frequency
 
         try:
 
             while True:
-                if self.ser_device.in_waiting >= 200:
-                    data = self.ser_device.read(200)
+                if self.ser_device.in_waiting >= 1000:
+                    data = self.ser_device.read(1000)
                     i = 0
 
-                    while i <= len(data) - 5:
+                    data_len = len(data)
+                    while i < data_len - 5:
                         chunk = data[i:i+5]
                         byte1 = chunk[0]
                         byte2 = chunk[1]
@@ -127,9 +128,9 @@ class LidarSensor():
                                 self.current_array = []
 
                                 # Calculate and print the frequency
-                                end_time = time.time()
-                                frequency = 1.0 / (end_time - start_time)
-                                start_time = end_time
+                                # end_time = time.time()
+                                # frequency = 1.0 / (end_time - start_time)
+                                # start_time = end_time
 
                             # Remove the oldest data if the list size exceeds 100
                             if len(self.lidar_data_list) > 100:

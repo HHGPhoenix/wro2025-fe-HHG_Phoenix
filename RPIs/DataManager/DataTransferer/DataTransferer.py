@@ -15,7 +15,6 @@ class DataTransferer:
         self.lidar_data_list = lidar_data_list
         self.interpolated_lidar_data = interpolated_lidar_data
 
-        self.camera = Camera()
 
     def start(self):
         self.camera_thread = threading.Thread(target=self.process_cam_frames)
@@ -38,6 +37,8 @@ class DataTransferer:
         self.lidar_thread.join()
 
     def process_cam_frames(self):
+        self.camera = Camera()
+        
         print("Processing camera frames", self.camera)
         try:
             while True:
@@ -61,7 +62,7 @@ class DataTransferer:
         except EOFError:
             pass
             
-    def process_lidar_data(self):
+    def process_lidar_data(self):        
         print("Processing LIDAR data", self.lidar)
         try:
             while True:
@@ -104,10 +105,15 @@ class DataTransferer:
 
                 # Handle NaN and Inf values
                 df_interpolated.replace([np.inf, -np.inf], np.nan, inplace=True)
-                df_interpolated["distance"].fillna(method='ffill', inplace=True)
-                df_interpolated["distance"].fillna(method='bfill', inplace=True)
-                df_interpolated["intensity"].fillna(method='ffill', inplace=True)
-                df_interpolated["intensity"].fillna(method='bfill', inplace=True)
+                # df_interpolated["distance"].fillna(method='ffill', inplace=True)
+                # df_interpolated["distance"].fillna(method='bfill', inplace=True)
+                # df_interpolated["intensity"].fillna(method='ffill', inplace=True)
+                # df_interpolated["intensity"].fillna(method='bfill', inplace=True)
+                
+                df_interpolated["distance"].ffill()
+                df_interpolated["distance"].bfill()
+                df_interpolated["intensity"].ffill()
+                df_interpolated["intensity"].bfill()
 
                 # Filter angles not within the range [140, 220]
                 df_interpolated = df_interpolated[(df_interpolated["angle"] < 140) | (df_interpolated["angle"] > 220)]
