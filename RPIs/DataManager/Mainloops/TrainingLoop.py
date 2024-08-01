@@ -6,6 +6,7 @@ from RPIs.Devices.PSController.PSController import PSController
 from uuid import uuid4
 import datetime
 from copy import deepcopy
+import numpy as np
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")
@@ -45,9 +46,17 @@ def main_loop_training(self):
 
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
-
                 self.client.send_message(lidar_data_str)
                 self.client.send_message(analog_sticks_str)
+                
+                # simplified_image = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((480, 853, 3))
+                # print(f"SIMPLIFIED_IMAGE#" + str(simplified_image))
+                start_time = time.time()
+                
+                self.client.send_message("SIMPLIFIED_IMAGE#{}".format(self.frame_list[1]))
+                
+                stop_time = time.time()
+                self.logger.info(f"Time taken to send simplified image: {stop_time - start_time:.2f} seconds")
 
                 if recording_status:
                     with open(f"RPIs/DataManager/Data/lidar_data_{file_uuid}_{date}.txt", "a") as file:
@@ -55,7 +64,13 @@ def main_loop_training(self):
                         
                     with open(f"RPIs/DataManager/Data/x_values_{file_uuid}_{date}.txt", "a") as file:
                         file.write(f"{x}\n")
-            
+                        
+                    # with open(f"RPIs/DataManager/Data/raw_frames{file_uuid}_{date}.txt", "a") as file:
+                    #     file.write(f"{self.frame_list[0]}\n")
+                        
+                    # with open(f"RPIs/DataManager/Data/simplified_frames_{file_uuid}_{date}.txt", "a") as file:
+                    #     file.write(f"{self.frame_list[1]}\n")
+                        
             end_time = time.time()
             sleep_time = 0.1 - (end_time - start_time)
 

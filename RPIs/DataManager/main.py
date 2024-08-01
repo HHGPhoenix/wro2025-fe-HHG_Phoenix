@@ -155,7 +155,7 @@ class DataManager:
                 self.logger.error(f'Unknown mode: {self.mode}')
                 self.running = False
         
-        except:
+        finally:
             self.lidar.stop_sensor()
             self.i2c_handler.stop_threads()
             

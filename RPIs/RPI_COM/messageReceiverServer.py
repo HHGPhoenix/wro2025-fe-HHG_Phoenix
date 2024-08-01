@@ -77,7 +77,7 @@ class MessageReceiver:
 
         try:
             while True:
-                data = client_socket.recv(1024).decode('utf-8')
+                data = client_socket.recv(5000000).decode('utf-8')
                 if not data:
                     break  # Connection closed by the client
                 data = data.split('\n')

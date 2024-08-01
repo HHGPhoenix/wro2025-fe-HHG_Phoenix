@@ -32,9 +32,10 @@ class AIController:
         self.receiver = None
         self.client = None
         self.logger = None
-        self.mode = None
+        self.mode = "Training"
         self.servo = None
         self.interpolated_lidar_data = None
+        self.simplified_image = None
         
         self.running = False
         
@@ -111,8 +112,8 @@ class AIController:
                 self.logger.error(f'Unknown mode: {self.mode}')
                 self.running = False
         
-        except:
-            self.motor_controller.send_speed(0)
+        finally:
+            self.motor_controller.send_speed(0.5)
             self.servo.stop()
     
 ###########################################################################

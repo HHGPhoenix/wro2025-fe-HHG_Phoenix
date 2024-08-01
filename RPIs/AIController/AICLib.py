@@ -80,4 +80,7 @@ class RemoteFunctions:
     def set_lidar_data(self, interpolated_lidar_data):
         self.AIController.interpolated_lidar_data = interpolated_lidar_data
         
+    def set_simplified_image(self, simplified_image):
+        self.AIController.simplified_image = simplified_image
+        
 ###########################################################################

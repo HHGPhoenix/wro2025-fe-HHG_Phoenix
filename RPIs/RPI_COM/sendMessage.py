@@ -1,6 +1,7 @@
 import socket
 import time
 import threading  # Step 1: Import threading module
+import codecs
 
 class Messenger:
     def __init__(self, ip_address="127.0.0.1", port=11111):
@@ -52,13 +53,18 @@ class Messenger:
             self.connect()
 
         while self.connection_attempt_active:
+            # print("Waiting for connection attempt to complete...")
             time.sleep(0.1)
 
         if self.socket:
             for attempt in range(attempts):
                 try:
                     message = message + "\n"
-                    self.socket.sendall(message.encode())
+                    start_time = time.time()
+                    encoded_message = message.encode('utf-8')
+                    stop_time = time.time()
+                    self.socket.sendall(encoded_message)
+                    print(f"Message sent in {stop_time - start_time:.3f} seconds.")
                     return
                 except (socket.error, Exception) as e:
                     print(f"Error sending message: {e}. Attempting to reconnect...")

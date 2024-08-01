@@ -135,28 +135,6 @@ class Camera():
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
             
         return frameraw
-         
-    # # Function running in a new thread that constantly updates the coordinates of the blocks in the camera stream
-    # def process_blocks(self):
-    #     self.video_writer = None
-    #     self.frames = [None] * 3
-
-    #     while True:
-    #         self.block_array, framenormal, frameraw = self.get_coordinates()
-    #         framebinary = self.get_edges(frameraw)
-
-    #         self.frames[0] = framenormal
-    #         self.frames[1] = framebinary
-    #         self.frames[2] = frameraw
-
-    #         if self.video_writer is None and self.enable_video_writer:
-    #             # Create a VideoWriter object to save the frames as an mp4 file
-    #             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    #             self.video_writer = cv2.VideoWriter(f'./videos/output_{str(uuid.uuid4())}.mp4', fourcc, 20, (frameraw.shape[1], frameraw.shape[0]), True)
-
-    #         # Write the frame to the video file
-    #         if self.enable_video_writer:
-    #             self.video_writer.write(frameraw)    
     
     # Compress the video frames for the webstream    
     def compress_frame(self, frame, new_height=480):
