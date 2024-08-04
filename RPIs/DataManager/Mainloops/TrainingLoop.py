@@ -1,12 +1,12 @@
 import time
-
-# from RPIs.Devices.Dummy.PSController.PSController import PSController
-from RPIs.Devices.PSController.PSController import PSController
-
 from uuid import uuid4
 import datetime
 from copy import deepcopy
 import numpy as np
+
+# from RPIs.Devices.Dummy.PSController.PSController import PSController
+from RPIs.Devices.PSController.PSController import PSController
+
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")
@@ -53,10 +53,10 @@ def main_loop_training(self):
                 # print(f"SIMPLIFIED_IMAGE#" + str(simplified_image))
                 start_time = time.time()
                 
-                self.client.send_message("SIMPLIFIED_IMAGE#{}".format(self.frame_list[1]))
+                # self.client.send_message("SIMPLIFIED_IMAGE#{}".format(self.frame_list[1]))
                 
                 stop_time = time.time()
-                self.logger.info(f"Time taken to send simplified image: {stop_time - start_time:.2f} seconds")
+                # self.logger.info(f"Time taken to send simplified image: {stop_time - start_time:.2f} seconds")
 
                 if recording_status:
                     with open(f"RPIs/DataManager/Data/lidar_data_{file_uuid}_{date}.txt", "a") as file:

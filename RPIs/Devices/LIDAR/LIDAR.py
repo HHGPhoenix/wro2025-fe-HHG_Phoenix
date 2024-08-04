@@ -23,6 +23,7 @@ class LidarSensor():
             self.LIDAR_commands = json.load(f)
         
         self.ser_device = serial.Serial(address, 460800)
+        # self.ser_device.set_buffer_size(rx_size=1048576, tx_size=1048576)
         self.lidar_data_list = lidar_data_list
             
         self.reset_sensor()
@@ -93,18 +94,15 @@ class LidarSensor():
         """
         Read the data from the LIDAR sensor. This function is blocking and will run indefinitely.
         """
-
         self.current_array = []  # Holds the current array of data
-        # start_time = time.time()  # Start time for measuring the frequency
 
         try:
-
             while True:
-                if self.ser_device.in_waiting >= 1000:
-                    data = self.ser_device.read(1000)
+                if self.ser_device.in_waiting >= 2000:
+                    data = self.ser_device.read(2000)
                     i = 0
-
                     data_len = len(data)
+
                     while i < data_len - 5:
                         chunk = data[i:i+5]
                         byte1 = chunk[0]
@@ -127,11 +125,6 @@ class LidarSensor():
                                 self.lidar_data_list.append(self.current_array)
                                 self.current_array = []
 
-                                # Calculate and print the frequency
-                                # end_time = time.time()
-                                # frequency = 1.0 / (end_time - start_time)
-                                # start_time = end_time
-
                             # Remove the oldest data if the list size exceeds 100
                             if len(self.lidar_data_list) > 100:
                                 self.lidar_data_list.pop(0)
@@ -139,7 +132,8 @@ class LidarSensor():
                             i += 5  # Move to the next chunk
                         else:
                             i += 1  # Move to the next byte if not correctly aligned
-                            print("Not aligned: ", C, S, S_bar)
+                            # Detailed logging for misalignment issues
+                            print(f"Misalignment detected at index {i}: C={C}, S={S}, S_bar={S_bar}")
 
         except KeyboardInterrupt:
             pass

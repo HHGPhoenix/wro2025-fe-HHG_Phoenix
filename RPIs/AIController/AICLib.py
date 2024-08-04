@@ -33,9 +33,10 @@ class RemoteFunctions:
 ###########################################################################
     
     def start(self):
-
         self.AIController.start()
 
+    def raise_keyboard_interrupt(self):
+        self.AIController.stop_with_interrupt = True
         
     def set_mode(self, mode):
         self.AIController.logger.info(f'Setting mode to {mode}')

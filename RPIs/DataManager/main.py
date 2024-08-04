@@ -29,6 +29,11 @@ START_LOCAL_SERVER = False
 
 ###########################################################################
 
+os.system('cls' if os.name=='nt' else 'clear')
+print("\n\nStarting DataManager only for you :)\n\n")
+
+###########################################################################
+
 def set_nice_priority(nice_value):
     try:
         os.nice(nice_value)
@@ -45,7 +50,9 @@ def target_with_nice_priority(target, nice_value, *args, **kwargs):
 class DataManager:
     def __init__(self):
         self.initialized = False
-        print("Starting DataManager...")
+
+        print("Initializing DataManager...")
+        
         self.receiver = None
         self.client = None
         self.logger = None
@@ -105,7 +112,7 @@ class DataManager:
         lidar.reset_sensor()
         lidar.start_sensor()
         
-        self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)
+        self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -20), daemon=True)
         self.lidarProcess.start()
         self.logger.info("Camera and LIDAR initialized.")
         
@@ -114,7 +121,7 @@ class DataManager:
         self.dataTransferProcess.start()
         
         if not START_LOCAL_SERVER:
-            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000, '192.168.178.88'), daemon=True)
+            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
         else:
             self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
         self.webServerProcess.start()
@@ -156,6 +163,7 @@ class DataManager:
                 self.running = False
         
         finally:
+            self.client.send_message('STOP')
             self.lidar.stop_sensor()
             self.i2c_handler.stop_threads()
             

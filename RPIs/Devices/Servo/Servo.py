@@ -22,7 +22,7 @@ class Servo:
         self.angle = None  # Initialize to None
 
     def setAngle(self, angle):
-        print(f"angle: {angle:.2f}", end=' ')
+        # print(f"angle: {angle:.2f}", end=' ')
         if angle < self.minAngle:
             angle = self.minAngle
         elif angle > self.maxAngle:

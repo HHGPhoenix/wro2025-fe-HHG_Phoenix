@@ -23,7 +23,8 @@ class MessageReceiver:
         command = parts[0]
         #print message if command starts with 'ANALOG'
         if command.startswith('ANALOG'):
-            print(f"Received message: {message}")
+            # print(f"Received message: {message}")
+            pass
         values = [self.parse_value(part) for part in parts[1:]]
         return command, values
 

@@ -64,7 +64,7 @@ class Messenger:
                     encoded_message = message.encode('utf-8')
                     stop_time = time.time()
                     self.socket.sendall(encoded_message)
-                    print(f"Message sent in {stop_time - start_time:.3f} seconds.")
+                    # print(f"Message sent in {stop_time - start_time:.3f} seconds.")
                     return
                 except (socket.error, Exception) as e:
                     print(f"Error sending message: {e}. Attempting to reconnect...")
