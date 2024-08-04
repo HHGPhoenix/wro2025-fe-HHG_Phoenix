@@ -157,19 +157,19 @@ class WebServer:
     def generate_raw_frame(self):
         frameraw_bytes = self.shared_frames_list[0]
         if frameraw_bytes:
-            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 853, 3))
+            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((360, 640, 3))
             return frame
                 
     def generate_simplified_frame(self):
         simplified_image_bytes = self.shared_frames_list[1]
         if simplified_image_bytes:
-            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((480, 853, 3))
+            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((360, 640, 3))
             return frame
         
     def generate_object_frame(self):
         object_image_bytes = self.shared_frames_list[2]
         if object_image_bytes:
-            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((480, 853, 3))
+            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((360, 640, 3))
             return frame
         
     ###########################################################################

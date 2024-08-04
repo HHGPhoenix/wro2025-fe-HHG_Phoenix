@@ -19,8 +19,12 @@ def main_loop_training(self):
     recording_status = False
     cross_button_pressed = False
     right_trigger_pressed = False
+    saved_after_recording = False
 
     start_time = time.time()
+
+    raw_frames = []
+    simplified_frames = []
 
     try:
         while self.running:
@@ -48,28 +52,25 @@ def main_loop_training(self):
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
                 self.client.send_message(lidar_data_str)
                 self.client.send_message(analog_sticks_str)
-                
-                # simplified_image = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((480, 853, 3))
-                # print(f"SIMPLIFIED_IMAGE#" + str(simplified_image))
-                start_time = time.time()
-                
-                # self.client.send_message("SIMPLIFIED_IMAGE#{}".format(self.frame_list[1]))
-                
-                stop_time = time.time()
-                # self.logger.info(f"Time taken to send simplified image: {stop_time - start_time:.2f} seconds")
 
                 if recording_status:
+                    saved_after_recording = False
+                    
                     with open(f"RPIs/DataManager/Data/lidar_data_{file_uuid}_{date}.txt", "a") as file:
                         file.write(f"{lidar_data}\n")
                         
                     with open(f"RPIs/DataManager/Data/x_values_{file_uuid}_{date}.txt", "a") as file:
                         file.write(f"{x}\n")
                         
-                    # with open(f"RPIs/DataManager/Data/raw_frames{file_uuid}_{date}.txt", "a") as file:
-                    #     file.write(f"{self.frame_list[0]}\n")
-                        
-                    # with open(f"RPIs/DataManager/Data/simplified_frames_{file_uuid}_{date}.txt", "a") as file:
-                    #     file.write(f"{self.frame_list[1]}\n")
+                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((360, 640, 3))
+                    raw_frames.append(raw_frame)
+        
+                    simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((360, 640, 3))
+                    simplified_frames.append(simplified_frame)
+                
+                elif not saved_after_recording:
+                    np.savez(f"RPIs/DataManager/Data/raw_frames_{file_uuid}_{date}.npz", raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+                    saved_after_recording = True
                         
             end_time = time.time()
             sleep_time = 0.1 - (end_time - start_time)
@@ -81,3 +82,7 @@ def main_loop_training(self):
 
     except KeyboardInterrupt:
         pass
+    
+    finally:
+        np.savez(f"RPIs/DataManager/Data/raw_frames_{file_uuid}_{date}.npz", raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+
