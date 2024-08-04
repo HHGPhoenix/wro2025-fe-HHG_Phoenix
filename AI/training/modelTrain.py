@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import cv2
 
 global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE, BATCH_SIZE
 
@@ -38,25 +39,43 @@ EPOCHS = 400
 
 PATIENCE = 50
 
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 
 CONTROLLER_SHIFT = 0
 
+FRAME_ARRAY_NAME = "simplified_frames"
+
 ##############################################################################################
 
-def create_model(input_shape):
-    model = Sequential([
-        Conv2D(128, (3, 2), activation=LeakyReLU(alpha=0.05), input_shape=input_shape),
-        BatchNormalization(),
-        MaxPooling2D((2, 1)),
-        Conv2D(128, (1, 1), activation=LeakyReLU(alpha=0.05)),
-        BatchNormalization(),
-        MaxPooling2D((2, 1)),
-        Flatten(),
-        Dense(64, activation=LeakyReLU(alpha=0.05)),
-        Dropout(0.3),
-        Dense(1, activation='linear')
-    ])
+def create_model(lidar_input_shape, frame_input_shape):
+    # LIDAR input model
+    lidar_input = tf.keras.layers.Input(shape=lidar_input_shape)
+    lidar_conv1 = Conv2D(64, (3, 2), activation=LeakyReLU(alpha=0.05))(lidar_input)
+    lidar_bn1 = BatchNormalization()(lidar_conv1)
+    lidar_pool1 = MaxPooling2D((2, 1))(lidar_bn1)
+    lidar_conv2 = Conv2D(64, (1, 1), activation=LeakyReLU(alpha=0.05))(lidar_pool1)
+    lidar_bn2 = BatchNormalization()(lidar_conv2)
+    lidar_pool2 = MaxPooling2D((2, 1))(lidar_bn2)
+    lidar_flatten = Flatten()(lidar_pool2)
+
+    # Frame input model
+    frame_input = tf.keras.layers.Input(shape=frame_input_shape)
+    frame_conv1 = Conv2D(64, (3, 2), activation=LeakyReLU(alpha=0.05))(frame_input)
+    frame_bn1 = BatchNormalization()(frame_conv1)
+    frame_pool1 = MaxPooling2D((2, 1))(frame_bn1)
+    frame_conv2 = Conv2D(64, (1, 1), activation=LeakyReLU(alpha=0.05))(frame_pool1)
+    frame_bn2 = BatchNormalization()(frame_conv2)
+    frame_pool2 = MaxPooling2D((2, 1))(frame_bn2)
+    frame_flatten = Flatten()(frame_pool2)
+
+    # Combine LIDAR and Frame inputs
+    combined = tf.keras.layers.concatenate([lidar_flatten, frame_flatten])
+    dense1 = Dense(32, activation=LeakyReLU(alpha=0.05))(combined)
+    dropout = Dropout(0.3)(dense1)
+    output = Dense(1, activation='linear')(dropout)
+
+    model = tf.keras.models.Model(inputs=[lidar_input, frame_input], outputs=output)
+    
     return model
 
 if __name__ == "__main__":
@@ -70,10 +89,15 @@ def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
 
-@lru_cache(maxsize=111111)
-def parse_data(file_path_lidar, file_path_controller, progress_callback=None, progress_callbacks=None, idx=None):
+def parse_data(file_path_lidar, file_path_controller, file_path_frames, progress_callback=None, progress_callbacks=None, idx=None):
     lidar_data = []
     controller_data = []
+    
+    # print(f"Processing file pair {idx + 1}: {file_path_lidar}, {file_path_controller}, {file_path_frames}")
+    frame_data = np.load(file_path_frames, allow_pickle=True)
+    frame_array = frame_data[FRAME_ARRAY_NAME]
+    # print(f"Frame array shape: {frame_array.shape}")
+    
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
         lidar_lines = lidar_file.readlines()
         controller_lines = controller_file.readlines()
@@ -101,7 +125,7 @@ def parse_data(file_path_lidar, file_path_controller, progress_callback=None, pr
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
-    return lidar_data, controller_data
+    return lidar_data, controller_data, frame_array
 
 class ConsoleAndGUIProgressCallback(Callback):
     def __init__(self):
@@ -287,34 +311,40 @@ class ConsoleAndGUIProgressCallback(Callback):
 
 
 def parse_data_with_callback(args):
-    file_pair, index, progress_callbacks, progress_callback = args
+    files, index, progress_callbacks, progress_callback = args
 
     # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
     # print(f"Processing file pair {index + 1}: {file_pair}")
     progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
-    file_path_lidar, file_path_controller = file_pair
+    file_path_lidar, file_path_controller, file_path_frames = files
 
     print(f"Starting to parse lidar data from {file_path_lidar}")
-    lidar_data, controller_data = parse_data(file_path_lidar, file_path_controller, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
+    lidar_data, controller_data, frames = parse_data(file_path_lidar, file_path_controller, file_path_frames, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
 
-    return lidar_data, controller_data
+    return lidar_data, controller_data, frames
 
 def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
     train_lidar_data = []
     train_controller_data = []
+    train_frame_data = []
     val_lidar_data = []
     val_controller_data = []
+    val_frame_data = []
     file_pairs = []
     for subdir, _, files in os.walk(folder_path):
         lidar_file = None
         controller_file = None
+        frames_file = None
         for file in files:
             if file.startswith('lidar_'):
                 lidar_file = os.path.join(subdir, file)
             elif file.startswith('x_'):
                 controller_file = os.path.join(subdir, file)
-        if lidar_file and controller_file:
-            file_pairs.append((lidar_file, controller_file))
+            elif file.startswith('frames_'):
+                frames_file = os.path.join(subdir, file)
+                
+        if lidar_file and controller_file and frames_file:
+            file_pairs.append((lidar_file, controller_file, frames_file))
     total_files = len(file_pairs)
     results = []
 
@@ -324,11 +354,11 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             for i, file_pair in enumerate(file_pairs)
         }
         for future in as_completed(future_to_file):
-            lidar_data, controller_data = future.result()
-            results.append((lidar_data, controller_data))
-
-    for lidar_data, controller_data in results:
-        if len(lidar_data) > 0 and len(controller_data) > 0:
+            lidar_data, controller_data, frame_data = future.result()
+            results.append((lidar_data, controller_data, frame_data))
+    
+    for lidar_data, controller_data, frame_data in results:
+        if len(lidar_data) > 0 and len(controller_data) > 0 and len(frame_data) > 0:
             data_length = len(lidar_data)
             indices = list(range(data_length))
             random.shuffle(indices)
@@ -337,27 +367,36 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             val_indices = indices[split_idx:]
             train_lidar_data.append(lidar_data[train_indices])
             train_controller_data.append(controller_data[train_indices])
+            train_frame_data.append(frame_data[train_indices])
             val_lidar_data.append(lidar_data[val_indices])
             val_controller_data.append(controller_data[val_indices])
+            val_frame_data.append(frame_data[val_indices])
 
     if len(train_lidar_data) > 0:
         train_lidar_data = np.concatenate(train_lidar_data, axis=0)
         train_controller_data = np.concatenate(train_controller_data, axis=0)
+        train_frame_data = np.concatenate(train_frame_data, axis=0)
     else:
         train_lidar_data = np.array([])
         train_controller_data = np.array([])
+        train_frame_data = np.array([])
 
     if len(val_lidar_data) > 0:
         val_lidar_data = np.concatenate(val_lidar_data, axis=0)
         val_controller_data = np.concatenate(val_controller_data, axis=0)
+        val_frame_data = np.concatenate(val_frame_data, axis=0)
     else:
         val_lidar_data = np.array([])
         val_controller_data = np.array([])
+        val_frame_data = np.array([])
+        
+    # print("train_frame_data shape:", train_frame_data.shape)
+    # print("val_frame_data shape:", val_frame_data.shape)
 
-    return train_lidar_data, train_controller_data, val_lidar_data, val_controller_data
+    return train_lidar_data, train_controller_data, train_frame_data, val_lidar_data, val_controller_data, val_frame_data
 
 def load_data():
-    global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, progress_window
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame, custom_filename, model_filename, progress_window
     folder_path = data_folder_path.get()
     custom_filename = model_filename.get()
 
@@ -367,13 +406,16 @@ def load_data():
     for subdir, _, files in os.walk(folder_path):
         lidar_file = None
         controller_file = None
+        frames_file = None
         for file in files:
             if file.startswith('lidar_'):
                 lidar_file = os.path.join(subdir, file)
             elif file.startswith('x_'):
                 controller_file = os.path.join(subdir, file)
-        if lidar_file and controller_file:
-            file_pairs.append((lidar_file, controller_file))
+            elif file.startswith('frames_'):
+                frames_file = os.path.join(subdir, file)
+        if lidar_file and controller_file and frames_file:
+            file_pairs.append((lidar_file, controller_file, frames_file))
 
     # Create progress window
     progress_window, progress_bars = create_progress_window(file_pairs)
@@ -384,9 +426,8 @@ def load_data():
     print(f"Loading data from folder: {folder_path}")
 
     # Load and parse data
-    train_lidar, train_controller, val_lidar, val_controller = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
+    train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
     print("Data loaded successfully!")
-
     # Wait one second
     time.sleep(1)
 
@@ -408,24 +449,27 @@ def load_data():
     progress_window.destroy()
 
 def load_data_from_file():
-    global train_lidar, train_controller, val_lidar, val_controller
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame
     file_path = filedialog.askopenfilename(title="Select Data File", filetypes=(("NPZ Files", "*.npz"),))
     if file_path:
         print(f"Loading data from file: {file_path}")
         with np.load(file_path, allow_pickle=True) as data:
             train_lidar = data['train_lidar']
             train_controller = data['train_controller']
+            train_frame = data['train_frame']
             val_lidar = data['val_lidar']
             val_controller = data['val_controller']
+            val_frame = data['val_frame']
+            
         print("Data loaded successfully!")
 
 def save_data_in_file():
-    global train_lidar, train_controller, val_lidar, val_controller
-    if train_lidar.size > 0 and train_controller.size > 0 and val_lidar.size > 0 and val_controller.size > 0:
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame
+    if train_lidar.size > 0 and train_controller.size > 0 and train_frame.size > 0 and val_lidar.size > 0 and val_controller.size > 0 and val_frame.size > 0:
         file_path = filedialog.asksaveasfilename(title="Save Data File", filetypes=(("NPZ Files", "*.npz"),))
         if file_path:
             print(f"Saving data to file: {file_path}")
-            np.savez(file_path, train_lidar=train_lidar, train_controller=train_controller, val_lidar=val_lidar, val_controller=val_controller)
+            np.savez(file_path, train_lidar=train_lidar, train_controller=train_controller, train_frame=train_frame, val_lidar=val_lidar, val_controller=val_controller, val_frame=val_frame)
             print("Data saved to file successfully!")
     else:
         print("No data to save!")
@@ -471,7 +515,7 @@ def create_progress_window(file_pairs):
     progress_window.title("Loading Progress")
     progress_bars = []
 
-    for i, (lidar_file, controller_file) in enumerate(file_pairs):
+    for i, (lidar_file, controller_file, frame_file) in enumerate(file_pairs):
         # Extract the last directory and file name for lidar_file
         lidar_dir, lidar_name = os.path.split(lidar_file)
         _, lidar_last_dir = os.path.split(lidar_dir)
@@ -481,11 +525,15 @@ def create_progress_window(file_pairs):
         controller_dir, controller_name = os.path.split(controller_file)
         _, controller_last_dir = os.path.split(controller_dir)
         controller_display = os.path.join(controller_last_dir, controller_name)
+        
+        frame_dir, frame_name = os.path.split(frame_file)
+        _, frame_last_dir = os.path.split(frame_dir)
+        frame_display = os.path.join(frame_last_dir, frame_name)
 
         frame = ttk.Frame(progress_window)
         frame.pack(pady=5)
 
-        label_text = f"File Pair {i+1}: {lidar_display}, {controller_display}"
+        label_text = f"File Pair {i+1}: {lidar_display}, {controller_display}, {frame_display}"
         label = ttk.Label(frame, text=label_text)
         label.pack(side=tk.LEFT, padx=10)
 
@@ -511,27 +559,32 @@ def start_training_thread():
     Thread(target=start_training).start()
 
 def start_training():
-    global train_lidar, train_controller, val_lidar, val_controller, custom_filename, model_filename, model_id
-    if train_lidar is not None and train_controller is not None and val_lidar is not None and val_controller is not None:
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame, custom_filename, model_filename, model_id
+    if train_lidar is not None and train_controller is not None and train_frame is not None and val_lidar is not None and val_controller is not None and val_frame is not None:
         try:
 
             if custom_filename is None:
                 custom_filename = model_filename.get()
 
-            if train_lidar.size == 0 or train_controller.size == 0 or val_lidar.size == 0 or val_controller.size == 0:
+            if train_lidar.size == 0 or train_controller.size == 0 or train_frame.size == 0 or val_lidar.size == 0 or val_controller.size == 0 or val_frame.size == 0:
                 print("No valid data found for training or validation.")
                 return
 
             print(f"Train LIDAR data shape: {train_lidar.shape}")
             print(f"Train Controller data shape: {train_controller.shape}")
+            print(f"Train Frame data shape: {train_frame.shape}")
             print(f"Validation LIDAR data shape: {val_lidar.shape}")
             print(f"Validation Controller data shape: {val_controller.shape}")
+            print(f"Validation Frame data shape: {val_frame.shape}")
 
             # Preprocess LIDAR data to fit the model input
             train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
             val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
+            
+            train_frame = train_frame / 255.0
+            val_frame = val_frame / 255.0
 
-            MODEL = create_model((train_lidar.shape[1], train_lidar.shape[2], 1))
+            MODEL = create_model(lidar_input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1), frame_input_shape=(train_frame.shape[1], train_frame.shape[2], train_frame.shape[3]))
             
             MODEL.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
@@ -547,13 +600,13 @@ def start_training():
 
             # Train the model
             history = MODEL.fit(
-                train_lidar, train_controller,
-                validation_data=(val_lidar, val_controller),
+                [train_lidar, train_frame], train_controller,
+                validation_data=([val_lidar, val_frame], val_controller),
                 epochs=EPOCHS,
                 callbacks=[early_stopping, model_checkpoint, console_and_gui_callback],
                 batch_size=BATCH_SIZE
             )
-
+            
             # Load the best model
             best_model = tf.keras.models.load_model(checkpoint_filename)
 

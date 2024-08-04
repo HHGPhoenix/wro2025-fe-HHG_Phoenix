@@ -1,8 +1,10 @@
 import time
 import numpy as np
+import tensorflow as tf
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")
+    self.model = tf.keras.models.load_model('RPIs/AIController/model.h5')
     
     while self.running:
         servo_angle = self.servo.mapToServoAngle(self.x)
@@ -14,13 +16,15 @@ def main_loop_training(self):
         else:
             motor_speed = self.ry
             
-        # if self.frame_list_bytes[1].any():
-        #     simplified_image = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((360, 640, 3))
-            
-        #     print(f"SIMPLIFIED_IMAGE {simplified_image.shape}")
-        # else:
-        #     print("NO SIMPLIFIED_IMAGE")
-        
+        try:
+            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((360, 640, 3))
+            simplified_frame = simplified_frame / 255.0
+                
+            result = self.model.predict(np.array(self.interpolated_lidar_data), simplified_frame)	
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+            continue
+                
         # self.motor_controller.send_speed(motor_speed)
         
         time.sleep(0.05)

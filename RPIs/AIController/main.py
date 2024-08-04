@@ -157,7 +157,7 @@ class AIController:
             for i, capture in enumerate(captures):
                 ret, frame = capture.read()
                 if ret:
-                    frame_array[i] = frame
+                    frame_array[i] = frame.tobytes()
                 else:
                     print(f"Failed to read frame from capture {i}")
                     time.sleep(retry_delay)

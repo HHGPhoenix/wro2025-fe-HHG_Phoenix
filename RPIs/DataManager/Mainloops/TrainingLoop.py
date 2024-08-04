@@ -69,7 +69,7 @@ def main_loop_training(self):
                     simplified_frames.append(simplified_frame)
                 
                 elif not saved_after_recording:
-                    np.savez(f"RPIs/DataManager/Data/raw_frames_{file_uuid}_{date}.npz", raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+                    np.savez(f"RPIs/DataManager/Data/frames_{file_uuid}_{date}.npz", raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
                     saved_after_recording = True
                         
             end_time = time.time()
