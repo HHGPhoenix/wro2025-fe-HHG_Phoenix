@@ -1,52 +1,37 @@
 import tkinter as tk
-import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import numpy as np
 import cv2
 
-class FramePlayer(ctk.CTk):
+class FramePlayer(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Frame Player")
-        self.geometry("1000x600")
+        self.geometry("800x600")
 
         self.frames = []
         self.current_frame_index = 0
         self.playing = False
 
-        # Create main frame
-        self.main_frame = ctk.CTkFrame(self)
-        self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        self.canvas = tk.Canvas(self, width=640, height=480)
+        self.canvas.pack()
 
-        # Create left frame for canvas
-        self.left_frame = ctk.CTkFrame(self.main_frame)
-        self.left_frame.pack(side="left", fill="both", expand=True)
+        self.load_button = tk.Button(self, text="Load NPZ", command=self.load_npz)
+        self.load_button.pack()
 
-        # Create right frame for controls
-        self.right_frame = ctk.CTkFrame(self.main_frame)
-        self.right_frame.pack(side="right", fill="y", padx=10, pady=10)
+        self.play_button = tk.Button(self, text="Play", command=self.play_frames)
+        self.play_button.pack()
 
-        self.canvas = tk.Canvas(self.left_frame, width=640, height=480)
-        self.canvas.pack(fill="both", expand=True)
+        self.canvas.bind("<Motion>", self.on_mouse_move)
 
-        self.load_button = ctk.CTkButton(self.right_frame, text="Load NPZ", command=self.load_npz)
-        self.load_button.pack(pady=5)
+        self.hsv_label = tk.Label(self, text="HSV: ")
+        self.hsv_label.pack()
 
-        self.play_button = ctk.CTkButton(self.right_frame, text="Play", command=self.play_frames)
-        self.play_button.pack(pady=5)
-
-        self.hsv_label = ctk.CTkLabel(self.right_frame, text="HSV: ")
-        self.hsv_label.pack(pady=5)
-
-        self.color_display = ctk.CTkLabel(self.right_frame, text="", width=110, height=110, bg_color="black")
-        self.color_display.pack(pady=5)
-
-        self.bind("<Motion>", self.on_mouse_move)
-        self.bind("<Control-c>", self.copy_hsv_to_clipboard)
+        self.color_display = tk.Label(self, text="", width=10, height=2, bg="black")
+        self.color_display.pack()
 
         self.after_id = None
-        self.current_hsv = None
 
     def load_npz(self):
         file_path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
@@ -89,6 +74,9 @@ class FramePlayer(ctk.CTk):
 
         self.after_id = self.after(50, self.play_next_frame)  # Adjust playback speed as needed
 
+        # ctrg c copy
+
+    
     def show_frame(self, frame):
         # Convert BGR to RGB
         image = Image.fromarray(frame)
@@ -123,17 +111,9 @@ class FramePlayer(ctk.CTk):
                 if len(frame.shape) == 3 and frame.shape[2] == 3:  # Check if the frame is RGB
                     rgb_pixel = frame[orig_y, orig_x]
                     hsv_pixel = cv2.cvtColor(np.uint8([[rgb_pixel]]), cv2.COLOR_RGB2HSV)[0][0]
-                    self.current_hsv = hsv_pixel  # Store the current HSV value
-                    self.hsv_label.configure(text=f"HSV: {hsv_pixel}")
+                    self.hsv_label.config(text=f"HSV: {hsv_pixel}")
                     color = "#{:02x}{:02x}{:02x}".format(*rgb_pixel)
-                    self.color_display.configure(bg_color=color)
-
-    def copy_hsv_to_clipboard(self, event):
-        if self.current_hsv is not None:
-            hsv_string = f"{self.current_hsv}"
-            self.clipboard_clear()
-            self.clipboard_append(hsv_string)
-            messagebox.showinfo("HSV Copied", f"Copied HSV value to clipboard: {hsv_string}")
+                    self.color_display.config(bg=color)
 
 
 if __name__ == "__main__":

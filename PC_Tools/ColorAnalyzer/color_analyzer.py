@@ -1,37 +1,71 @@
 import tkinter as tk
+import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import numpy as np
 import cv2
 
-class FramePlayer(tk.Tk):
+class FramePlayer(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Frame Player")
-        self.geometry("800x600")
+        self.geometry("1000x600")
 
         self.frames = []
         self.current_frame_index = 0
         self.playing = False
+        self.drawing = False
+        self.lines = []
 
-        self.canvas = tk.Canvas(self, width=640, height=480)
-        self.canvas.pack()
+        # Create main frame
+        self.main_frame = ctk.CTkFrame(self)
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.load_button = tk.Button(self, text="Load NPZ", command=self.load_npz)
-        self.load_button.pack()
+        # Create left frame for canvas
+        self.left_frame = ctk.CTkFrame(self.main_frame)
+        self.left_frame.pack(side="left", fill="both", expand=True)
 
-        self.play_button = tk.Button(self, text="Play", command=self.play_frames)
-        self.play_button.pack()
+        # Create right frame for controls
+        self.right_frame = ctk.CTkFrame(self.main_frame)
+        self.right_frame.pack(side="right", fill="y", padx=10, pady=10)
 
-        self.canvas.bind("<Motion>", self.on_mouse_move)
+        self.canvas = tk.Canvas(self.left_frame, width=640, height=480)
+        self.canvas.pack(fill="both", expand=True)
 
-        self.hsv_label = tk.Label(self, text="HSV: ")
-        self.hsv_label.pack()
+        self.load_button = ctk.CTkButton(self.right_frame, text="Load NPZ", command=self.load_npz)
+        self.load_button.pack(pady=5)
 
-        self.color_display = tk.Label(self, text="", width=10, height=2, bg="black")
-        self.color_display.pack()
+        self.play_button = ctk.CTkButton(self.right_frame, text="Play", command=self.play_frames)
+        self.play_button.pack(pady=5)
+
+        self.draw_line_button = ctk.CTkButton(self.right_frame, text="Draw Line", command=self.toggle_drawing)
+        self.draw_line_button.pack(pady=5)
+
+        self.clear_lines_button = ctk.CTkButton(self.right_frame, text="Clear All Lines", command=self.clear_lines)
+        self.clear_lines_button.pack(pady=5)
+
+        self.hsv_label = ctk.CTkLabel(self.right_frame, text="HSV: ")
+        self.hsv_label.pack(pady=5)
+
+        self.color_display = ctk.CTkLabel(self.right_frame, text="", width=110, height=110, bg_color="black")
+        self.color_display.pack(pady=5)
+
+        self.all_hsv_values = []
+        
+        self.lowest_hsv_label = ctk.CTkLabel(self.right_frame, text="Lowest HSV:\n []")
+        self.lowest_hsv_label.pack(pady=5)
+
+        self.highest_hsv_label = ctk.CTkLabel(self.right_frame, text="Highest HSV:\n []")
+        self.highest_hsv_label.pack(pady=5)
+
+        self.bind("<Motion>", self.on_mouse_move)
+        self.bind("<Control-c>", self.copy_hsv_to_clipboard)
+
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
 
         self.after_id = None
+        self.current_hsv = None
+        self.line_start = None
 
     def load_npz(self):
         file_path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
@@ -57,12 +91,12 @@ class FramePlayer(tk.Tk):
     def play_frames(self):
         if self.playing:
             self.playing = False
-            self.play_button.config(text="Play")
+            self.play_button.configure(text="Play")
             if self.after_id:
                 self.after_cancel(self.after_id)
         else:
             self.playing = True
-            self.play_button.config(text="Pause")
+            self.play_button.configure(text="Pause")
             self.play_next_frame()
 
     def play_next_frame(self):
@@ -74,9 +108,6 @@ class FramePlayer(tk.Tk):
 
         self.after_id = self.after(50, self.play_next_frame)  # Adjust playback speed as needed
 
-        # ctrg c copy
-
-    
     def show_frame(self, frame):
         # Convert BGR to RGB
         image = Image.fromarray(frame)
@@ -90,6 +121,10 @@ class FramePlayer(tk.Tk):
 
         self.tk_image = ImageTk.PhotoImage(self.resized_image)
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
+
+        # Redraw all lines
+        for line in self.lines:
+            self.canvas.create_line(line, fill="red", width=2)
 
     def on_mouse_move(self, event):
         if not self.frames or not hasattr(self, 'resized_image'):
@@ -111,10 +146,82 @@ class FramePlayer(tk.Tk):
                 if len(frame.shape) == 3 and frame.shape[2] == 3:  # Check if the frame is RGB
                     rgb_pixel = frame[orig_y, orig_x]
                     hsv_pixel = cv2.cvtColor(np.uint8([[rgb_pixel]]), cv2.COLOR_RGB2HSV)[0][0]
-                    self.hsv_label.config(text=f"HSV: {hsv_pixel}")
+                    self.current_hsv = hsv_pixel  # Store the current HSV value
+                    self.hsv_label.configure(text=f"HSV: {hsv_pixel}")
                     color = "#{:02x}{:02x}{:02x}".format(*rgb_pixel)
-                    self.color_display.config(bg=color)
+                    self.color_display.configure(bg_color=color)
 
+    def copy_hsv_to_clipboard(self, event):
+        if self.current_hsv is not None:
+            hsv_string = f"{self.current_hsv}"
+            self.clipboard_clear()
+            self.clipboard_append(hsv_string)
+            messagebox.showinfo("HSV Copied", f"Copied HSV value to clipboard: {hsv_string}")
+
+    def toggle_drawing(self):
+        self.drawing = not self.drawing
+        self.draw_line_button.configure(text="Stop Drawing" if self.drawing else "Draw Line")
+
+    def on_canvas_click(self, event):
+        if not self.drawing:
+            return
+
+        x, y = event.x, event.y
+        if self.line_start is None:
+            self.line_start = (x, y)
+        else:
+            line = (self.line_start[0], self.line_start[1], x, y)
+            self.lines.append(line)
+            self.canvas.create_line(line, fill="white", width=6)
+            self.canvas.create_line(line, fill="red", width=4)
+            self.calculate_hsv_along_line(line)
+            self.line_start = None
+
+    def calculate_hsv_along_line(self, line):
+        if getattr(self, 'frames', None) is None or not self.frames:
+            return
+        
+        x1, y1, x2, y2 = line
+        frame_width, frame_height = self.frames[0].shape[1], self.frames[0].shape[0]
+        canvas_width, canvas_height = self.canvas.winfo_width(), self.canvas.winfo_height()
+
+        x1_orig = int(x1 * frame_width / canvas_width)
+        y1_orig = int(y1 * frame_height / canvas_height)
+        x2_orig = int(x2 * frame_width / canvas_width)
+        y2_orig = int(y2 * frame_height / canvas_height)
+
+        num_points = max(abs(x2_orig - x1_orig), abs(y2_orig - y1_orig))
+        x_values = np.linspace(x1_orig, x2_orig, num_points, dtype=int)
+        y_values = np.linspace(y1_orig, y2_orig, num_points, dtype=int)
+
+        frame = self.frames[self.current_frame_index]
+        for x, y in zip(x_values, y_values):
+            rgb_pixel = frame[y, x]
+            hsv_pixel = cv2.cvtColor(np.uint8([[rgb_pixel]]), cv2.COLOR_RGB2HSV)[0][0]
+            self.all_hsv_values.append(hsv_pixel)
+
+        self.update_hsv_values()
+
+    def update_hsv_values(self):
+        if not self.all_hsv_values:
+            return
+
+        hsv_values = np.array(self.all_hsv_values)
+        lowest_hsv = hsv_values.min(axis=0)
+        highest_hsv = hsv_values.max(axis=0)
+
+        self.lowest_hsv_label.configure(text=f"Lowest HSV:\n {lowest_hsv.tolist()}")
+        self.highest_hsv_label.configure(text=f"Highest HSV:\n {highest_hsv.tolist()}")
+
+    def clear_lines(self):
+        self.lines.clear()
+        self.all_hsv_values.clear()
+        self.canvas.delete("all")
+        if self.frames:
+            self.show_frame(self.frames[self.current_frame_index])
+        
+        self.lowest_hsv_label.configure(text="Lowest HSV:\n []")
+        self.highest_hsv_label.configure(text="Highest HSV:\n []")
 
 if __name__ == "__main__":
     app = FramePlayer()
