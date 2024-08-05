@@ -7,3 +7,5 @@ node_modules
 /.vscode
 PC_Tools/sync_handler_data.json
 *.pyc
+best_model_76776f3b-03ab-4171-844f-839a8c6f3267.h5
+best_model_bfaf4758-d6d4-411f-91a4-1b08352bfdb6.h5

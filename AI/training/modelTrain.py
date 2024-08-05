@@ -3,8 +3,9 @@ from tkinter import filedialog
 from tkinter import ttk
 import tensorflow as tf
 from tensorflow.keras.models import Sequential # type: ignore
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, LeakyReLU, Input # type: ignore
+from tensorflow.keras.layers import Conv2D, BatchNormalization, MaxPooling2D, GlobalAveragePooling2D, Dense, Dropout, Input, concatenate, LeakyReLU # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, Callback # type: ignore
+from tensorflow.keras.regularizers import l2 # type: ignore
 import numpy as np
 import matplotlib.pyplot as plt
 import uuid
@@ -39,9 +40,9 @@ EPOCHS = 400
 
 PATIENCE = 50
 
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 
-CONTROLLER_SHIFT = 0
+CONTROLLER_SHIFT = 5
 
 FRAME_ARRAY_NAME = "simplified_frames"
 
@@ -49,34 +50,41 @@ FRAME_ARRAY_NAME = "simplified_frames"
 
 def create_model(lidar_input_shape, frame_input_shape):
     # LIDAR input model
-    lidar_input = tf.keras.layers.Input(shape=lidar_input_shape)
-    lidar_conv1 = Conv2D(64, (3, 2), activation=LeakyReLU(alpha=0.05))(lidar_input)
+    lidar_input = Input(shape=lidar_input_shape)
+    lidar_conv1 = Conv2D(64, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(lidar_input)
     lidar_bn1 = BatchNormalization()(lidar_conv1)
-    lidar_pool1 = MaxPooling2D((2, 1))(lidar_bn1)
-    lidar_conv2 = Conv2D(64, (1, 1), activation=LeakyReLU(alpha=0.05))(lidar_pool1)
+    lidar_pool1 = MaxPooling2D((2, 1))(lidar_bn1)  # Adjust pooling to avoid negative dimensions
+    lidar_conv2 = Conv2D(128, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(lidar_pool1)
     lidar_bn2 = BatchNormalization()(lidar_conv2)
-    lidar_pool2 = MaxPooling2D((2, 1))(lidar_bn2)
-    lidar_flatten = Flatten()(lidar_pool2)
+    lidar_pool2 = MaxPooling2D((2, 1))(lidar_bn2)  # Adjust pooling to avoid negative dimensions
+    lidar_conv3 = Conv2D(256, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(lidar_pool2)
+    lidar_bn3 = BatchNormalization()(lidar_conv3)
+    lidar_pool3 = MaxPooling2D((2, 1))(lidar_bn3)  # Adjust pooling to avoid negative dimensions
+    lidar_gap = GlobalAveragePooling2D()(lidar_pool3)
 
     # Frame input model
-    frame_input = tf.keras.layers.Input(shape=frame_input_shape)
-    frame_conv1 = Conv2D(64, (3, 2), activation=LeakyReLU(alpha=0.05))(frame_input)
+    frame_input = Input(shape=frame_input_shape)
+    frame_conv1 = Conv2D(64, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(frame_input)
     frame_bn1 = BatchNormalization()(frame_conv1)
-    frame_pool1 = MaxPooling2D((2, 1))(frame_bn1)
-    frame_conv2 = Conv2D(64, (1, 1), activation=LeakyReLU(alpha=0.05))(frame_pool1)
+    frame_pool1 = MaxPooling2D((2, 2))(frame_bn1)
+    frame_conv2 = Conv2D(128, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(frame_pool1)
     frame_bn2 = BatchNormalization()(frame_conv2)
-    frame_pool2 = MaxPooling2D((2, 1))(frame_bn2)
-    frame_flatten = Flatten()(frame_pool2)
+    frame_pool2 = MaxPooling2D((2, 2))(frame_bn2)
+    frame_conv3 = Conv2D(256, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(frame_pool2)
+    frame_bn3 = BatchNormalization()(frame_conv3)
+    frame_pool3 = MaxPooling2D((2, 2))(frame_bn3)
+    frame_gap = GlobalAveragePooling2D()(frame_pool3)
 
     # Combine LIDAR and Frame inputs
-    combined = tf.keras.layers.concatenate([lidar_flatten, frame_flatten])
-    dense1 = Dense(32, activation=LeakyReLU(alpha=0.05))(combined)
-    dropout = Dropout(0.3)(dense1)
+    combined = concatenate([lidar_gap, frame_gap])
+    dense1 = Dense(128, activation=LeakyReLU(alpha=0.05), kernel_regularizer=l2(0.001))(combined)
+    dropout = Dropout(0.5)(dense1)
     output = Dense(1, activation='linear')(dropout)
 
     model = tf.keras.models.Model(inputs=[lidar_input, frame_input], outputs=output)
     
     return model
+
 
 if __name__ == "__main__":
     # Print all GPU devices
@@ -96,7 +104,9 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, progress
     # print(f"Processing file pair {idx + 1}: {file_path_lidar}, {file_path_controller}, {file_path_frames}")
     frame_data = np.load(file_path_frames, allow_pickle=True)
     frame_array = frame_data[FRAME_ARRAY_NAME]
-    frame_array = frame_array[:CONTROLLER_SHIFT]
+    frame_array = frame_array[:-CONTROLLER_SHIFT] if CONTROLLER_SHIFT else frame_array
+    
+    # frame_array = frame_array.pop(-CONTROLLER_SHIFT)
     # print(f"Frame array shape: {frame_array.shape}")
     
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
@@ -225,7 +235,7 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.full_mae_values.append(logs['mae'])
         self.full_val_mae_values.append(logs['val_mae'])
 
-        make_weg = 80
+        make_weg = 50
 
         # Maintain the sliding window of 150 entries
         if len(self.loss_values) >= make_weg:
@@ -359,7 +369,10 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             results.append((lidar_data, controller_data, frame_data))
     
     for lidar_data, controller_data, frame_data in results:
+        print(f"Length of lidar data: {len(lidar_data)}, Length of controller data: {len(controller_data)}, Length of frame data: {len(frame_data)}")
         if len(lidar_data) > 0 and len(controller_data) > 0 and len(frame_data) > 0:
+            # print the lenght of all the data
+            print(f"Length of lidar data: {len(lidar_data)}, Length of controller data: {len(controller_data)}, Length of frame data: {len(frame_data)}")
             data_length = len(lidar_data)
             indices = list(range(data_length))
             random.shuffle(indices)
@@ -372,6 +385,8 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             val_lidar_data.append(lidar_data[val_indices])
             val_controller_data.append(controller_data[val_indices])
             val_frame_data.append(frame_data[val_indices])
+        else:
+            raise ValueError("No data found for training or validation.")
 
     if len(train_lidar_data) > 0:
         train_lidar_data = np.concatenate(train_lidar_data, axis=0)
@@ -567,16 +582,16 @@ def start_training():
             if custom_filename is None:
                 custom_filename = model_filename.get()
 
-            if train_lidar.size == 0 or train_controller.size == 0 or train_frame.size == 0 or val_lidar.size == 0 or val_controller.size == 0 or val_frame.size == 0:
-                print("No valid data found for training or validation.")
-                return
-
             print(f"Train LIDAR data shape: {train_lidar.shape}")
             print(f"Train Controller data shape: {train_controller.shape}")
             print(f"Train Frame data shape: {train_frame.shape}")
             print(f"Validation LIDAR data shape: {val_lidar.shape}")
             print(f"Validation Controller data shape: {val_controller.shape}")
             print(f"Validation Frame data shape: {val_frame.shape}")
+
+            if train_lidar.size == 0 or train_controller.size == 0 or train_frame.size == 0 or val_lidar.size == 0 or val_controller.size == 0 or val_frame.size == 0:
+                print("No valid data found for training or validation.")
+                return
 
             # Preprocess LIDAR data to fit the model input
             train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input

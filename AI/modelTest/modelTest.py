@@ -18,9 +18,13 @@ for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
 # Function to parse data from LiDAR and controller files
-def parse_data(file_path_lidar, file_path_controller):
+def parse_data(file_path_lidar, file_path_controller, file_path_frames):
     lidar_data = []
     controller_data = []
+    
+    frame_data = np.load(file_path_frames)
+    frames = frame_data['simplified_frames']
+    
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
         lidar_lines = lidar_file.readlines()
         controller_lines = controller_file.readlines()
@@ -51,11 +55,12 @@ def parse_data(file_path_lidar, file_path_controller):
     # Reshape for CNN input
     lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  
     
-    return lidar_data, controller_data
+    return lidar_data, controller_data, frames
 
 # Initialize queues for data communication
 data_queue = queue.Queue()
 controller_data_queue = queue.Queue()
+frame_queue = queue.Queue()
 
 # Function to select a model file using file dialog
 def select_model_file(data):
@@ -72,31 +77,38 @@ def select_controller_file(data):
     path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
     data.set(path)
 
+def select_frames_file(data):
+    path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
+    data.set(path)
+
 # Function to update the display with new data
-def update_display(lidar_data, controller_data):
+def update_display(lidar_data, controller_data, frame_data):
     global model, ax1, ax2, ax3, fig, canvas, root, text_output  # Assuming these are defined elsewhere
     index = 0
     accuracy_list = []
     model_output_list = []
     expected_output_list = []
     
-    while index < len(lidar_data) and index < len(controller_data):
+    while index < len(lidar_data) and index < len(controller_data) and index < len(frame_data):
         
         expected_output = controller_data[index]
 
         expected_output_list.append(expected_output)
         
-        raw_data = lidar_data[index]
+        raw_lidar_data = lidar_data[index]
         
+        raw_frame_data = frame_data[index]
+        
+        processed_data = pd.DataFrame(raw_lidar_data[:, :, 0], columns=["angle", "distance"])
         # Reshape raw data for model input (1, 360, 2, 1)
-        model_input = np.expand_dims(raw_data, axis=0)
-        
-        processed_data = pd.DataFrame(raw_data[:, :, 0], columns=["angle", "distance"])
+        model_input_lidar = np.expand_dims(raw_lidar_data, axis=0)
+        model_input_frames = np.expand_dims(raw_frame_data, axis=0)
+        model_input = [model_input_lidar, model_input_frames]
         
         # Predict the model output
         model_output = model.predict(model_input)
         current_output = model_output[0][0]  # Assuming single output, adjust as needed
-
+        print(f"Model Output: {current_output}, Expected Output: {expected_output}")
         model_output_list.append(current_output)
         
         # Calculate the accuracy as the difference percentage
@@ -127,6 +139,11 @@ def update_display(lidar_data, controller_data):
             ax2.set_title('Model vs Expected Output')
             ax2.grid(True)
 
+            ax3.clear()
+            ax3.imshow(raw_frame_data, cmap='gray')
+            ax3.set_title('Frame Data')
+            ax3.axis('off')
+
             # Update the text output for the controller and model values
             text_output.config(state=tk.NORMAL)
             text_output.delete("1.0", tk.END)
@@ -139,6 +156,9 @@ def update_display(lidar_data, controller_data):
             canvas.draw()
         
         root.after(0, update_plots)
+        # update_plots()
+        root.update()
+        root.update_idletasks()
 
         
         index += 1
@@ -149,11 +169,12 @@ def process_and_display():
     model_file_path = model_file_path_var.get()
     controller_file_path = controller_file_path_var.get()
     lidar_file_path = lidar_file_path_var.get()
+    frame_file_path = frame_file_path_var.get()
     model = load_model(model_file_path)
 
-    lidar_data, controller_data = parse_data(lidar_file_path, controller_file_path)
+    lidar_data, controller_data, frames = parse_data(lidar_file_path, controller_file_path, frame_file_path)
     
-    threading.Thread(target=update_display, args=(lidar_data, controller_data)).start()
+    threading.Thread(target=update_display, args=(lidar_data, controller_data, frames)).start()
 
 # Tkinter GUI setup
 root = tk.Tk()
@@ -162,6 +183,7 @@ root.title("Real-Time LIDAR and Model Output")
 model_file_path_var = tk.StringVar()
 controller_file_path_var = tk.StringVar()
 lidar_file_path_var = tk.StringVar()
+frame_file_path_var = tk.StringVar()
 
 tk.Label(root, text="Model File Path:").grid(row=0, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=model_file_path_var, width=50).grid(row=0, column=1, padx=10, pady=10)
@@ -175,19 +197,29 @@ tk.Label(root, text="Controller File Path:").grid(row=2, column=0, padx=10, pady
 tk.Entry(root, textvariable=controller_file_path_var, width=50).grid(row=2, column=1, padx=10, pady=10)
 tk.Button(root, text="Browse Controller File", command=lambda data=controller_file_path_var: select_controller_file(data)).grid(row=2, column=2, padx=10, pady=10)
 
-tk.Button(root, text="Start Display", command=process_and_display).grid(row=3, column=0, columnspan=3, pady=20)
+tk.Label(root, text="Frames File Path:").grid(row=3, column=0, padx=10, pady=10)
+tk.Entry(root, textvariable=frame_file_path_var, width=50).grid(row=3, column=1, padx=10, pady=10)
+tk.Button(root, text="Browse Frames File", command=lambda data=frame_file_path_var: select_frames_file(data)).grid(row=3, column=2, padx=10, pady=10)
+
+tk.Button(root, text="Start Display", command=process_and_display).grid(row=4, column=0, columnspan=3, pady=20)
+
 
 # Plot setup
-fig = plt.figure(figsize=(12, 6))
-ax1 = fig.add_subplot(121, polar=True)  # Polar plot for LIDAR data
-ax2 = fig.add_subplot(122)  # Regular plot for model vs expected output
+fig = plt.figure(figsize=(18, 6))
+ax1 = fig.add_subplot(131, polar=True)  # Polar plot for LIDAR data
+ax2 = fig.add_subplot(132)  # Regular plot for model vs expected output
+ax3 = fig.add_subplot(133)  # Third subplot
+
+# Adjust the spacing between subplots
+plt.subplots_adjust(wspace=0.3, hspace=0.3)  # Adjust these values as needed
+
 
 # Text output for numerical values
-text_output = tk.Text(root, height=5, width=80, state=tk.DISABLED)
-text_output.grid(row=4, column=0, columnspan=3, padx=10, pady=10)
+text_output = tk.Text(root, height=6, width=80, state=tk.DISABLED)
+text_output.grid(row=5, column=0, columnspan=3, padx=10, pady=10)
 
 canvas = FigureCanvasTkAgg(fig, master=root)  # Create a canvas
-canvas.get_tk_widget().grid(row=5, column=0, columnspan=3)
+canvas.get_tk_widget().grid(row=7, column=0, columnspan=3)
 plt.ion()
 
 root.mainloop()
