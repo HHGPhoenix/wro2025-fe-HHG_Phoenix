@@ -85,16 +85,23 @@ class DataTransferer:
                 
                 # Sort by angle
                 df = df.sort_values("angle")
+                df.replace([np.inf, -np.inf], np.nan, inplace=True)
+                df.dropna(inplace=True)
                 
                 # Desired angles for interpolation
                 desired_angles = np.arange(0, 360, 1)
                 
                 # Interpolate distance and intensity
-                interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate")
-                interp_intensity = interp1d(df["angle"], df["intensity"], kind="linear", bounds_error=False, fill_value="extrapolate")
+                try: 
+                # Interpolate distance and intensity
+                    interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate", assume_sorted=True)
+                    interp_intensity = interp1d(df["angle"], df["intensity"], kind="linear", bounds_error=False, fill_value="extrapolate", assume_sorted=True)
 
-                interpolated_distances = interp_distance(desired_angles)
-                interpolated_intensities = interp_intensity(desired_angles)
+                    interpolated_distances = interp_distance(desired_angles)
+                    interpolated_intensities = interp_intensity(desired_angles)
+                except:
+                    interpolated_distances = np.zeros(len(desired_angles))
+                    interpolated_intensities = np.zeros(len(desired_angles))
 
                 # Create DataFrame for interpolated data
                 df_interpolated = pd.DataFrame({
@@ -133,7 +140,6 @@ class DataTransferer:
 
                 if wait_time < 0:
                     print(f"Processing LIDAR data took longer than 100ms: {elapsed_time}")
-                
         except KeyboardInterrupt:
             pass
         except BrokenPipeError:

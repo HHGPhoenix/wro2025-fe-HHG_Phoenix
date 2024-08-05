@@ -9,7 +9,7 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 # from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
-from RPIs.Devices.LIDAR.LIDAR import LidarSensor
+from RPIs.Devices.LIDAR.LIDAR import Lidar
 from RPIs.Devices.I2C.I2Chandler import I2Chandler
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
@@ -108,11 +108,8 @@ class DataManager:
         i2c_handler = I2Chandler()
         i2c_handler.start_threads()
         
-        lidar = LidarSensor("/dev/ttyUSB0", self.lidar_data_list)
-        lidar.reset_sensor()
-        lidar.start_sensor()
-        
-        self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -20), daemon=True)
+        lidar = Lidar(self.lidar_data_list)
+        self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)
         self.lidarProcess.start()
         self.logger.info("Camera and LIDAR initialized.")
         

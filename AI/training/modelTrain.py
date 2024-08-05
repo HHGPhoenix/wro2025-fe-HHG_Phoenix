@@ -38,11 +38,11 @@ val_controller = None
 
 EPOCHS = 400
 
-PATIENCE = 30
+PATIENCE = 50
 
 BATCH_SIZE = 32
 
-CONTROLLER_SHIFT = 0
+CONTROLLER_SHIFT = 5
 
 FRAME_ARRAY_NAME = "simplified_frames"
 
@@ -79,7 +79,7 @@ def create_model(lidar_input_shape, frame_input_shape):
     combined = concatenate([lidar_gap, frame_gap])
     dense1 = Dense(128, activation=LeakyReLU(alpha=0.05), kernel_regularizer=l2(0.001))(combined)
     dropout = Dropout(0.5)(dense1)
-    output = Dense(1, activation='linear')(dropout)
+    output = Dense(1, activation='sigmoid')(dropout)
 
     model = tf.keras.models.Model(inputs=[lidar_input, frame_input], outputs=output)
     
