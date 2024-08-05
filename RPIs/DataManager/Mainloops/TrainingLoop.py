@@ -62,10 +62,10 @@ def main_loop_training(self):
                     with open(f"RPIs/DataManager/Data/x_values_{file_uuid}_{date}.txt", "a") as file:
                         file.write(f"{x}\n")
                         
-                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((360, 640, 3))
+                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((120, 213, 3))
                     raw_frames.append(raw_frame)
         
-                    simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((360, 640, 3))
+                    simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((120, 213, 3))
                     simplified_frames.append(simplified_frame)
                 
                 elif not saved_after_recording:

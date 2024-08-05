@@ -137,7 +137,7 @@ class Camera():
         return frameraw
     
     # Compress the video frames for the webstream    
-    def compress_frame(self, frame, new_height=360):
+    def compress_frame(self, frame, new_height=120):
         """
         Compress the frame to a specified height while maintaining the aspect ratio.
 

@@ -8,7 +8,6 @@ def main_loop_training(self):
     
     while self.running:
         servo_angle = self.servo.mapToServoAngle(self.x)
-        # print(f"servo_angle: {servo_angle:.2f}", end=' ')
         self.servo.setAngle(servo_angle)
         
         if self.ry < 0.55 and self.ry > 0.45:
@@ -16,15 +15,20 @@ def main_loop_training(self):
         else:
             motor_speed = self.ry
             
-        try:
-            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((360, 640, 3))
-            simplified_frame = simplified_frame / 255.0
-                
-            result = self.model.predict(np.array(self.interpolated_lidar_data), simplified_frame)	
-        except Exception as e:
-            self.logger.error(f"Error: {e}")
-            continue
-                
-        # self.motor_controller.send_speed(motor_speed)
+        simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((120, 213, 3))
+        simplified_frame = simplified_frame / 255.0
         
+        lidar_data = np.array(self.interpolated_lidar_data)  # Assuming you need the first two columns (angle and distance)
+        # Ensure lidar data has the correct features (angle and distance) and shape
+        lidar_data = np.expand_dims(lidar_data, axis=-1)  # Adding the last dimension
+        lidar_data = np.expand_dims(lidar_data, axis=0)  # Adding the batch dimension
+        lidar_data = lidar_data[:, :, :2]
+        
+        simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
+
+        # Combine the inputs into a list
+        inputs = [lidar_data, simplified_frame]
+        
+        result = self.model.predict(inputs)
+                
         time.sleep(0.05)
