@@ -165,9 +165,8 @@ class DataManager:
         finally:
             self.client.send_message('STOP')
             self.lidar.stop_sensor()
-            self.i2c_handler.stop_threads()
+            self.i2c_handler.stop_threads()         
             
-
 ###########################################################################
 
 if __name__ == "__main__":

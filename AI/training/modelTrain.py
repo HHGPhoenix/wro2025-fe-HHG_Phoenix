@@ -96,6 +96,7 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, progress
     # print(f"Processing file pair {idx + 1}: {file_path_lidar}, {file_path_controller}, {file_path_frames}")
     frame_data = np.load(file_path_frames, allow_pickle=True)
     frame_array = frame_data[FRAME_ARRAY_NAME]
+    frame_array = frame_array[:CONTROLLER_SHIFT]
     # print(f"Frame array shape: {frame_array.shape}")
     
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
