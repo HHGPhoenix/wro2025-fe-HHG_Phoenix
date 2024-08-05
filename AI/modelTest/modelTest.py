@@ -99,6 +99,8 @@ def update_display(lidar_data, controller_data, frame_data):
         
         raw_frame_data = frame_data[index]
         
+        raw_frame_data = raw_frame_data / 255.0
+        
         processed_data = pd.DataFrame(raw_lidar_data[:, :, 0], columns=["angle", "distance"])
         # Reshape raw data for model input (1, 360, 2, 1)
         model_input_lidar = np.expand_dims(raw_lidar_data, axis=0)

@@ -38,11 +38,11 @@ val_controller = None
 
 EPOCHS = 400
 
-PATIENCE = 50
+PATIENCE = 30
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 
-CONTROLLER_SHIFT = 5
+CONTROLLER_SHIFT = 0
 
 FRAME_ARRAY_NAME = "simplified_frames"
 
