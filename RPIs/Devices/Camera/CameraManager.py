@@ -25,20 +25,20 @@ class Camera():
         self.picam.set_logging(Picamera2.ERROR)
         
         # Define the color ranges for green and red in HSV color space
-        self.lower_green = np.array([53, 100, 40])
-        self.upper_green = np.array([93, 220, 150])
+        self.lower_green = np.array([55, 50, 50])
+        self.upper_green = np.array([75, 120, 83])
 
-        self.lower_red1 = np.array([0, 160, 120])
-        self.upper_red1 = np.array([5, 220, 200])
+        self.lower_red1 = np.array([0, 120, 90])
+        self.upper_red1 = np.array([5, 225, 185])
 
-        self.lower_red2 = np.array([173, 160, 100])
-        self.upper_red2 = np.array([180, 220, 200])
+        self.lower_red2 = np.array([175, 120, 90])
+        self.upper_red2 = np.array([180, 225, 185])
         
-        self.lower_black = np.array([0, 0, 0])
-        self.upper_black = np.array([10, 10, 10])
+        self.lower_black = np.array([15, 0, 0])
+        self.upper_black = np.array([165, 85, 60])
 
         # Define the kernel for morphological operations
-        self.kernel = np.ones((7, 7), np.uint8)
+        self.kernel = np.ones((5, 5), np.uint8)
         
     def capture_array(self):
         """
@@ -74,6 +74,11 @@ class Camera():
 
         mask_black = cv2.inRange(framehsv, self.lower_black, self.upper_black)
 
+        # Apply morphological operations to clean up the masks
+        mask_green = cv2.morphologyEx(mask_green, cv2.MORPH_CLOSE, self.kernel)
+        mask_red = cv2.morphologyEx(mask_red, cv2.MORPH_CLOSE, self.kernel)
+        mask_black = cv2.morphologyEx(mask_black, cv2.MORPH_CLOSE, self.kernel)
+
         # Initialize a blank white image
         height, width = framehsv.shape[:2]
         simplified_image = np.ones((height, width, 3), np.uint8) * 255  # White background
@@ -85,7 +90,12 @@ class Camera():
         # Apply black color to non-red and non-green areas
         simplified_image[mask_black > 0] = [0, 0, 0]  # Black
 
-        return simplified_image
+        # Blend the original image with the simplified image for better color representation
+        alpha = 0  # Blending factor
+        frame_rgb = cv2.cvtColor(framehsv, cv2.COLOR_HSV2RGB)
+        blended_image = cv2.addWeighted(frame_rgb, alpha, simplified_image, 1 - alpha, 0)
+
+        return blended_image
     
     def draw_blocks(self, frameraw, framehsv):
         """
@@ -121,7 +131,7 @@ class Camera():
         # Process each green contour
         for contour in contours_green:
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 20 and h > 50:  # Only consider boxes larger than 50x50
+            if w > 5 and h > 10:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
@@ -129,7 +139,7 @@ class Camera():
         # Process each red contour
         for contour in contours_red:
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 20 and h > 50:  # Only consider boxes larger than 50x50
+            if w > 5 and h > 10:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
                 cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
@@ -160,5 +170,6 @@ class Camera():
             raise ValueError(f"Unexpected number of dimensions in frame: {dimensions}")
         new_width = int(new_height * width / height)
         frame = cv2.resize(frame, (new_width, new_height))
+        frame = frame[10:, :]
         
         return frame
