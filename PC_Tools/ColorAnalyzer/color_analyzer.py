@@ -16,6 +16,8 @@ class FramePlayer(ctk.CTk):
         self.playing = False
         self.drawing = False
         self.lines = []
+        self.frame_rate = tk.IntVar(value=50)
+        self.show_drawn_line_average = tk.BooleanVar(value=False)
 
         # Create main frame
         self.main_frame = ctk.CTkFrame(self)
@@ -44,19 +46,35 @@ class FramePlayer(ctk.CTk):
         self.clear_lines_button = ctk.CTkButton(self.right_frame, text="Clear All Lines", command=self.clear_lines)
         self.clear_lines_button.pack(pady=5)
 
-        self.hsv_label = ctk.CTkLabel(self.right_frame, text="HSV: ")
+        self.frame_slider = ctk.CTkSlider(self.right_frame, from_=0, to=1, command=self.on_frame_slider_change)
+        self.frame_slider.set(0)
+        self.frame_slider.pack(pady=5, fill="x")
+
+        self.hsv_label = ctk.CTkLabel(self.right_frame, text="HSV:\n [    ]")
         self.hsv_label.pack(pady=5)
+
+        self.show_drawn_line_average_button = ctk.CTkCheckBox(self.right_frame, text="Show Drawn Line Average", variable=self.show_drawn_line_average)
+        self.show_drawn_line_average_button.pack(pady=5)
 
         self.color_display = ctk.CTkLabel(self.right_frame, text="", width=110, height=110, bg_color="black")
         self.color_display.pack(pady=5)
 
         self.all_hsv_values = []
         
-        self.lowest_hsv_label = ctk.CTkLabel(self.right_frame, text="Lowest HSV:\n []")
+        self.lowest_hsv_label = ctk.CTkLabel(self.right_frame, text="Lowest HSV:\n [    ]")
         self.lowest_hsv_label.pack(pady=5)
 
-        self.highest_hsv_label = ctk.CTkLabel(self.right_frame, text="Highest HSV:\n []")
+        self.highest_hsv_label = ctk.CTkLabel(self.right_frame, text="Highest HSV:\n [    ]")
         self.highest_hsv_label.pack(pady=5)
+
+        self.frame_rate_label = ctk.CTkLabel(self.right_frame, text=f"Frame Rate: {self.frame_rate.get()}")
+        self.frame_rate_label.pack(pady=5)
+
+        self.frame_rate_slider = ctk.CTkSlider(self.right_frame, from_=10, to=120, command=self.on_frame_rate_change)
+        self.frame_rate_slider.set(self.frame_rate.get())
+        self.frame_rate_slider.pack(pady=5, fill="x")
+
+        self.bind("<Control-o>", self.load_npz)
 
         self.bind("<Motion>", self.on_mouse_move)
         self.bind("<Control-c>", self.copy_hsv_to_clipboard)
@@ -66,6 +84,10 @@ class FramePlayer(ctk.CTk):
         self.after_id = None
         self.current_hsv = None
         self.line_start = None
+
+    def on_frame_rate_change(self, value):
+        self.frame_rate.set(int(value))
+        self.frame_rate_label.configure(text=f"Frame Rate: {self.frame_rate.get()}")
 
     def load_npz(self):
         file_path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
@@ -85,6 +107,7 @@ class FramePlayer(ctk.CTk):
         if self.frames:
             self.current_frame_index = 0
             self.show_frame(self.frames[0])
+            self.frame_slider.configure(to=len(self.frames) - 1)
         else:
             messagebox.showerror("Error", "No frames found in the file.")
 
@@ -105,8 +128,8 @@ class FramePlayer(ctk.CTk):
 
         self.current_frame_index = (self.current_frame_index + 1) % len(self.frames)
         self.show_frame(self.frames[self.current_frame_index])
-
-        self.after_id = self.after(50, self.play_next_frame)  # Adjust playback speed as needed
+        self.frame_slider.set(self.current_frame_index)
+        self.after_id = self.after(int(1000 / self.frame_rate.get()), self.play_next_frame)  # Adjust playback speed as needed
 
     def show_frame(self, frame):
         # Convert BGR to RGB
@@ -126,6 +149,10 @@ class FramePlayer(ctk.CTk):
         for line in self.lines:
             self.canvas.create_line(line, fill="red", width=2)
 
+    def on_frame_slider_change(self, value):
+        self.current_frame_index = int(value)
+        self.show_frame(self.frames[self.current_frame_index])
+
     def on_mouse_move(self, event):
         if not self.frames or not hasattr(self, 'resized_image'):
             return
@@ -134,22 +161,45 @@ class FramePlayer(ctk.CTk):
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
 
-        # Ensure x and y are within bounds of the canvas
-        if 0 <= x < canvas_width and 0 <= y < canvas_height:
-            # Scale the coordinates to match the original frame size
-            frame_width, frame_height = self.frames[0].shape[1], self.frames[0].shape[0]
-            orig_x = int(x * frame_width / canvas_width)
-            orig_y = int(y * frame_height / canvas_height)
+        if not self.show_drawn_line_average.get():
+            # Ensure x and y are within bounds of the canvas
+            if 0 <= x < canvas_width and 0 <= y < canvas_height:
+                # Scale the coordinates to match the original frame size
+                frame_width, frame_height = self.frames[0].shape[1], self.frames[0].shape[0]
+                orig_x = int(x * frame_width / canvas_width)
+                orig_y = int(y * frame_height / canvas_height)
 
-            if 0 <= orig_x < frame_width and 0 <= orig_y < frame_height:
-                frame = self.frames[self.current_frame_index]
-                if len(frame.shape) == 3 and frame.shape[2] == 3:  # Check if the frame is RGB
-                    rgb_pixel = frame[orig_y, orig_x]
-                    hsv_pixel = cv2.cvtColor(np.uint8([[rgb_pixel]]), cv2.COLOR_RGB2HSV)[0][0]
-                    self.current_hsv = hsv_pixel  # Store the current HSV value
-                    self.hsv_label.configure(text=f"HSV: {hsv_pixel}")
-                    color = "#{:02x}{:02x}{:02x}".format(*rgb_pixel)
-                    self.color_display.configure(bg_color=color)
+                if 0 <= orig_x < frame_width and 0 <= orig_y < frame_height:
+                    frame = self.frames[self.current_frame_index]
+                    if len(frame.shape) == 3 and frame.shape[2] == 3:  # Check if the frame is RGB
+                        rgb_pixel = frame[orig_y, orig_x]
+                        hsv_pixel = cv2.cvtColor(np.uint8([[rgb_pixel]]), cv2.COLOR_RGB2HSV)[0][0]
+                        self.current_hsv = hsv_pixel  # Store the current HSV value
+                        self.hsv_label.configure(text=f"HSV:\n {hsv_pixel}")
+                        color = "#{:02x}{:02x}{:02x}".format(*rgb_pixel)
+                        self.color_display.configure(bg_color=color)
+        else:
+            # calculate average HSV value along the drawn lines self.lines
+
+            if not self.lines:
+                return
+            
+            average_hsv = self.calculate_average_hsv()
+            if average_hsv is not None:
+                self.current_hsv = average_hsv
+                self.hsv_label.configure(text=f"Average HSV:\n {average_hsv}")
+                color = "#{:02x}{:02x}{:02x}".format(*cv2.cvtColor(np.uint8([[average_hsv]]), cv2.COLOR_HSV2RGB)[0][0])
+                self.color_display.configure(bg_color=color)
+            
+    def calculate_average_hsv(self):
+        if not self.all_hsv_values:
+            return None
+    
+        hsv_values = np.array(self.all_hsv_values)
+        average_hsv = hsv_values.mean(axis=0)
+        rounded_average_hsv = np.round(average_hsv, 2)
+    
+        return rounded_average_hsv.tolist()
 
     def copy_hsv_to_clipboard(self, event):
         if self.current_hsv is not None:
@@ -220,8 +270,8 @@ class FramePlayer(ctk.CTk):
         if self.frames:
             self.show_frame(self.frames[self.current_frame_index])
         
-        self.lowest_hsv_label.configure(text="Lowest HSV:\n []")
-        self.highest_hsv_label.configure(text="Highest HSV:\n []")
+        self.lowest_hsv_label.configure(text="Lowest HSV:\n [    ]")
+        self.highest_hsv_label.configure(text="Highest HSV:\n [    ]")
 
 if __name__ == "__main__":
     app = FramePlayer()
