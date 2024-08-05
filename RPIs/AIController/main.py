@@ -180,9 +180,9 @@ if __name__ == "__main__":
         print("\nKeyboardInterrupt")
         
     finally:
-        finally_start_time = time.time()
-        while mp.active_children() and (time.time() - finally_start_time) < 5:
-            time.sleep(0.1)
+        # finally_start_time = time.time()
+        # while mp.active_children() and (time.time() - finally_start_time) < 5:
+        #     time.sleep(0.1)
             
-        os.kill(os.getpid(), signal.SIGTERM)
+        # os.kill(os.getpid(), signal.SIGTERM)
         print("\nAIController stopped.")
