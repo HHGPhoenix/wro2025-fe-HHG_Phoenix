@@ -88,6 +88,11 @@ class DataTransferer:
                 df.replace([np.inf, -np.inf], np.nan, inplace=True)
                 df.dropna(inplace=True)
                 
+                if df.empty:
+                    print("Empty DataFrame")
+                    time.sleep(0.1)
+                    continue
+                
                 # Desired angles for interpolation
                 desired_angles = np.arange(0, 360, 1)
                 
