@@ -15,6 +15,7 @@ class DataTransferer:
         self.lidar_data_list = lidar_data_list
         self.interpolated_lidar_data = interpolated_lidar_data
 
+        self.lidar_data_was_available = False
 
     def start(self):
         self.camera_thread = threading.Thread(target=self.process_cam_frames)
@@ -30,7 +31,6 @@ class DataTransferer:
         print("Lidar thread started")
 
         #stop those
-
 
     def stop(self):
         self.camera_thread.join()
@@ -67,8 +67,11 @@ class DataTransferer:
         try:
             while True:
                 while len(self.lidar_data_list) == 0:
-                    print("No LIDAR data available")
+                    if self.lidar_data_was_available:
+                        print("No LIDAR data available")
                     time.sleep(0.1)
+                else:
+                    self.lidar_data_was_available = True
                 
                 start_time = time.time()
                 
