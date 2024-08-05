@@ -39,7 +39,7 @@ class FramePlayer(ctk.CTk):
         self.hsv_label = ctk.CTkLabel(self.right_frame, text="HSV: ")
         self.hsv_label.pack(pady=5)
 
-        self.color_display = ctk.CTkLabel(self.right_frame, text="", width=20, height=10, bg_color="black")
+        self.color_display = ctk.CTkLabel(self.right_frame, text="", width=110, height=110, bg_color="black")
         self.color_display.pack(pady=5)
 
         self.bind("<Motion>", self.on_mouse_move)
@@ -124,9 +124,9 @@ class FramePlayer(ctk.CTk):
                     rgb_pixel = frame[orig_y, orig_x]
                     hsv_pixel = cv2.cvtColor(np.uint8([[rgb_pixel]]), cv2.COLOR_RGB2HSV)[0][0]
                     self.current_hsv = hsv_pixel  # Store the current HSV value
-                    self.hsv_label.config(text=f"HSV: {hsv_pixel}")
+                    self.hsv_label.configure(text=f"HSV: {hsv_pixel}")
                     color = "#{:02x}{:02x}{:02x}".format(*rgb_pixel)
-                    self.color_display.config(bg=color)
+                    self.color_display.configure(bg_color=color)
 
     def copy_hsv_to_clipboard(self, event):
         if self.current_hsv is not None:
