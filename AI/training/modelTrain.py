@@ -117,6 +117,8 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_pat
     frame_array = frame_data[FRAME_ARRAY_NAME]
     frame_array = frame_array[:-CONTROLLER_SHIFT] if CONTROLLER_SHIFT else frame_array
     
+    frame_array = frame_array / 255.0
+    
     counter_data = np.load(file_path_counters, allow_pickle=True)
     
     green_counter = counter_data[COUNTER_ARRAY_NAMES[0]]
@@ -130,8 +132,8 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_pat
     # print(f"length of green counter: {len(green_counter)}, length of red counter: {len(red_counter)}")
     
     for i, _ in enumerate(green_counter):
-        _green_counter = green_counter[i]
-        _red_counter = red_counter[i]
+        _green_counter = green_counter[i] / 30.0
+        _red_counter = red_counter[i] / 30.0
         counters = [_green_counter, _red_counter]
         counter_array.append(counters)
         
@@ -153,13 +155,19 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_pat
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
             df = df.drop(columns=["intensity"])
             df_interpolated_list = df.values.tolist()
+            
+            divided_lidar_data = []
+            for angle, distance in df_interpolated_list:
+                angle = angle / 360.0
+                distance = distance / 4000.0
+                divided_lidar_data.append([angle, distance])
 
             # Apply the shift to controller data
             shifted_index = index + CONTROLLER_SHIFT
             if shifted_index < len(controller_lines):
                 controller_line = controller_lines[shifted_index].strip()
                 controller_data.append(float(controller_line))
-                lidar_data.append(df_interpolated_list)
+                lidar_data.append(divided_lidar_data)
 
             # Calculate progress
             if progress_callback:
@@ -655,8 +663,8 @@ def start_training():
             train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
             val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
             
-            train_frame = train_frame / 255.0
-            val_frame = val_frame / 255.0
+            # train_frame = train_frame / 255.0
+            # val_frame = val_frame / 255.0
 
             MODEL = create_model(lidar_input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1), frame_input_shape=(train_frame.shape[1], train_frame.shape[2], train_frame.shape[3]), counter_input_shape=(train_counters.shape[1],))
             
