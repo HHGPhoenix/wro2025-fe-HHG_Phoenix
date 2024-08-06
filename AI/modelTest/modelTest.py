@@ -99,6 +99,10 @@ def select_frames_file(data):
     path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
     data.set(path)
 
+def select_counter_file(data):
+    path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
+    data.set(path)
+
 # Function to update the display with new data
 def update_display(lidar_data, controller_data, frame_data, counter_array):
     global model, ax1, ax2, ax3, fig, canvas, root, text_output  # Assuming these are defined elsewhere
@@ -208,6 +212,7 @@ model_file_path_var = tk.StringVar()
 controller_file_path_var = tk.StringVar()
 lidar_file_path_var = tk.StringVar()
 frame_file_path_var = tk.StringVar()
+counter_file_path_var = tk.StringVar()
 
 tk.Label(root, text="Model File Path:").grid(row=0, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=model_file_path_var, width=50).grid(row=0, column=1, padx=10, pady=10)
@@ -225,7 +230,11 @@ tk.Label(root, text="Frames File Path:").grid(row=3, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=frame_file_path_var, width=50).grid(row=3, column=1, padx=10, pady=10)
 tk.Button(root, text="Browse Frames File", command=lambda data=frame_file_path_var: select_frames_file(data)).grid(row=3, column=2, padx=10, pady=10)
 
-tk.Button(root, text="Start Display", command=process_and_display).grid(row=4, column=0, columnspan=3, pady=20)
+tk.Label(root, text="Counter File Path:").grid(row=4, column=0, padx=10, pady=10)
+tk.Entry(root, textvariable=counter_file_path_var, width=50).grid(row=4, column=1, padx=10, pady=10)
+tk.Button(root, text="Browse Counter File", command=lambda data=counter_file_path_var: select_counter_file(data)).grid(row=4, column=2, padx=10, pady=10)
+
+tk.Button(root, text="Start Display", command=process_and_display).grid(row=5, column=0, columnspan=3, pady=20)
 
 
 # Plot setup
@@ -240,7 +249,7 @@ plt.subplots_adjust(wspace=0.3, hspace=0.3)  # Adjust these values as needed
 
 # Text output for numerical values
 text_output = tk.Text(root, height=6, width=80, state=tk.DISABLED)
-text_output.grid(row=5, column=0, columnspan=3, padx=10, pady=10)
+text_output.grid(row=6, column=0, columnspan=3, padx=10, pady=10)
 
 canvas = FigureCanvasTkAgg(fig, master=root)  # Create a canvas
 canvas.get_tk_widget().grid(row=7, column=0, columnspan=3)

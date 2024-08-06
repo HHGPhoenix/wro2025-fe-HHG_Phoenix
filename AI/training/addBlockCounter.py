@@ -4,6 +4,7 @@ import cv2
 from tkinter import filedialog
 import os
 import tkinter.messagebox
+import tkinter as tk
 
 def set_ranges(self):
     self.lower_green = np.array([55, 50, 50])
@@ -25,6 +26,8 @@ class AddBlockCounter(ctk.CTk):
         self.output_file_path = None
         self.output_file_uuid = None
         self.data_loaded = False
+        self.automatic_assign_var = tk.BooleanVar()
+        self.frame_file_dir = None
         
         set_ranges(self)
         
@@ -52,6 +55,9 @@ class AddBlockCounter(ctk.CTk):
         self.output_file_path_label = ctk.CTkLabel(self.main_frame, text='No output file selected')
         self.output_file_path_label.pack(side = 'top', pady = 10)
 
+        self.automatic_assign_checkbox = ctk.CTkCheckBox(self.main_frame, text='Automatic Output File Assign', variable=self.automatic_assign_var, command=self.toggle_automatic_assign)
+        self.automatic_assign_checkbox.pack(side = 'top', pady = 10)
+
         self.mainloop()
         
     def load_data(self, file_path):
@@ -59,16 +65,28 @@ class AddBlockCounter(ctk.CTk):
         self.raw_frames = frame_arrays['raw_frames']
         file_name = os.path.basename(file_path)
         self.file_path_label.configure(text=file_name)
-        self.output_file_uuid = file_name.split('_', 1)[1]
+        self.output_file_uuid = file_name.split('_', 1)[1].replace('.npz', '')
         self.data_loaded = True
+        self.output_file_path = None
+        self.output_file_path_label.configure(text='No output file selected')
+        self.frame_file_dir = os.path.dirname(file_path)
+        if self.automatic_assign_var.get():
+            self.output_file_path_label.configure(text=f'Automatic output file assign enabled')
 
     def process_frames_wrapper(self):
         if not self.data_loaded:
             tkinter.messagebox.showerror('Error', 'Please load a file before processing frames')
             return
         if self.output_file_path is None and self.output_file_uuid is not None:
-            output_file_dir = filedialog.askdirectory()
-            self.output_file_path = os.path.join(output_file_dir, f'counters_{self.output_file_uuid}.npz')
+            if not self.automatic_assign_var.get():
+                output_file_dir = filedialog.askdirectory()
+                output_file_basename = f'counters_{self.output_file_uuid}.npz'
+                self.output_file_path = os.path.join(output_file_dir, output_file_basename)
+                self.output_file_path_label.configure(text=output_file_basename)
+            else:
+                self.output_file_path = os.path.join(self.frame_file_dir, f'counters_{self.output_file_uuid}.npz')
+                self.output_file_path_label.configure(text=f'counters_{self.output_file_uuid}.npz')
+                
         elif self.output_file_uuid is None:
             tkinter.messagebox.showerror('Error', 'Please press the Process Frames button before selecting an output file (uuid)')
             return
@@ -146,9 +164,22 @@ class AddBlockCounter(ctk.CTk):
         if self.output_file_uuid is None:
             tkinter.messagebox.showerror('Error', 'Please press the Process Frames button before selecting an output file (uuid)')
             return
+        if self.automatic_assign_var.get():
+            tkinter.messagebox.showerror('Error', 'Automatic output file assign is enabled')
+            return
+        
         output_file_dir = filedialog.askdirectory()
-        self.output_file_path = os.path.join(output_file_dir, f'counters_{self.output_file_uuid}.npz')
-        self.output_file_path_label.configure(text=self.output_file_path)
+        output_file_basename = f'counters_{self.output_file_uuid}.npz'
+        self.output_file_path = os.path.join(output_file_dir, output_file_basename)
+        self.output_file_path_label.configure(text=output_file_basename)
+
+    def toggle_automatic_assign(self):
+        if self.automatic_assign_var.get():
+            self.output_file_path = None
+            self.output_file_path_label.configure(text='Automatic output file assign enabled')
+        else:
+            self.output_file_path = None
+            self.output_file_path_label.configure(text='No output file selected')
 
 if __name__ == '__main__':
     app = AddBlockCounter()
