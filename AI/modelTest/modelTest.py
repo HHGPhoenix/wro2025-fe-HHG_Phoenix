@@ -17,13 +17,31 @@ from tensorflow.keras.models import load_model # type: ignore
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
+COUNTER_ARRAY_NAMES = ["green_counter", "red_counter"]
+
 # Function to parse data from LiDAR and controller files
-def parse_data(file_path_lidar, file_path_controller, file_path_frames):
+def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_path_counters):
     lidar_data = []
     controller_data = []
     
     frame_data = np.load(file_path_frames)
     frames = frame_data['simplified_frames']
+
+    counter_data = np.load(file_path_counters, allow_pickle=True)
+    
+    green_counter = counter_data[COUNTER_ARRAY_NAMES[0]]
+    
+    red_counter = counter_data[COUNTER_ARRAY_NAMES[1]]
+    
+    # print(f"length of green counter: {len(green_counter)}, length of red counter: {len(red_counter)}")
+    
+    for i, _ in enumerate(green_counter):
+        _green_counter = green_counter[i]
+        _red_counter = red_counter[i]
+        counters = [_green_counter, _red_counter]
+        counter_array.append(counters)
+        
+    counter_array = np.array(counter_array, dtype=np.float32)
     
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
         lidar_lines = lidar_file.readlines()
@@ -55,7 +73,7 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames):
     # Reshape for CNN input
     lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  
     
-    return lidar_data, controller_data, frames
+    return lidar_data, controller_data, frames, counter_array
 
 # Initialize queues for data communication
 data_queue = queue.Queue()
@@ -82,14 +100,14 @@ def select_frames_file(data):
     data.set(path)
 
 # Function to update the display with new data
-def update_display(lidar_data, controller_data, frame_data):
+def update_display(lidar_data, controller_data, frame_data, counter_array):
     global model, ax1, ax2, ax3, fig, canvas, root, text_output  # Assuming these are defined elsewhere
     index = 0
     accuracy_list = []
     model_output_list = []
     expected_output_list = []
     
-    while index < len(lidar_data) and index < len(controller_data) and index < len(frame_data):
+    while index < len(lidar_data) and index < len(controller_data) and index < len(frame_data) and index < len(counter_array):
         
         expected_output = controller_data[index]
 
@@ -100,12 +118,16 @@ def update_display(lidar_data, controller_data, frame_data):
         raw_frame_data = frame_data[index]
         
         raw_frame_data = raw_frame_data / 255.0
+
+        raw_counter_data = counter_array[index]
+
         
         processed_data = pd.DataFrame(raw_lidar_data[:, :, 0], columns=["angle", "distance"])
         # Reshape raw data for model input (1, 360, 2, 1)
         model_input_lidar = np.expand_dims(raw_lidar_data, axis=0)
         model_input_frames = np.expand_dims(raw_frame_data, axis=0)
-        model_input = [model_input_lidar, model_input_frames]
+        model_input_counters = np.expand_dims(raw_counter_data, axis=0)
+        model_input = [model_input_lidar, model_input_frames, model_input_counters]
         
         # Predict the model output
         model_output = model.predict(model_input)
