@@ -275,7 +275,7 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.full_mae_values.append(logs['mae'])
         self.full_val_mae_values.append(logs['val_mae'])
 
-        make_weg = 50
+        make_weg = 35
 
         # Maintain the sliding window of 150 entries
         if len(self.loss_values) >= make_weg:
