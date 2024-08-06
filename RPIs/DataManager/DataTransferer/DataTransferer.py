@@ -88,6 +88,8 @@ class DataTransferer:
                 
                 # Sort by angle
                 df = df.sort_values("angle")
+                
+                # Replace inf values with NaN and drop rows with NaN
                 df.replace([np.inf, -np.inf], np.nan, inplace=True)
                 df.dropna(inplace=True)
                 
@@ -100,8 +102,7 @@ class DataTransferer:
                 desired_angles = np.arange(0, 360, 1)
                 
                 # Interpolate distance and intensity
-                try: 
-                # Interpolate distance and intensity
+                try:
                     interp_distance = interp1d(df["angle"], df["distance"], kind="linear", bounds_error=False, fill_value="extrapolate", assume_sorted=True)
                     interp_intensity = interp1d(df["angle"], df["intensity"], kind="linear", bounds_error=False, fill_value="extrapolate", assume_sorted=True)
 
@@ -118,17 +119,12 @@ class DataTransferer:
                     "intensity": interpolated_intensities
                 })
 
-                # Handle NaN and Inf values
+                # Replace Inf values with NaN
                 df_interpolated.replace([np.inf, -np.inf], np.nan, inplace=True)
-                # df_interpolated["distance"].fillna(method='ffill', inplace=True)
-                # df_interpolated["distance"].fillna(method='bfill', inplace=True)
-                # df_interpolated["intensity"].fillna(method='ffill', inplace=True)
-                # df_interpolated["intensity"].fillna(method='bfill', inplace=True)
                 
-                df_interpolated["distance"].ffill()
-                df_interpolated["distance"].bfill()
-                df_interpolated["intensity"].ffill()
-                df_interpolated["intensity"].bfill()
+                # Interpolate to fill NaN values
+                df_interpolated['distance'] = df_interpolated['distance'].interpolate(method='linear', limit_direction='both', inplace=False).fillna(method='bfill').fillna(method='ffill')
+                df_interpolated['intensity'] = df_interpolated['intensity'].interpolate(method='linear', limit_direction='both', inplace=False).fillna(method='bfill').fillna(method='ffill')
 
                 # Filter angles not within the range [140, 220]
                 df_interpolated = df_interpolated[(df_interpolated["angle"] < 140) | (df_interpolated["angle"] > 220)]
