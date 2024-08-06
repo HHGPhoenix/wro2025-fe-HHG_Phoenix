@@ -61,6 +61,12 @@ class AddBlockCounter(ctk.CTk):
         self.mainloop()
         
     def load_data(self, file_path):
+        if not file_path:
+            return
+        
+        if not file_path.endswith('.npz'):
+            tkinter.messagebox.showerror('Error', 'Please select a valid .npz file')
+            return
         frame_arrays = np.load(file_path)
         self.raw_frames = frame_arrays['raw_frames']
         file_name = os.path.basename(file_path)
