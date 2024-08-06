@@ -14,7 +14,7 @@ class GyroSensor():
         self.sensor.gyro_range = adafruit_mpu6050.GyroRange.RANGE_250_DPS
         
         self.angle = 0.0  # Initial angle
-        self.last_time = time.monotonic()
+        self.last_time = time.time()
         self._running = False
         self._thread = None
 
@@ -31,7 +31,7 @@ class GyroSensor():
             gyro_data = [gyro_data[0] + offset_x, gyro_data[1] + offset_y, gyro_data[2] + offset_z]
             
             # Get the current time
-            current_time = time.monotonic()
+            current_time = time.time()
 
             # Calculate the time elapsed since the last measurement
             delta_time = current_time - self.last_time

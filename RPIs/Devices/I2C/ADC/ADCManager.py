@@ -58,3 +58,4 @@ class AnalogDigitalConverter():
             self.voltage = self.chan.voltage * 4.395
 
             time.sleep(2)
+            print(f"Voltage: {self.voltage}")

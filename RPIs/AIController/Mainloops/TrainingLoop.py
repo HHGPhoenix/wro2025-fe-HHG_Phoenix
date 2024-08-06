@@ -2,12 +2,13 @@ import time
 import numpy as np
 import tensorflow as tf
 import multiprocessing as mp
+import cv2
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")
     
-    # IO_list = self.mp_manager.list([None, None])
-    # mp.Process(target=run_model, args=(IO_list,)).start()
+    IO_list = self.mp_manager.list([None, None])
+    mp.Process(target=run_model, args=(IO_list,)).start()
     
     while self.running:
         start_time = time.time()
@@ -19,22 +20,24 @@ def main_loop_training(self):
         else:
             motor_speed = self.ry
             
-        # print(f"IO_list[1]: {IO_list[1]}")
-        # simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((120, 213, 3))
-        # simplified_frame = simplified_frame / 255.0
+        print(f"IO_list[1]: {IO_list[1]}")
+        simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
         
-        # lidar_data = np.array(self.interpolated_lidar_data)  # Assuming you need the first two columns (angle and distance)
-        # # Ensure lidar data has the correct features (angle and distance) and shape
-        # lidar_data = np.expand_dims(lidar_data, axis=-1)  # Adding the last dimension
-        # lidar_data = np.expand_dims(lidar_data, axis=0)  # Adding the batch dimension
-        # lidar_data = lidar_data[:, :, :2]
+        lidar_data = np.array(self.interpolated_lidar_data)  # Assuming you need the first two columns (angle and distance)
+        # Ensure lidar data has the correct features (angle and distance) and shape
+        lidar_data = np.expand_dims(lidar_data, axis=-1)  # Adding the last dimension
+        lidar_data = np.expand_dims(lidar_data, axis=0)  # Adding the batch dimension
+        lidar_data = lidar_data[:, :, :2]
         
-        # simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
+        # simplified_frame = np.array(cv2.cvtColor(simplified_frame, cv2.COLOR_BGR2GRAY))
+        # simplified_frame = np.expand_dims(simplified_frame, axis=-1)  # Adding the last dimension
+        simplified_frame = simplified_frame / 255.0
+        simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
 
-        # # Combine the inputs into a list
-        # inputs = [lidar_data, simplified_frame]
+        # Combine the inputs into a list
+        inputs = [lidar_data, simplified_frame]
         
-        # IO_list[0] = inputs
+        IO_list[0] = inputs
         self.motor_controller.send_speed(motor_speed)
         stop_time = time.time()
         
@@ -43,11 +46,36 @@ def main_loop_training(self):
         # print(f"total time: {stop_time - start_time}")
         
 def run_model(shared_IO_list):
-    model = tf.keras.models.load_model('RPIs/AIController/model.h5')
+    # Load the TFLite model and allocate tensors
+    interpreter = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
+    interpreter.allocate_tensors()
+
+    # Get input and output tensor details
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
     while True:
         print("Running model")
         if shared_IO_list[0] is not None:
-            result = model.predict(shared_IO_list[0])
-            print(f"Result: {result}")
+            # Extract the individual inputs
+            lidar_data, simplified_frame = shared_IO_list[0]
+            
+            # Convert inputs to FLOAT32
+            lidar_data = lidar_data.astype(np.float32)
+            simplified_frame = simplified_frame.astype(np.float32)
+            
+            # Set the input tensors
+            interpreter.set_tensor(input_details[0]['index'], lidar_data)
+            interpreter.set_tensor(input_details[1]['index'], simplified_frame)
+            
+            # Measure the time taken to run the model
+            start_time = time.time()
+            interpreter.invoke()
+            end_time = time.time()
+            
+            # Get the output tensor
+            output_data = interpreter.get_tensor(output_details[0]['index'])
+            print(f"Result: {output_data}")
+            print(f"Time taken to run the model: {end_time - start_time} seconds")
         else:
             time.sleep(0.1)

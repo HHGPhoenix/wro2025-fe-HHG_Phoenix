@@ -76,7 +76,7 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.lidar, self.data_transferer, self.i2c_handler = self.initialize_components()
+        self.lidar, self.data_transferer = self.initialize_components()
 
         self.initialized = True
 
@@ -105,8 +105,8 @@ class DataManager:
     def initialize_components(self):
         self.logger.info("Initializing LIDAR sensor...")
         
-        i2c_handler = I2Chandler()
-        i2c_handler.start_threads()
+        # i2c_handler = I2Chandler()
+        # i2c_handler.start_threads()
         
         lidar = Lidar(self.lidar_data_list)
         self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)
@@ -123,7 +123,7 @@ class DataManager:
             self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
         self.webServerProcess.start()
 
-        return lidar, data_transferer, i2c_handler
+        return lidar, data_transferer
     
 ###########################################################################
     

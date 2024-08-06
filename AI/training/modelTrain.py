@@ -51,35 +51,35 @@ FRAME_ARRAY_NAME = "simplified_frames"
 def create_model(lidar_input_shape, frame_input_shape):
     # LIDAR input model
     lidar_input = Input(shape=lidar_input_shape)
-    lidar_conv1 = Conv2D(64, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(lidar_input)
+    lidar_conv1 = Conv2D(16, (3, 3), activation='relu', padding='same')(lidar_input)
     lidar_bn1 = BatchNormalization()(lidar_conv1)
-    lidar_pool1 = MaxPooling2D((2, 1))(lidar_bn1)  # Adjust pooling to avoid negative dimensions
-    lidar_conv2 = Conv2D(128, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(lidar_pool1)
+    lidar_pool1 = MaxPooling2D((2, 1))(lidar_bn1)
+    lidar_conv2 = Conv2D(32, (3, 3), activation='relu', padding='same')(lidar_pool1)
     lidar_bn2 = BatchNormalization()(lidar_conv2)
-    lidar_pool2 = MaxPooling2D((2, 1))(lidar_bn2)  # Adjust pooling to avoid negative dimensions
-    lidar_conv3 = Conv2D(256, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(lidar_pool2)
+    lidar_pool2 = MaxPooling2D((2, 1))(lidar_bn2)
+    lidar_conv3 = Conv2D(64, (3, 3), activation='relu', padding='same')(lidar_pool2)
     lidar_bn3 = BatchNormalization()(lidar_conv3)
-    lidar_pool3 = MaxPooling2D((2, 1))(lidar_bn3)  # Adjust pooling to avoid negative dimensions
-    lidar_gap = GlobalAveragePooling2D()(lidar_pool3)
+    lidar_pool3 = MaxPooling2D((2, 1))(lidar_bn3)
+    lidar_gap = GlobalAveragePooling2D()(lidar_bn3)
 
     # Frame input model
     frame_input = Input(shape=frame_input_shape)
-    frame_conv1 = Conv2D(64, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(frame_input)
+    frame_conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(frame_input)
     frame_bn1 = BatchNormalization()(frame_conv1)
     frame_pool1 = MaxPooling2D((2, 2))(frame_bn1)
-    frame_conv2 = Conv2D(128, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(frame_pool1)
+    frame_conv2 = Conv2D(64, (3, 3), activation='relu', padding='same')(frame_pool1)
     frame_bn2 = BatchNormalization()(frame_conv2)
     frame_pool2 = MaxPooling2D((2, 2))(frame_bn2)
-    frame_conv3 = Conv2D(256, (3, 3), activation=LeakyReLU(alpha=0.05), padding='same')(frame_pool2)
+    frame_conv3 = Conv2D(128, (3, 3), activation='relu', padding='same')(frame_pool2)
     frame_bn3 = BatchNormalization()(frame_conv3)
     frame_pool3 = MaxPooling2D((2, 2))(frame_bn3)
-    frame_gap = GlobalAveragePooling2D()(frame_pool3)
+    frame_gap = GlobalAveragePooling2D()(frame_bn3)
 
     # Combine LIDAR and Frame inputs
     combined = concatenate([lidar_gap, frame_gap])
-    dense1 = Dense(128, activation=LeakyReLU(alpha=0.05), kernel_regularizer=l2(0.001))(combined)
-    dropout = Dropout(0.5)(dense1)
-    output = Dense(1, activation='sigmoid')(dropout)
+    dense1 = Dense(64, activation='relu', kernel_regularizer=l2(0.001))(combined)
+    dropout = Dropout(0.3)(dense1)
+    output = Dense(1, activation='linear')(dropout)
 
     model = tf.keras.models.Model(inputs=[lidar_input, frame_input], outputs=output)
     

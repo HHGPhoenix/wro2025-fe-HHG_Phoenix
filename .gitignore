@@ -8,3 +8,4 @@ node_modules
 PC_Tools/sync_handler_data.json
 *.pyc
 *.h5
+*.tflite

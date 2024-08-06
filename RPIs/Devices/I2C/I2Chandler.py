@@ -10,7 +10,7 @@ class I2Chandler:
         
         self.ADC = AnalogDigitalConverter(bus=0, channel=3)
         
-        # self.Gyro = GyroSensor()
+        self.Gyro = GyroSensor()
         
     def start_threads(self):
         """
@@ -21,8 +21,8 @@ class I2Chandler:
         adc_thread = threading.Thread(target=self.ADC.read)
         adc_thread.start()
         
-        # gyro_thread = threading.Thread(target=self.Gyro.start)
-        # gyro_thread.start()
+        gyro_thread = threading.Thread(target=self.Gyro.start)
+        gyro_thread.start()
         
     def stop_threads(self):
         """
@@ -30,4 +30,4 @@ class I2Chandler:
         """
         
         self.ADC.threadStop = 1
-        # self.Gyro.stop()
+        self.Gyro.stop()

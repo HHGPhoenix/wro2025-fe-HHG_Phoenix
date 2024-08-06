@@ -7,28 +7,33 @@ class Lidar:
     def __init__(self, shared_lidar_list):
         self.shared_lidar_list = shared_lidar_list
         self.process = None
-
+    
     def read_data(self):
         try:
             # Path to the C++ executable
             self.cpp_executable = "/home/pi/rplidar_sdk-master/output/Linux/Release/ultra_simple"
-
+    
             # Initialize lists to hold the data
             self.current_360_data = []
-
+    
             # Regex pattern to match the output lines
             self.pattern = re.compile(r'(S  )?theta: (\d+\.\d+) Dist: (\d+\.\d+) Q: (\d+)')
             
             # Ensure the file has execute permissions
             subprocess.run(["chmod", "+x", self.cpp_executable])
-
-            # Run the C++ executable and capture the output
-            self.process = subprocess.Popen([self.cpp_executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+            # Run the C++ executable with the specified arguments and capture the output
+            self.process = subprocess.Popen(
+                [self.cpp_executable, "--channel", "--serial", "/dev/ttyUSB0", "460800"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
             
             while True:
                 output = self.process.stdout.readline()
                 if output == '' and self.process.poll() is not None:
-                    break
+                    continue
                 if output:
                     match = self.pattern.search(output)
                     if match:
