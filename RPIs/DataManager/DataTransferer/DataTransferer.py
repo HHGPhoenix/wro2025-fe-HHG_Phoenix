@@ -38,6 +38,7 @@ class DataTransferer:
 
     def process_cam_frames(self):
         self.camera = Camera()
+        last_draw_blocks_time = time.time()
         
         print("Processing camera frames", self.camera)
         try:
@@ -49,7 +50,9 @@ class DataTransferer:
                 
                 # print(f"frameraw: {frameraw.shape}")
                 simplified_image = self.camera.simplify_image(framehsv.copy(), [0, 0, 255], [0, 255, 0])
-                object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
+                if time.time() - last_draw_blocks_time >= 0.1:
+                    object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
+                    last_draw_blocks_time = time.time()
                 
                 # Update shared list with the new frames
                 self.frame_list[0] = frameraw.tobytes()
