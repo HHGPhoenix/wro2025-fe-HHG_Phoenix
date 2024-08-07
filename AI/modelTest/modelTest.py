@@ -12,18 +12,38 @@ import time
 import threading
 import queue
 from tensorflow.keras.models import load_model # type: ignore
+import os
 
 # Set TensorFlow to allow memory growth on GPU
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
+COUNTER_ARRAY_NAMES = ["green_counter", "red_counter"]
+
 # Function to parse data from LiDAR and controller files
-def parse_data(file_path_lidar, file_path_controller, file_path_frames):
+def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_path_counters):
     lidar_data = []
     controller_data = []
+    counter_array = []
     
     frame_data = np.load(file_path_frames)
-    frames = frame_data['simplified_frames']
+    frames = frame_data['simplified_frames'] / 255.0
+
+    counter_data = np.load(file_path_counters, allow_pickle=True)
+    
+    green_counter = counter_data[COUNTER_ARRAY_NAMES[0]]
+    
+    red_counter = counter_data[COUNTER_ARRAY_NAMES[1]]
+    
+    # print(f"length of green counter: {len(green_counter)}, length of red counter: {len(red_counter)}")
+    
+    for i, _ in enumerate(green_counter):
+        _green_counter = green_counter[i] / 30.0
+        _red_counter = red_counter[i] / 30.0
+        counters = [_green_counter, _red_counter]
+        counter_array.append(counters)
+        
+    counter_array = np.array(counter_array, dtype=np.float32)
     
     with open(file_path_lidar, 'r') as lidar_file, open(file_path_controller, 'r') as controller_file:
         lidar_lines = lidar_file.readlines()
@@ -39,7 +59,13 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames):
 
             df_interpolated_list = df.values.tolist()  
             
-            lidar_data.append(df_interpolated_list)
+            divided_lidar_data = []
+            for angle, distance in df_interpolated_list:
+                angle = angle / 360.0
+                distance = distance / 4000.0
+                divided_lidar_data.append([angle, distance])
+            
+            lidar_data.append(divided_lidar_data)
             
             controller_line = controller_line.strip()
             controller_data.append(float(controller_line))
@@ -55,7 +81,7 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames):
     # Reshape for CNN input
     lidar_data = np.reshape(lidar_data, (lidar_data.shape[0], lidar_data.shape[1], 2, 1))  
     
-    return lidar_data, controller_data, frames
+    return lidar_data, controller_data, frames, counter_array
 
 # Initialize queues for data communication
 data_queue = queue.Queue()
@@ -81,31 +107,74 @@ def select_frames_file(data):
     path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
     data.set(path)
 
+def select_counter_file(data):
+    path = filedialog.askopenfilename(filetypes=[("NPZ files", "*.npz")])
+    data.set(path)
+
+def select_folder(controller_file_path_var, lidar_file_path_var, frame_file_path_var, counter_file_path_var, folder_path_var):
+    folder_path = filedialog.askdirectory()
+    
+    for subdir, _, files in os.walk(folder_path):
+        lidar_file = None
+        controller_file = None
+        frames_file = None
+        counters_file = None
+        for file in files:
+            if file.startswith('lidar_'):
+                lidar_file = os.path.join(subdir, file)
+            elif file.startswith('x_'):
+                controller_file = os.path.join(subdir, file)
+            elif file.startswith('frames_'):
+                frames_file = os.path.join(subdir, file)
+            elif file.startswith('counters_'):
+                counters_file = os.path.join(subdir, file)
+
+        if lidar_file and controller_file and frames_file and counters_file:
+            controller_file_path_var.set(controller_file)
+            lidar_file_path_var.set(lidar_file)
+            frame_file_path_var.set(frames_file)
+            counter_file_path_var.set(counters_file)
+            folder_path_var.set(folder_path)
+
+    # Split the folder path and join the last two parts
+    folder_parts = folder_path.split(os.sep)
+    last_two_folders = os.sep.join(folder_parts[-2:])
+    folder_path_var.set(last_two_folders)
+
 # Function to update the display with new data
-def update_display(lidar_data, controller_data, frame_data):
+def update_display(lidar_data, controller_data, frame_data, counter_array):
     global model, ax1, ax2, ax3, fig, canvas, root, text_output  # Assuming these are defined elsewhere
     index = 0
     accuracy_list = []
     model_output_list = []
     expected_output_list = []
     
-    while index < len(lidar_data) and index < len(controller_data) and index < len(frame_data):
+    while index < len(lidar_data) and index < len(controller_data) and index < len(frame_data) and index < len(counter_array):
         
         expected_output = controller_data[index]
 
         expected_output_list.append(expected_output)
         
-        raw_lidar_data = lidar_data[index]
+        raw_lidar_data = lidar_data[index] 
+        
+        multiplied_lidar_data = []
+        for angle, distance in raw_lidar_data:
+            angle = angle * 360.0
+            distance = distance * 4000.0
+            multiplied_lidar_data.append([angle, distance])
+        multiplied_lidar_data = np.array(multiplied_lidar_data, dtype=np.float32)
         
         raw_frame_data = frame_data[index]
+
+        raw_counter_data = counter_array[index]
+
         
-        raw_frame_data = raw_frame_data / 255.0
-        
-        processed_data = pd.DataFrame(raw_lidar_data[:, :, 0], columns=["angle", "distance"])
+        processed_data = pd.DataFrame(multiplied_lidar_data[:, :, 0], columns=["angle", "distance"])
         # Reshape raw data for model input (1, 360, 2, 1)
         model_input_lidar = np.expand_dims(raw_lidar_data, axis=0)
         model_input_frames = np.expand_dims(raw_frame_data, axis=0)
-        model_input = [model_input_lidar, model_input_frames]
+        model_input_counters = np.expand_dims(raw_counter_data, axis=0)
+        model_input = [model_input_lidar, model_input_frames, model_input_counters]
         
         # Predict the model output
         model_output = model.predict(model_input)
@@ -172,11 +241,12 @@ def process_and_display():
     controller_file_path = controller_file_path_var.get()
     lidar_file_path = lidar_file_path_var.get()
     frame_file_path = frame_file_path_var.get()
+    counter_file_path = counter_file_path_var.get()
     model = load_model(model_file_path)
 
-    lidar_data, controller_data, frames = parse_data(lidar_file_path, controller_file_path, frame_file_path)
+    lidar_data, controller_data, frames, counters = parse_data(lidar_file_path, controller_file_path, frame_file_path, counter_file_path)
     
-    threading.Thread(target=update_display, args=(lidar_data, controller_data, frames)).start()
+    threading.Thread(target=update_display, args=(lidar_data, controller_data, frames, counters)).start()
 
 # Tkinter GUI setup
 root = tk.Tk()
@@ -186,24 +256,34 @@ model_file_path_var = tk.StringVar()
 controller_file_path_var = tk.StringVar()
 lidar_file_path_var = tk.StringVar()
 frame_file_path_var = tk.StringVar()
+counter_file_path_var = tk.StringVar()
+folder_path_var = tk.StringVar()
 
 tk.Label(root, text="Model File Path:").grid(row=0, column=0, padx=10, pady=10)
 tk.Entry(root, textvariable=model_file_path_var, width=50).grid(row=0, column=1, padx=10, pady=10)
 tk.Button(root, text="Browse Model", command=lambda data=model_file_path_var: select_model_file(data)).grid(row=0, column=2, padx=10, pady=10)
 
-tk.Label(root, text="LiDAR File Path:").grid(row=1, column=0, padx=10, pady=10)
-tk.Entry(root, textvariable=lidar_file_path_var, width=50).grid(row=1, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse LiDAR File", command=lambda data=lidar_file_path_var: select_lidar_file(data)).grid(row=1, column=2, padx=10, pady=10)
+# tk.Label(root, text="LiDAR File Path:").grid(row=1, column=0, padx=10, pady=10)
+# tk.Entry(root, textvariable=lidar_file_path_var, width=50).grid(row=1, column=1, padx=10, pady=10)
+# tk.Button(root, text="Browse LiDAR File", command=lambda data=lidar_file_path_var: select_lidar_file(data)).grid(row=1, column=2, padx=10, pady=10)
 
-tk.Label(root, text="Controller File Path:").grid(row=2, column=0, padx=10, pady=10)
-tk.Entry(root, textvariable=controller_file_path_var, width=50).grid(row=2, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse Controller File", command=lambda data=controller_file_path_var: select_controller_file(data)).grid(row=2, column=2, padx=10, pady=10)
+# tk.Label(root, text="Controller File Path:").grid(row=2, column=0, padx=10, pady=10)
+# tk.Entry(root, textvariable=controller_file_path_var, width=50).grid(row=2, column=1, padx=10, pady=10)
+# tk.Button(root, text="Browse Controller File", command=lambda data=controller_file_path_var: select_controller_file(data)).grid(row=2, column=2, padx=10, pady=10)
 
-tk.Label(root, text="Frames File Path:").grid(row=3, column=0, padx=10, pady=10)
-tk.Entry(root, textvariable=frame_file_path_var, width=50).grid(row=3, column=1, padx=10, pady=10)
-tk.Button(root, text="Browse Frames File", command=lambda data=frame_file_path_var: select_frames_file(data)).grid(row=3, column=2, padx=10, pady=10)
+# tk.Label(root, text="Frames File Path:").grid(row=3, column=0, padx=10, pady=10)
+# tk.Entry(root, textvariable=frame_file_path_var, width=50).grid(row=3, column=1, padx=10, pady=10)
+# tk.Button(root, text="Browse Frames File", command=lambda data=frame_file_path_var: select_frames_file(data)).grid(row=3, column=2, padx=10, pady=10)
 
-tk.Button(root, text="Start Display", command=process_and_display).grid(row=4, column=0, columnspan=3, pady=20)
+# tk.Label(root, text="Counter File Path:").grid(row=4, column=0, padx=10, pady=10)
+# tk.Entry(root, textvariable=counter_file_path_var, width=50).grid(row=4, column=1, padx=10, pady=10)
+# tk.Button(root, text="Browse Counter File", command=lambda data=counter_file_path_var: select_counter_file(data)).grid(row=4, column=2, padx=10, pady=10)
+
+tk.Label(root, text="Data Folder Path:").grid(row=1, column=0, padx=10, pady=10)
+tk.Entry(root, textvariable=folder_path_var, width=50).grid(row=1, column=1, padx=10, pady=10)
+tk.Button(root, text="Browse Folder", command=lambda controller_file_path_var=controller_file_path_var, lidar_file_path_var=lidar_file_path_var, frame_file_path_var=frame_file_path_var, counter_file_path_var=counter_file_path_var, folder_path_var=folder_path_var: select_folder(controller_file_path_var, lidar_file_path_var, frame_file_path_var, counter_file_path_var, folder_path_var)).grid(row=1, column=2, padx=10, pady=10)
+
+tk.Button(root, text="Start Display", command=process_and_display).grid(row=5, column=0, columnspan=3, pady=20)
 
 
 # Plot setup
@@ -218,7 +298,7 @@ plt.subplots_adjust(wspace=0.3, hspace=0.3)  # Adjust these values as needed
 
 # Text output for numerical values
 text_output = tk.Text(root, height=6, width=80, state=tk.DISABLED)
-text_output.grid(row=5, column=0, columnspan=3, padx=10, pady=10)
+text_output.grid(row=6, column=0, columnspan=3, padx=10, pady=10)
 
 canvas = FigureCanvasTkAgg(fig, master=root)  # Create a canvas
 canvas.get_tk_widget().grid(row=7, column=0, columnspan=3)

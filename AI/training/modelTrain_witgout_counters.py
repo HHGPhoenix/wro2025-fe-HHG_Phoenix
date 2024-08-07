@@ -24,12 +24,15 @@ global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE, BATCH
 
 train_lidar = None
 train_controller = None
-train_frames = None
 val_lidar = None
 val_controller = None
-val_frames = None
 
 custom_filename = None
+
+train_lidar = None
+train_controller = None
+val_lidar = None
+val_controller = None
 
 ##############################################################################################
 
@@ -41,15 +44,11 @@ BATCH_SIZE = 32
 
 CONTROLLER_SHIFT = 5
 
-##############################################################################################
-
 FRAME_ARRAY_NAME = "simplified_frames"
 
-COUNTER_ARRAY_NAMES = ["green_counter", "red_counter"]
-
 ##############################################################################################
 
-def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
+def create_model(lidar_input_shape, frame_input_shape):
     # LIDAR input model
     lidar_input = Input(shape=lidar_input_shape)
     lidar_conv1 = Conv2D(16, (3, 3), activation='relu', padding='same')(lidar_input)
@@ -75,23 +74,14 @@ def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
     frame_bn3 = BatchNormalization()(frame_conv3)
     frame_pool3 = MaxPooling2D((2, 2))(frame_bn3)
     frame_gap = GlobalAveragePooling2D()(frame_pool3)
-    
-    # Counter input model
-    counter_input = Input(shape=counter_input_shape)
-    counter_dense1 = Dense(16, activation='relu')(counter_input)
-    counter_bn1 = BatchNormalization()(counter_dense1)
-    counter_dense2 = Dense(16, activation='relu')(counter_bn1)
-    counter_bn2 = BatchNormalization()(counter_dense2)
 
-    # Combine LIDAR, Frame, and Counter inputs
-    combined = concatenate([lidar_gap, frame_gap, counter_bn2])
+    # Combine LIDAR and Frame inputs
+    combined = concatenate([lidar_gap, frame_gap])
     dense1 = Dense(64, activation='relu', kernel_regularizer=l2(0.001))(combined)
-    dropout1 = Dropout(0.3)(dense1)
-    dense2 = Dense(32, activation='relu', kernel_regularizer=l2(0.001))(dropout1)
-    dropout2 = Dropout(0.3)(dense2)
-    output = Dense(1, activation='linear')(dropout2)
+    dropout = Dropout(0.3)(dense1)
+    output = Dense(1, activation='linear')(dropout)
 
-    model = tf.keras.models.Model(inputs=[lidar_input, frame_input, counter_input], outputs=output)
+    model = tf.keras.models.Model(inputs=[lidar_input, frame_input], outputs=output)
     
     return model
 
@@ -107,39 +97,14 @@ def select_data_folder(data):
     path = filedialog.askdirectory()
     data.set(path)
 
-def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_path_counters, progress_callback=None, progress_callbacks=None, idx=None):
+def parse_data(file_path_lidar, file_path_controller, file_path_frames, progress_callback=None, progress_callbacks=None, idx=None):
     lidar_data = []
     controller_data = []
-    counter_array = []
     
     # print(f"Processing file pair {idx + 1}: {file_path_lidar}, {file_path_controller}, {file_path_frames}")
     frame_data = np.load(file_path_frames, allow_pickle=True)
     frame_array = frame_data[FRAME_ARRAY_NAME]
     frame_array = frame_array[:-CONTROLLER_SHIFT] if CONTROLLER_SHIFT else frame_array
-    
-    frame_array = frame_array / 255.0
-    
-    counter_data = np.load(file_path_counters, allow_pickle=True)
-    
-    green_counter = counter_data[COUNTER_ARRAY_NAMES[0]]
-    green_counter = green_counter[:-CONTROLLER_SHIFT] if CONTROLLER_SHIFT else green_counter
-    # green_counter = green_counter.tolist()
-    
-    red_counter = counter_data[COUNTER_ARRAY_NAMES[1]]
-    red_counter = red_counter[:-CONTROLLER_SHIFT] if CONTROLLER_SHIFT else red_counter
-    # red_counter = red_counter.tolist()
-    
-    # print(f"length of green counter: {len(green_counter)}, length of red counter: {len(red_counter)}")
-    
-    for i, _ in enumerate(green_counter):
-        _green_counter = green_counter[i] / 30.0
-        _red_counter = red_counter[i] / 30.0
-        counters = [_green_counter, _red_counter]
-        counter_array.append(counters)
-        
-    counter_array = np.array(counter_array, dtype=np.float32)
-    
-    # print(f"Counter array shape: {counter_array.shape}")
     
     # frame_array = frame_array.pop(-CONTROLLER_SHIFT)
     # print(f"Frame array shape: {frame_array.shape}")
@@ -155,19 +120,13 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_pat
             df = pd.DataFrame(data, columns=["angle", "distance", "intensity"])
             df = df.drop(columns=["intensity"])
             df_interpolated_list = df.values.tolist()
-            
-            divided_lidar_data = []
-            for angle, distance in df_interpolated_list:
-                angle = angle / 360.0
-                distance = distance / 4000.0
-                divided_lidar_data.append([angle, distance])
 
             # Apply the shift to controller data
             shifted_index = index + CONTROLLER_SHIFT
             if shifted_index < len(controller_lines):
                 controller_line = controller_lines[shifted_index].strip()
                 controller_data.append(float(controller_line))
-                lidar_data.append(divided_lidar_data)
+                lidar_data.append(df_interpolated_list)
 
             # Calculate progress
             if progress_callback:
@@ -177,7 +136,7 @@ def parse_data(file_path_lidar, file_path_controller, file_path_frames, file_pat
     lidar_data = np.array(lidar_data, dtype=np.float32)
     controller_data = np.array(controller_data, dtype=np.float32)
 
-    return lidar_data, controller_data, frame_array, counter_array
+    return lidar_data, controller_data, frame_array
 
 class ConsoleAndGUIProgressCallback(Callback):
     def __init__(self):
@@ -205,6 +164,7 @@ class ConsoleAndGUIProgressCallback(Callback):
         
         self.create_tensorflow_progress_window()
         print("Progress window created.")
+        
         
     def create_tensorflow_progress_window(self):
         self.progress_window = tk.Toplevel(root)
@@ -275,7 +235,7 @@ class ConsoleAndGUIProgressCallback(Callback):
         self.full_mae_values.append(logs['mae'])
         self.full_val_mae_values.append(logs['val_mae'])
 
-        make_weg = 35
+        make_weg = 50
 
         # Maintain the sliding window of 150 entries
         if len(self.loss_values) >= make_weg:
@@ -367,29 +327,25 @@ def parse_data_with_callback(args):
     # Convert progress_callbacks to a tuple if it's being used in a hash-requiring context
     # print(f"Processing file pair {index + 1}: {file_pair}")
     progress_callbacks_hashable = tuple(progress_callbacks) if progress_callbacks else None
-    file_path_lidar, file_path_controller, file_path_frames, file_path_counters = files
+    file_path_lidar, file_path_controller, file_path_frames = files
 
     print(f"Starting to parse lidar data from {file_path_lidar}")
-    lidar_data, controller_data, frames, counters = parse_data(file_path_lidar, file_path_controller, file_path_frames, file_path_counters, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
+    lidar_data, controller_data, frames = parse_data(file_path_lidar, file_path_controller, file_path_frames, progress_callback=progress_callback, progress_callbacks=progress_callbacks_hashable, idx = index)
 
-    return lidar_data, controller_data, frames, counters
+    return lidar_data, controller_data, frames
 
 def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
     train_lidar_data = []
     train_controller_data = []
     train_frame_data = []
-    train_counter_data = []
     val_lidar_data = []
     val_controller_data = []
     val_frame_data = []
-    val_counter_data = []
-    
     file_pairs = []
     for subdir, _, files in os.walk(folder_path):
         lidar_file = None
         controller_file = None
         frames_file = None
-        counters_file = None
         for file in files:
             if file.startswith('lidar_'):
                 lidar_file = os.path.join(subdir, file)
@@ -397,11 +353,9 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
                 controller_file = os.path.join(subdir, file)
             elif file.startswith('frames_'):
                 frames_file = os.path.join(subdir, file)
-            elif file.startswith('counters_'):
-                counters_file = os.path.join(subdir, file)
                 
         if lidar_file and controller_file and frames_file:
-            file_pairs.append((lidar_file, controller_file, frames_file, counters_file))
+            file_pairs.append((lidar_file, controller_file, frames_file))
     total_files = len(file_pairs)
     results = []
 
@@ -411,12 +365,12 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             for i, file_pair in enumerate(file_pairs)
         }
         for future in as_completed(future_to_file):
-            lidar_data, controller_data, frame_data, counter_data = future.result()
-            results.append((lidar_data, controller_data, frame_data, counter_data))
+            lidar_data, controller_data, frame_data = future.result()
+            results.append((lidar_data, controller_data, frame_data))
     
-    for lidar_data, controller_data, frame_data, counter_data in results:
+    for lidar_data, controller_data, frame_data in results:
         print(f"Length of lidar data: {len(lidar_data)}, Length of controller data: {len(controller_data)}, Length of frame data: {len(frame_data)}")
-        if len(lidar_data) > 0 and len(controller_data) > 0 and len(frame_data) > 0 and len(counter_data) > 0:
+        if len(lidar_data) > 0 and len(controller_data) > 0 and len(frame_data) > 0:
             # print the lenght of all the data
             print(f"Length of lidar data: {len(lidar_data)}, Length of controller data: {len(controller_data)}, Length of frame data: {len(frame_data)}")
             data_length = len(lidar_data)
@@ -428,11 +382,9 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
             train_lidar_data.append(lidar_data[train_indices])
             train_controller_data.append(controller_data[train_indices])
             train_frame_data.append(frame_data[train_indices])
-            train_counter_data.append(counter_data[train_indices])
             val_lidar_data.append(lidar_data[val_indices])
             val_controller_data.append(controller_data[val_indices])
             val_frame_data.append(frame_data[val_indices])
-            val_counter_data.append(counter_data[val_indices])
         else:
             raise ValueError("No data found for training or validation.")
 
@@ -440,31 +392,27 @@ def load_data_from_folder(folder_path, progress_callback, progress_callbacks):
         train_lidar_data = np.concatenate(train_lidar_data, axis=0)
         train_controller_data = np.concatenate(train_controller_data, axis=0)
         train_frame_data = np.concatenate(train_frame_data, axis=0)
-        train_counter_data = np.concatenate(train_counter_data, axis=0)
     else:
         train_lidar_data = np.array([])
         train_controller_data = np.array([])
         train_frame_data = np.array([])
-        train_counter_data = np.array([])
 
     if len(val_lidar_data) > 0:
         val_lidar_data = np.concatenate(val_lidar_data, axis=0)
         val_controller_data = np.concatenate(val_controller_data, axis=0)
         val_frame_data = np.concatenate(val_frame_data, axis=0)
-        val_counter_data = np.concatenate(val_counter_data, axis=0)
     else:
         val_lidar_data = np.array([])
         val_controller_data = np.array([])
         val_frame_data = np.array([])
-        val_counter_data = np.array([])
         
     # print("train_frame_data shape:", train_frame_data.shape)
     # print("val_frame_data shape:", val_frame_data.shape)
 
-    return train_lidar_data, train_controller_data, train_frame_data, train_counter_data, val_lidar_data, val_controller_data, val_frame_data, val_counter_data
+    return train_lidar_data, train_controller_data, train_frame_data, val_lidar_data, val_controller_data, val_frame_data
 
 def load_data():
-    global train_lidar, train_controller, train_frame, train_counters, val_lidar, val_controller, val_frame, val_counters, custom_filename, model_filename, progress_window
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame, custom_filename, model_filename, progress_window
     folder_path = data_folder_path.get()
     custom_filename = model_filename.get()
 
@@ -475,7 +423,6 @@ def load_data():
         lidar_file = None
         controller_file = None
         frames_file = None
-        counters_file = None
         for file in files:
             if file.startswith('lidar_'):
                 lidar_file = os.path.join(subdir, file)
@@ -483,10 +430,8 @@ def load_data():
                 controller_file = os.path.join(subdir, file)
             elif file.startswith('frames_'):
                 frames_file = os.path.join(subdir, file)
-            elif file.startswith('counters_'):
-                counters_file = os.path.join(subdir, file)
-        if lidar_file and controller_file and frames_file and counters_file:
-            file_pairs.append((lidar_file, controller_file, frames_file, counters_file))
+        if lidar_file and controller_file and frames_file:
+            file_pairs.append((lidar_file, controller_file, frames_file))
 
     # Create progress window
     progress_window, progress_bars = create_progress_window(file_pairs)
@@ -497,7 +442,7 @@ def load_data():
     print(f"Loading data from folder: {folder_path}")
 
     # Load and parse data
-    train_lidar, train_controller, train_frame, train_counters, val_lidar, val_controller, val_frame, val_counters = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
+    train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame = load_data_from_folder(folder_path, progress_callback, progress_callbacks)
     print("Data loaded successfully!")
     # Wait one second
     time.sleep(1)
@@ -520,7 +465,7 @@ def load_data():
     progress_window.destroy()
 
 def load_data_from_file():
-    global train_lidar, train_controller, train_frame, train_counters, val_lidar, val_controller, val_frame, val_counters
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame
     file_path = filedialog.askopenfilename(title="Select Data File", filetypes=(("NPZ Files", "*.npz"),))
     if file_path:
         print(f"Loading data from file: {file_path}")
@@ -528,11 +473,9 @@ def load_data_from_file():
             train_lidar = data['train_lidar']
             train_controller = data['train_controller']
             train_frame = data['train_frame']
-            train_counters = data['train_counters']
             val_lidar = data['val_lidar']
             val_controller = data['val_controller']
             val_frame = data['val_frame']
-            val_counters = data['val_counters']
             
         print("Data loaded successfully!")
 
@@ -542,9 +485,7 @@ def save_data_in_file():
         file_path = filedialog.asksaveasfilename(title="Save Data File", filetypes=(("NPZ Files", "*.npz"),))
         if file_path:
             print(f"Saving data to file: {file_path}")
-            np.savez(file_path, train_lidar=train_lidar, train_controller=train_controller, train_frame=train_frame, 
-                     train_counters=train_counters, val_lidar=val_lidar, val_controller=val_controller, val_frame=val_frame, 
-                     val_counters=val_counters)
+            np.savez(file_path, train_lidar=train_lidar, train_controller=train_controller, train_frame=train_frame, val_lidar=val_lidar, val_controller=val_controller, val_frame=val_frame)
             print("Data saved to file successfully!")
     else:
         print("No data to save!")
@@ -590,7 +531,7 @@ def create_progress_window(file_pairs):
     progress_window.title("Loading Progress")
     progress_bars = []
 
-    for i, (lidar_file, controller_file, frame_file, counters_file) in enumerate(file_pairs):
+    for i, (lidar_file, controller_file, frame_file) in enumerate(file_pairs):
         # Extract the last directory and file name for lidar_file
         lidar_dir, lidar_name = os.path.split(lidar_file)
         _, lidar_last_dir = os.path.split(lidar_dir)
@@ -604,15 +545,11 @@ def create_progress_window(file_pairs):
         frame_dir, frame_name = os.path.split(frame_file)
         _, frame_last_dir = os.path.split(frame_dir)
         frame_display = os.path.join(frame_last_dir, frame_name)
-        
-        counters_dir, counters_name = os.path.split(counters_file)
-        _, counters_last_dir = os.path.split(counters_dir)
-        counters_display = os.path.join(counters_last_dir, counters_name)
 
         frame = ttk.Frame(progress_window)
         frame.pack(pady=5)
 
-        label_text = f"File Pair {i+1}: {lidar_display}, {controller_display}, {frame_display}, {counters_display}"
+        label_text = f"File Pair {i+1}: {lidar_display}, {controller_display}, {frame_display}"
         label = ttk.Label(frame, text=label_text)
         label.pack(side=tk.LEFT, padx=10)
 
@@ -638,9 +575,8 @@ def start_training_thread():
     Thread(target=start_training).start()
 
 def start_training():
-    global train_lidar, train_controller, train_frame, train_counters, val_lidar, val_controller, val_frame, val_counters, custom_filename, model_filename, model_id
-    if (train_lidar is not None and train_controller is not None and train_frame is not None and train_counters is not None 
-        and val_lidar is not None and val_controller is not None and val_frame is not None and val_counters is not None):
+    global train_lidar, train_controller, train_frame, val_lidar, val_controller, val_frame, custom_filename, model_filename, model_id
+    if train_lidar is not None and train_controller is not None and train_frame is not None and val_lidar is not None and val_controller is not None and val_frame is not None:
         try:
 
             if custom_filename is None:
@@ -649,13 +585,11 @@ def start_training():
             print(f"Train LIDAR data shape: {train_lidar.shape}")
             print(f"Train Controller data shape: {train_controller.shape}")
             print(f"Train Frame data shape: {train_frame.shape}")
-            print(f"Train Counter data shape: {train_counters.shape}")
             print(f"Validation LIDAR data shape: {val_lidar.shape}")
             print(f"Validation Controller data shape: {val_controller.shape}")
             print(f"Validation Frame data shape: {val_frame.shape}")
-            print(f"Validation Counter data shape: {val_counters.shape}")
 
-            if train_lidar.size == 0 or train_controller.size == 0 or train_frame.size == 0 or train_counters.size == 0 or val_lidar.size == 0 or val_controller.size == 0 or val_frame.size == 0 or val_counters.size == 0:
+            if train_lidar.size == 0 or train_controller.size == 0 or train_frame.size == 0 or val_lidar.size == 0 or val_controller.size == 0 or val_frame.size == 0:
                 print("No valid data found for training or validation.")
                 return
 
@@ -663,10 +597,10 @@ def start_training():
             train_lidar = np.reshape(train_lidar, (train_lidar.shape[0], train_lidar.shape[1], 2, 1))  # Reshape for CNN input
             val_lidar = np.reshape(val_lidar, (val_lidar.shape[0], val_lidar.shape[1], 2, 1))  # Reshape for CNN input
             
-            # train_frame = train_frame / 255.0
-            # val_frame = val_frame / 255.0
+            train_frame = train_frame / 255.0
+            val_frame = val_frame / 255.0
 
-            MODEL = create_model(lidar_input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1), frame_input_shape=(train_frame.shape[1], train_frame.shape[2], train_frame.shape[3]), counter_input_shape=(train_counters.shape[1],))
+            MODEL = create_model(lidar_input_shape=(train_lidar.shape[1], train_lidar.shape[2], 1), frame_input_shape=(train_frame.shape[1], train_frame.shape[2], train_frame.shape[3]))
             
             MODEL.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
@@ -682,8 +616,8 @@ def start_training():
 
             # Train the model
             history = MODEL.fit(
-                [train_lidar, train_frame, train_counters], train_controller,
-                validation_data=([val_lidar, val_frame, val_counters], val_controller),
+                [train_lidar, train_frame], train_controller,
+                validation_data=([val_lidar, val_frame], val_controller),
                 epochs=EPOCHS,
                 callbacks=[early_stopping, model_checkpoint, console_and_gui_callback],
                 batch_size=BATCH_SIZE
