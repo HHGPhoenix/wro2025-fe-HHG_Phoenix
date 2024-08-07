@@ -29,7 +29,7 @@ class Camera():
         self.upper_green = np.array([75, 120, 83])
 
         self.lower_red1 = np.array([0, 120, 90])
-        self.upper_red1 = np.array([5, 225, 185])
+        self.upper_red1 = np.array([2, 225, 185])
 
         self.lower_red2 = np.array([175, 120, 90])
         self.upper_red2 = np.array([180, 225, 185])
