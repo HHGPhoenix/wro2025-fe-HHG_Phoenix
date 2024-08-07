@@ -64,7 +64,7 @@ class DataManager:
         self.running = False
 
         self.mp_manager = mp.Manager()
-        self.frame_list = self.mp_manager.list([None, None, None])
+        self.frame_list = self.mp_manager.list([None, None, None, None, None])
         self.interpolated_lidar_data = self.mp_manager.list([None])
         self.lidar_data_list = self.mp_manager.list()
         

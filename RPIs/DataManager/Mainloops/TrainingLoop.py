@@ -50,8 +50,11 @@ def main_loop_training(self):
 
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
+                counters_str = f"COUNTERS#{self.frame_list[3]}#{self.frame_list[4]}"
+                
                 self.client.send_message(lidar_data_str)
                 self.client.send_message(analog_sticks_str)
+                self.client.send_message(counters_str)
 
                 if recording_status:
                     saved_after_recording = False

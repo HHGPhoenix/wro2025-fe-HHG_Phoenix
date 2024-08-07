@@ -16,6 +16,9 @@ class Camera():
         self.freeze = False
         self.frame = None
         
+        self.red_counter = []
+        self.green_counter = []
+        
         self.picam = Picamera2()
         # Configure and start the camera
         config = self.picam.create_still_configuration(main={"size": (1280, 720)}, raw={"size": (1280, 720)}, controls={"FrameRate": 34})
@@ -127,6 +130,9 @@ class Camera():
         contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         cv2.circle(frameraw, (640, 720), 10, (255, 0, 0), -1)
+        
+        green_counter_set = False
+        red_counter_set = False
 
         # Process each green contour
         for contour in contours_green:
@@ -135,6 +141,26 @@ class Camera():
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
+                
+                if green_counter_set == False:
+                    self.green_counter.append(-1)
+                    green_counter_set = True
+        else:
+            last_green_counter = self.green_counter[-1] if self.green_counter else 0
+            if last_green_counter > 0 and last_green_counter < 30:
+                self.green_counter.append(last_green_counter + 1)
+                green_counter_set = True
+                
+            elif last_green_counter == -1:
+                self.green_counter.append(1)    
+                green_counter_set = True
+                
+            else:
+                self.green_counter.append(0)
+                green_counter_set = True
+                
+        if len(self.green_counter) > 10:
+            self.green_counter.pop(0)
 
         # Process each red contour
         for contour in contours_red:
@@ -143,6 +169,23 @@ class Camera():
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
                 cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
+                
+                if red_counter_set == False:
+                    self.red_counter.append(-1)
+                    red_counter_set = True
+        else:
+            last_red_counter = self.red_counter[-1] if self.red_counter else 0
+            if last_red_counter > 0 and last_red_counter < 30:
+                self.red_counter.append(last_red_counter + 1)
+                red_counter_set = True
+                
+            elif last_red_counter == -1:
+                self.red_counter.append(1)
+                red_counter_set = True
+                
+            else:
+                self.red_counter.append(0)
+                red_counter_set = True
             
         return frameraw
     

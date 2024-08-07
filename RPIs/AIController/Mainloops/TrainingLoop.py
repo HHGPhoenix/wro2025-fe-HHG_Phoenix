@@ -12,8 +12,8 @@ def main_loop_training(self):
     
     while self.running:
         start_time = time.time()
-        servo_angle = self.servo.mapToServoAngle(self.x)
-        self.servo.setAngle(servo_angle)
+        # servo_angle = self.servo.mapToServoAngle(self.x)
+        # self.servo.setAngle(servo_angle)
         
         if self.ry < 0.55 and self.ry > 0.45:
             motor_speed = 0.5
@@ -21,21 +21,33 @@ def main_loop_training(self):
             motor_speed = self.ry
             
         print(f"IO_list[1]: {IO_list[1]}")
+        if IO_list[1] is not None:
+            servo_angle = self.servo.mapToServoAngle(IO_list[1][0][0])
+            self.servo.setAngle(servo_angle)
+        
         simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
         
-        lidar_data = np.array(self.interpolated_lidar_data)  # Assuming you need the first two columns (angle and distance)
+        lidar_data = []
+        interpolated_lidar_data = np.array(self.interpolated_lidar_data)
+        print(f"interpolated_lidar_data: {interpolated_lidar_data.shape}")
+        for angle, distance, _ in self.interpolated_lidar_data:
+            lidar_data.append([angle / 360, distance / 4000])
+        lidar_data = np.array(lidar_data)
+        
         # Ensure lidar data has the correct features (angle and distance) and shape
         lidar_data = np.expand_dims(lidar_data, axis=-1)  # Adding the last dimension
         lidar_data = np.expand_dims(lidar_data, axis=0)  # Adding the batch dimension
-        lidar_data = lidar_data[:, :, :2]
+        # lidar_data = lidar_data[:, :, :2]
         
         # simplified_frame = np.array(cv2.cvtColor(simplified_frame, cv2.COLOR_BGR2GRAY))
         # simplified_frame = np.expand_dims(simplified_frame, axis=-1)  # Adding the last dimension
         simplified_frame = simplified_frame / 255.0
         simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
+        
+        counters = np.expand_dims(self.counters, axis=0)
 
         # Combine the inputs into a list
-        inputs = [lidar_data, simplified_frame]
+        inputs = [lidar_data, simplified_frame, counters]
         
         IO_list[0] = inputs
         self.motor_controller.send_speed(motor_speed)
@@ -58,24 +70,27 @@ def run_model(shared_IO_list):
         print("Running model")
         if shared_IO_list[0] is not None:
             # Extract the individual inputs
-            lidar_data, simplified_frame = shared_IO_list[0]
+            lidar_data, simplified_frame, counters = shared_IO_list[0]
             
             # Convert inputs to FLOAT32
             lidar_data = lidar_data.astype(np.float32)
             simplified_frame = simplified_frame.astype(np.float32)
+            counters = counters.astype(np.float32)
             
             # Set the input tensors
-            interpreter.set_tensor(input_details[0]['index'], lidar_data)
-            interpreter.set_tensor(input_details[1]['index'], simplified_frame)
+            interpreter.set_tensor(input_details[0]['index'], simplified_frame)
+            interpreter.set_tensor(input_details[1]['index'], lidar_data)
+            interpreter.set_tensor(input_details[2]['index'], counters)
             
             # Measure the time taken to run the model
             start_time = time.time()
             interpreter.invoke()
             end_time = time.time()
+            print(f"Time taken to run the model: {end_time - start_time} seconds")
             
             # Get the output tensor
             output_data = interpreter.get_tensor(output_details[0]['index'])
             print(f"Result: {output_data}")
-            print(f"Time taken to run the model: {end_time - start_time} seconds")
+            shared_IO_list[1] = output_data
         else:
             time.sleep(0.1)

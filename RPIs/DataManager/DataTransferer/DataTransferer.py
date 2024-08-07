@@ -55,6 +55,8 @@ class DataTransferer:
                 self.frame_list[0] = frameraw.tobytes()
                 self.frame_list[1] = simplified_image.tobytes()
                 self.frame_list[2] = object_image.tobytes()
+                self.frame_list[3] = self.camera.green_counter[-1]
+                self.frame_list[4] = self.camera.red_counter[-1]
         except KeyboardInterrupt:
             pass
         except BrokenPipeError:
