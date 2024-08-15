@@ -11,14 +11,11 @@ import matplotlib.pyplot as plt
 import uuid
 import os
 import pandas as pd
-from scipy.interpolate import interp1d
 import random
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import cv2
 
 global custom_filename, model_filename, model_id, MODEL, EPOCHS, PATIENCE, BATCH_SIZE
 
@@ -577,7 +574,7 @@ def plot_training_history(history, model_id, best_val_mae, epochs_trained, custo
     plt.figtext(0.5, 0.01, f'Final MAE: {final_mae:.4f}, Final Val MAE: {final_val_mae:.4f}, '
                            f'Best Val MAE: {best_val_mae:.4f}, Epochs Trained: {epochs_trained}, '
                            f'Final Loss: {final_loss:.4f}, Final Val Loss: {final_val_loss:.4f}',
-                ha="center", fontsize=9, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
+                           ha="center", fontsize=9, bbox={"facecolor":"orange", "alpha":0.5, "pad":5})
 
     if custom_filename:
         plt.savefig(f'training_history_{custom_filename}.png')
