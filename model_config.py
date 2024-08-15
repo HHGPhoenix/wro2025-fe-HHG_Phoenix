@@ -1,10 +1,8 @@
-def create_model(lidar_input_shape, frame_input_shape, counter_input_shape, tf):
-    from tensorflow.keras.models import Model
-    from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout, concatenate
-    from tensorflow.keras.layers import GlobalAveragePooling2D, BatchNormalization
-    from tensorflow.keras.applications import MobileNetV2
-    from tensorflow.keras.regularizers import l2
-    print("lidar_input_shape: ", lidar_input_shape, "frame_input_shape: ", frame_input_shape, "counter_input_shape: ", counter_input_shape)
+def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
+    from tensorflow.keras.layers import Conv2D, BatchNormalization, MaxPooling2D, GlobalAveragePooling2D, Flatten, Dense, Dropout, Input, concatenate, LeakyReLU # type: ignore
+    from tensorflow.keras.regularizers import l2 # type: ignore
+    from tensorflow.keras.applications import MobileNetV2 # type: ignore
+    from tensorflow.keras.models import Model # type: ignore
     # LIDAR input model with optimized Conv2D layers
     lidar_input = Input(shape=lidar_input_shape, name='lidar_input')
     lidar_conv1 = Conv2D(32, (3, 3), padding='same', activation='relu')(lidar_input)
@@ -24,8 +22,10 @@ def create_model(lidar_input_shape, frame_input_shape, counter_input_shape, tf):
     frame_flatten = GlobalAveragePooling2D()(base_model.output)
 
     # Counter input model
+    print("Counter input shape:", counter_input_shape)
     counter_input = Input(shape=counter_input_shape, name='counter_input')
-    counter_dense1 = Dense(32, activation='relu')(counter_input)
+    counter_flatten = Flatten()(counter_input)
+    counter_dense1 = Dense(32, activation='relu')(counter_flatten)
     counter_bn1 = BatchNormalization()(counter_dense1)
     counter_dense2 = Dense(32, activation='relu')(counter_bn1)
     counter_bn2 = BatchNormalization()(counter_dense2)

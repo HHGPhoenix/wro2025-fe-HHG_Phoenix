@@ -16,11 +16,11 @@ import json
 import importlib.util
 import inspect
 
+
 ############################################################################################################
 
 def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
-    model = None
-    return model
+    return None
 
 ############################################################################################################
 
@@ -375,8 +375,7 @@ class DataProcessor:
             else:
                 return
             
-        self.model_train_thread = threading.Thread(target=self.train_model, args=(self.model_name, self.epochs, self.batch_size, self.patience), daemon=True)
-        self.model_train_thread.start()
+        self.train_model(self.model_name, self.epochs, self.batch_size, self.patience)
 
     def train_model(self, model_name, epochs, batch_size, patience):
         print(f"Train LIDAR data shape: {self.lidar_train.shape}")
@@ -387,28 +386,22 @@ class DataProcessor:
         print(f"Validation Controller data shape: {self.controller_val.shape}")
         print(f"Validation Frame data shape: {self.image_val.shape}")
         print(f"Validation Counter data shape: {self.counter_val.shape}")
-        print(1)
         
-        self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                  frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]),
-                                  counter_input_shape=(self.counter_train.shape[1],), tf=tf)
-        print(2)
+        self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1), frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), counter_input_shape=(self.counter_train.shape[1], ))
+
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
-        print(3)
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         checkpoint_filename = f"best_model_{model_name}.h5"
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
-        print(4)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
-            validation_data=([self.lidar_val, self.image_val, self.controller_val], self.controller_val),
+            validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
             epochs=epochs,
             callbacks=[early_stopping, model_checkpoint],
             batch_size=batch_size
         )
-        print(5)
         
     def load_training_data_wrapper(self, folder_path):
         self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path,), daemon=True)
@@ -452,6 +445,19 @@ class DataProcessor:
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=42)
         self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=42)
         
+        # self.lidar_train = np.reshape(self.lidar_train, (self.lidar_train.shape[0], self.lidar_train.shape[1], 2, 1))  # Reshape for CNN input
+        # self.lidar_val = np.reshape(self.lidar_val, (self.lidar_val.shape[0], self.lidar_val.shape[1], 2, 1))  # Reshape for CNN input
+        
+        # self.counter_train = np.expand_dims(self.counter_train, axis=-1)
+        # self.counter_val = np.expand_dims(self.counter_val, axis=-1)
+        
+        # Assuming your counter data is initially shaped (1158, 2, 1), you need to reshape it:
+        counter_train_reshaped = self.counter_train.reshape(-1, 2)
+        counter_val_reshaped = self.counter_val.reshape(-1, 2)
+        
+        self.counter_train = counter_train_reshaped
+        self.counter_val = counter_val_reshaped
+
         # messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
         
     def load_model_configuration(self, file_path):
