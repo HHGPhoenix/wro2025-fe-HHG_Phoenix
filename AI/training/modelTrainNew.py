@@ -247,7 +247,7 @@ class modelTrainUI(ctk.CTk):
             messagebox.showerror("Error", "No model configuration selected")
             return
         
-        self.data_processor.pass_training_options(self.model_name.get(), int(self.epochs.get()), int(self.batch_size.get()), int(self.patience.get()))
+        self.data_processor.pass_training_options(self.data_visualizer, self.model_name.get(), int(self.epochs.get()), int(self.batch_size.get()), int(self.patience.get()))
         self.queue.append(self.data_processor)
         
         self.data_processor = DataProcessor(self)
@@ -373,8 +373,9 @@ class DataProcessor:
         
         self.model_file_content = None
         self.model_function = None
-        
-    def pass_training_options(self, model_name, epochs, batch_size, patience):
+
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience):
+        self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
         self.batch_size = batch_size
@@ -382,7 +383,7 @@ class DataProcessor:
         
         if self.model_name == "":
             self.model_name = str(uuid.uuid4())
-    
+
     def start_training(self):
         if not self.modelTrainUI.tensorflow_imported:
             messagebox.showerror("Error", "TensorFlow not imported yet. Please wait for the import to complete.")
@@ -393,9 +394,9 @@ class DataProcessor:
             return
         
         
-        self.train_model(self.model_name, self.epochs, self.batch_size, self.patience)
+        self.train_model(self.data_visualizer, self.model_name, self.epochs, self.batch_size, self.patience)
 
-    def train_model(self, model_name, epochs, batch_size, patience):
+    def train_model(self, data_visualizer, model_name, epochs, batch_size, patience):
         print(f"Train LIDAR data shape: {self.lidar_train.shape}")
         print(f"Train Controller data shape: {self.controller_train.shape}")
         print(f"Train Frame data shape: {self.image_train.shape}")
@@ -412,12 +413,13 @@ class DataProcessor:
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         checkpoint_filename = f"best_model_{model_name}.h5"
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
+        data_callback = TrainingDataCallback(data_visualizer)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
             validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
             epochs=epochs,
-            callbacks=[early_stopping, model_checkpoint],
+            callbacks=[early_stopping, model_checkpoint, data_callback],
             batch_size=batch_size
         )
         
@@ -495,8 +497,9 @@ class DataProcessor:
 
 
 class TrainingDataCallback(Callback):
-    def __init__(self):
-        self.visualize_data = VisualizeData()
+    def __init__(self, data_visualizer):
+        super().__init__()
+        self.visualize_data = data_visualizer
 
         # track latest training values
         self.loss_values = []
@@ -515,6 +518,8 @@ class TrainingDataCallback(Callback):
         self.val_loss_values.append(logs['val_loss'])
         self.mae_values.append(logs['mae'])
         self.val_mae_values.append(logs['val_mae'])
+        
+        print(f"Epoch {epoch + 1}/{self.params['epochs']} - loss: {logs['loss']}, val_loss: {logs['val_loss']}, mae: {logs['mae']}, val_mae: {logs['val_mae']}")
         
         if len(self.loss_values) > 50:
             self.loss_values.pop(0)
@@ -562,11 +567,11 @@ class VisualizeData:
     def update_loss_plot(self, loss_values, val_loss_values):
         self.loss_plot_axis.clear()
         
-        self.loss_plot_axis.plot(loss_values, label='Training Loss', color='blue')
-        self.loss_plot_axis.plot(val_loss_values, label='Validation Loss', color='red')
+        self.loss_plot_axis.plot(loss_values, label='Training Loss', color='cyan')
+        self.loss_plot_axis.plot(val_loss_values, label='Validation Loss', color='magenta')
         
-        self.loss_plot_axis.set_xlabel('Epochs')
-        self.loss_plot_axis.set_ylabel('Loss')
+        self.loss_plot_axis.set_xlabel('Epochs', color='white')
+        self.loss_plot_axis.set_ylabel('Loss', color='white')
         self.loss_plot_axis.legend()
         
         self.loss_plot_canvas.draw()
@@ -607,11 +612,11 @@ class VisualizeData:
     def update_mae_plot(self, mae_values, val_mae_values):
         self.mae_plot_axis.clear()
         
-        self.mae_plot_axis.plot(mae_values, label='Training MAE', color='blue')
-        self.mae_plot_axis.plot(val_mae_values, label='Validation MAE', color='red')
+        self.mae_plot_axis.plot(mae_values, label='Training MAE', color='cyan')
+        self.mae_plot_axis.plot(val_mae_values, label='Validation MAE', color='magenta')
         
-        self.mae_plot_axis.set_xlabel('Epochs')
-        self.mae_plot_axis.set_ylabel('MAE')
+        self.mae_plot_axis.set_xlabel('Epochs', color='white')
+        self.mae_plot_axis.set_ylabel('MAE', color='white')
         self.mae_plot_axis.legend()
         
         self.mae_plot_canvas.draw()
