@@ -213,7 +213,7 @@ class modelTrainUI(ctk.CTk):
         self.queue_label.grid(row=0, column=1, padx=0, pady=(0, 0))
         
         self.queue_clear_button = ctk.CTkButton(self.queue_top_frame, text="Clear", command=self.clear_queue, width=30, height=10, corner_radius=5)
-        self.queue_clear_button.grid(row=0, column=2, padx=0, pady=(0, 0), sticky='e')
+        self.queue_clear_button.grid(row=0, column=2, padx=5, pady=(0, 0), sticky='e')
         
         self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15)) # type: ignore
         self.queue_listbox.pack(padx=15, pady=(0, 5), anchor='n', expand=True, fill='both')
@@ -338,6 +338,7 @@ class modelTrainUI(ctk.CTk):
             self.model_name.set("")
         else:
             self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+            self.data_processor.load_model_configuration(self.selected_model_configuration_path)
         
         self.queue_listbox.insert(tk.END, name)
 
@@ -374,58 +375,32 @@ class modelTrainUI(ctk.CTk):
             self.focus_window(self.settings_window)
             return
         
-        # open top level window
-        self.settings_window = ctk.CTkToplevel(self)
+        # Define the settings parameters
+        settings_params = [
+            ("Epochs", self.epochs),
+            ("Batch Size", self.batch_size),
+            ("Patience", self.patience),
+            ("Epochs Shown", self.epochs_graphed)
+        ]
         
+        # Create the settings window
+        self.settings_window = ctk.CTkToplevel(self)
         self.settings_window.title("Settings")
         
-        self.epochs_frame = ctk.CTkFrame(self.settings_window)
-        self.epochs_frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
+        # Iterate over the settings parameters to create frames, labels, and entries
+        for param_name, param_var in settings_params:
+            frame = ctk.CTkFrame(self.settings_window)
+            frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
+            
+            label = ctk.CTkLabel(frame, text=param_name, font=("Arial", 15))
+            label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+            
+            entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=param_var)
+            entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
+            
+            entry.bind("<FocusOut>", lambda e: self.save_settings())
         
-        self.epochs_label = ctk.CTkLabel(self.epochs_frame, text="Epochs", font=("Arial", 15))
-        self.epochs_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-        
-        self.epochs_entry = ctk.CTkEntry(self.epochs_frame, font=("Arial", 15), textvariable=self.epochs)
-        self.epochs_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-        
-        self.epochs_entry.bind("<FocusOut>", lambda e: self.save_settings())
-        
-        
-        self.batch_size_frame = ctk.CTkFrame(self.settings_window)
-        self.batch_size_frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
-        
-        self.batch_size_label = ctk.CTkLabel(self.batch_size_frame, text="Batch Size", font=("Arial", 15))
-        self.batch_size_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-        
-        self.batch_size_entry = ctk.CTkEntry(self.batch_size_frame, font=("Arial", 15), textvariable=self.batch_size)
-        self.batch_size_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-        
-        self.batch_size_entry.bind("<FocusOut>", lambda e: self.save_settings())
-        
-        
-        self.patience_frame = ctk.CTkFrame(self.settings_window)
-        self.patience_frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
-        
-        self.patience_label = ctk.CTkLabel(self.patience_frame, text="Patience", font=("Arial", 15))
-        self.patience_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-        
-        self.patience_entry = ctk.CTkEntry(self.patience_frame, font=("Arial", 15), textvariable=self.patience)
-        self.patience_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-        
-        self.patience_entry.bind("<FocusOut>", lambda e: self.save_settings())
-        
-        
-        self.epochs_graphed_frame = ctk.CTkFrame(self.settings_window)
-        self.epochs_graphed_frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
-        
-        self.epochs_graphed_label = ctk.CTkLabel(self.epochs_graphed_frame, text="Epochs Shown", font=("Arial", 15))
-        self.epochs_graphed_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-        
-        self.epochs_graphed_entry = ctk.CTkEntry(self.epochs_graphed_frame, font=("Arial", 15), textvariable=self.epochs_graphed)
-        self.epochs_graphed_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-        
-        self.epochs_graphed_entry.bind("<FocusOut>", lambda e: self.save_settings())
-        
+        # Bind the settings window to save settings on focus out and on close
         self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
         self.settings_window.protocol("WM_DELETE_WINDOW", lambda: self.save_settings(True))
         
