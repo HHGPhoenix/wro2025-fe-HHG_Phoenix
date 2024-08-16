@@ -2,13 +2,13 @@ import customtkinter as ctk
 from CTkListbox import *
 import tkinter as tk
 from tkinter import messagebox, filedialog
-import numpy as np
+# import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
 import signal
 import threading
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 import uuid
 import threading
 from tensorflow.keras.callbacks import Callback # type: ignore
@@ -16,7 +16,10 @@ from PIL import Image
 import json
 import importlib.util
 import inspect
+import time
+import types
 
+DEBUG = False
 
 ############################################################################################################
 
@@ -29,15 +32,21 @@ class modelTrainUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Model Training")
+        self.geometry("+50+50")
         
-        self.tensorflow_imported = False
         self.select_training_data_path = None
         self.selected_training_data_path_basename = None
         self.selected_model_configuration_path = None
         self.settings_window = None
+        
+        self.lazy_imports_imported = False
+        
+        self.model_name_counter = 0
+        
         self.queue = []
         
         self.model_name = tk.StringVar()
+        self.keep_config_var = tk.BooleanVar()
         
         self.epochs_default = 10
         self.batch_size_default = 32
@@ -71,10 +80,13 @@ class modelTrainUI(ctk.CTk):
         os._exit(0)
         
     def import_lazy_imports(self):
-        global tf, EarlyStopping, ModelCheckpoint
+        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split
         import tensorflow as tf
         from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint # type: ignore
-        self.tensorflow_imported = True
+        import numpy as np
+        from sklearn.model_selection import train_test_split
+        
+        self.lazy_imports_imported = True
         
     def handle_settings(self):
         if not os.path.exists("settings.json"):
@@ -159,19 +171,50 @@ class modelTrainUI(ctk.CTk):
         
         ############################################################################################################
         
+        self.keep_config_checkbox = ctk.CTkCheckBox(self.queue_item_frame, text="Keep Configuration", font=("Arial", 13), variable=self.keep_config_var)
+        self.keep_config_checkbox.pack(padx=15, pady=(15, 0), side='top')
+        
+        ############################################################################################################
+        
         self.add_to_queue_button = ctk.CTkButton(self.queue_item_frame, text="Add to Queue", command=self.add_to_queue)
         self.add_to_queue_button.pack(padx=15, pady=(20, 15), anchor='n', expand=True, fill='both')
         
         ############################################################################################################
         
         self.queue_frame = ctk.CTkFrame(self.configuration_frame)
-        self.queue_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+        self.queue_frame.pack(padx=10, pady=(15, 0), anchor='n', expand=True, fill='both')
         
-        self.queue_label = ctk.CTkLabel(self.queue_frame, text="Queue", font=("Arial", 15), width=0, height=0)
-        self.queue_label.pack(padx=15, pady=(0, 0), anchor='n', expand=True, fill='both')
+        self.queue_top_frame = ctk.CTkFrame(self.queue_frame)
+        self.queue_top_frame.pack(padx=15, pady=(5, 5), anchor='n', expand=True, fill='both')
+        
+        self.queue_top_frame.grid_rowconfigure(0, weight=1, uniform='queue')
+        self.queue_top_frame.grid_columnconfigure(0, weight=1, uniform='queue')
+        self.queue_top_frame.grid_columnconfigure(1, weight=1, uniform='queue')
+        self.queue_top_frame.grid_columnconfigure(2, weight=1, uniform='queue')
+        
+        self.queue_label = ctk.CTkLabel(self.queue_top_frame, text="Queue", font=("Arial", 15), width=0, height=0)
+        self.queue_label.grid(row=0, column=1, padx=0, pady=(0, 0))
+        
+        self.queue_clear_button = ctk.CTkButton(self.queue_top_frame, text="Clear", command=self.clear_queue, width=30, height=10, corner_radius=5)
+        self.queue_clear_button.grid(row=0, column=2, padx=0, pady=(0, 0), sticky='e')
         
         self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15))
-        self.queue_listbox.pack(padx=15, pady=(0, 15), anchor='n', expand=True, fill='both')
+        self.queue_listbox.pack(padx=15, pady=(0, 5), anchor='n', expand=True, fill='both')
+        
+        self.queue_config_frame = ctk.CTkFrame(self.queue_frame)
+        self.queue_config_frame.pack(padx=15, pady=5, fill='x', expand=True)
+        
+        delete_image = Image.open(r"AI\assets\delete.png")
+        delete_image = ctk.CTkImage(delete_image, delete_image, (35, 35))
+        
+        details_image = Image.open(r"AI\assets\open_in_new.png")
+        details_image = ctk.CTkImage(details_image, details_image, (35, 35))
+        
+        self.queue_delete_button = ctk.CTkButton(self.queue_config_frame, text="", image=delete_image, command=self.delete_queue_item)
+        self.queue_delete_button.pack(padx=5, pady=5, side=tk.LEFT)
+        
+        self.queue_details_button = ctk.CTkButton(self.queue_config_frame, text="", image=details_image, command=self.show_queue_item_details)
+        self.queue_details_button.pack(padx=5, pady=5, side=tk.LEFT)
         
         ############################################################################################################
         
@@ -238,7 +281,7 @@ class modelTrainUI(ctk.CTk):
         self.select_model_configuration_label.configure(text=f"Model Configuration File: \n{self.selected_model_configuration_path_basename}")
         
         self.data_processor.load_model_configuration(path)
-    
+
     def add_to_queue(self):
         if self.selected_training_data_path is None:
             messagebox.showerror("Error", "No training data selected")
@@ -247,38 +290,68 @@ class modelTrainUI(ctk.CTk):
             messagebox.showerror("Error", "No model configuration selected")
             return
         
-        self.data_processor.pass_training_options(self.data_visualizer, self.model_name.get(), int(self.epochs.get()), int(self.batch_size.get()), int(self.patience.get()))
+        model_name_entry_content = self.model_name.get()
+        
+        if model_name_entry_content and model_name_entry_content != "":
+            name = self.queue[-1].model_name
+        else:
+            name = f"Model {self.model_name_counter}"
+        
+        self.model_name_counter += 1
+        
+        epochs = int(self.epochs.get())
+        batch_size = int(self.batch_size.get())
+        patience = int(self.patience.get())
+        
+        self.data_processor.pass_training_options(self.data_visualizer, model_name_entry_content, epochs, batch_size, patience, custom_model_name=name)
         self.queue.append(self.data_processor)
         
         self.data_processor = DataProcessor(self)
         
-        self.model_name.set("")
-        self.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
-        self.selected_training_data_path = None
-        self.selected_training_data_path_basename = None
-        
-        name = self.queue[-1].model_name if self.queue[-1].model_name else f"Model {len(self.queue)}"
+        if not self.keep_config_var.get():
+            self.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
+            self.selected_training_data_path = None
+            self.selected_training_data_path_basename = None
+            
+            self.select_model_configuration_label.configure(text="Model Configuration File: \nNone")
+            self.selected_model_configuration_path = None
+            self.selected_model_configuration_path_basename = None
+            
+            self.model_name.set("")
         
         self.queue_listbox.insert(tk.END, name)
-        
-        # messagebox.showinfo("Success", "Added to queue successfully")
-    
+
     def start_queue(self):
         self.queue_thread = threading.Thread(target=self.process_queue, daemon=True)
         self.queue_thread.start()
         
     def process_queue(self):
         queue = self.queue.copy()
-        for item in queue:
+        
+        if not queue:
+            messagebox.showerror("Error", "Queue is empty")
+            return
+        
+        for i, item in enumerate(queue):
+            if i != 0:
+                self.queue_listbox.delete(i-1)
+                self.queue_listbox.insert(i-1, item.custom_model_name)
+                
+            self.queue_listbox.delete(i)
+            self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing")
+            
             item.start_training()
-            while item.model_train_thread and item.model_train_thread.is_alive():
-                pass
+        
+        self.queue_listbox.delete(len(queue)-1)
+        self.queue_listbox.insert(len(queue)-1, f"{queue[-1].custom_model_name}")
+        
         messagebox.showinfo("Success", "Queue processed successfully")
         
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
-            self.update()
-            self.settings_window.focus_force()
+            # self.update()
+            # self.settings_window.focus_force()
+            self.focus_window(self.settings_window)
             return
         
         # open top level window
@@ -323,9 +396,10 @@ class modelTrainUI(ctk.CTk):
         self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
         self.settings_window.protocol("WM_DELETE_WINDOW", lambda: self.save_settings(True))
         
-        self.update()
-        self.settings_window.focus_force()
-    
+        # self.update()
+        # self.settings_window.focus_force()
+        self.focus_window(self.settings_window)
+        
     def on_resize(self, event):
         parent_width = self.winfo_width()
         button_width = self.settings_button.winfo_reqwidth()
@@ -338,7 +412,8 @@ class modelTrainUI(ctk.CTk):
             int(self.batch_size.get())
             int(self.patience.get())
         except ValueError:
-            messagebox.showerror("Error", "All values must be integers")
+            if self.epochs.get() != "" or self.batch_size.get() != "" or self.patience.get() != "":
+                messagebox.showerror("Error", "All values must be integers")
             return
         
         with open("settings.json", "w") as f:
@@ -351,7 +426,47 @@ class modelTrainUI(ctk.CTk):
         
         if exit:
             self.settings_window.destroy()
-
+    
+    def delete_queue_item(self):
+        selected_index = self.queue_listbox.curselection()
+        
+        if not selected_index and selected_index != 0:
+            messagebox.showerror("Error", "No item selected")
+            return
+        
+        index = selected_index
+        self.queue.pop(index)
+        self.queue_listbox.delete(index)
+    
+    def show_queue_item_details(self):
+        selected_index = self.queue_listbox.curselection()
+        # print(selected_index)
+        
+        if not selected_index and selected_index != 0:
+            messagebox.showerror("Error", "No item selected")
+            return
+        
+        model_name = self.queue_listbox.get(selected_index)
+        
+        details_view = ModelDetailsWindow(self, model_name, self.queue[selected_index].model_file_content)
+        
+        self.focus_window(details_view)
+        
+    def clear_queue(self):
+        self.queue = []
+        self.queue_listbox.delete(0, tk.END)
+        
+    def focus_window(self, window):
+        self.update()
+        self.update_idletasks()
+        window.focus_force()
+        window.lift()
+        self.update()
+        window.focus_force()
+        window.lift()
+        self.update()
+        window.focus_force()
+        
 
 class DataProcessor:
     def __init__(self, modelTrainUI):
@@ -374,37 +489,46 @@ class DataProcessor:
         self.model_file_content = None
         self.model_function = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, custom_model_name=""):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
         self.batch_size = batch_size
         self.patience = patience
+        self.custom_model_name = custom_model_name
         
         if self.model_name == "":
             self.model_name = str(uuid.uuid4())
 
     def start_training(self):
-        if not self.modelTrainUI.tensorflow_imported:
-            messagebox.showerror("Error", "TensorFlow not imported yet. Please wait for the import to complete.")
-            return
+        if not self.modelTrainUI.lazy_imports_imported:
+            #wait with an while loop until the imports are done, if they dont come in 10 seconds, show an error
+            start_time = time.time()
+            while not self.modelTrainUI.lazy_imports_imported and time.time() - start_time < 10:
+                time.sleep(0.1)
+                
+            if not self.modelTrainUI.lazy_imports_imported:
+                messagebox.showerror("Error", "Could not import necessary libraries")
+                return
+        
         
         if self.lidar_train is None or self.image_train is None or self.controller_train is None or self.counter_train is None:
             messagebox.showerror("Error", "No training data loaded")
             return
         
         
-        self.train_model(self.data_visualizer, self.model_name, self.epochs, self.batch_size, self.patience)
+        self.train_model(self.model_name, self.epochs, self.batch_size, self.patience)
 
-    def train_model(self, data_visualizer, model_name, epochs, batch_size, patience):
-        print(f"Train LIDAR data shape: {self.lidar_train.shape}")
-        print(f"Train Controller data shape: {self.controller_train.shape}")
-        print(f"Train Frame data shape: {self.image_train.shape}")
-        print(f"Train Counter data shape: {self.counter_train.shape}")
-        print(f"Validation LIDAR data shape: {self.lidar_val.shape}")
-        print(f"Validation Controller data shape: {self.controller_val.shape}")
-        print(f"Validation Frame data shape: {self.image_val.shape}")
-        print(f"Validation Counter data shape: {self.counter_val.shape}")
+    def train_model(self, model_name, epochs, batch_size, patience):
+        if DEBUG:
+            print(f"Train LIDAR data shape: {self.lidar_train.shape}")
+            print(f"Train Controller data shape: {self.controller_train.shape}")
+            print(f"Train Frame data shape: {self.image_train.shape}")
+            print(f"Train Counter data shape: {self.counter_train.shape}")
+            print(f"Validation LIDAR data shape: {self.lidar_val.shape}")
+            print(f"Validation Controller data shape: {self.controller_val.shape}")
+            print(f"Validation Frame data shape: {self.image_val.shape}")
+            print(f"Validation Counter data shape: {self.counter_val.shape}")
         
         self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1), frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), counter_input_shape=(self.counter_train.shape[1], ))
 
@@ -413,7 +537,7 @@ class DataProcessor:
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         checkpoint_filename = f"best_model_{model_name}.h5"
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
-        data_callback = TrainingDataCallback(data_visualizer)
+        data_callback = TrainingDataCallback(self.data_visualizer)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
@@ -491,7 +615,23 @@ class DataProcessor:
         # Find the only function in the module
         functions = [obj for name, obj in inspect.getmembers(module) if inspect.isfunction(obj)]
         if len(functions) != 1:
-            raise ValueError("The module should contain exactly one function.")
+            messagebox.showerror("Error", "The model configuration file must contain exactly one function")
+            return
+        
+        self.model_function = functions[0]
+        
+    def load_model_from_content(self, content):
+        # Create a new module
+        module = types.ModuleType("model")
+        
+        # Execute the content in the new module's namespace
+        exec(content, module.__dict__)
+        
+        # Find the only function in the module
+        functions = [obj for name, obj in inspect.getmembers(module) if inspect.isfunction(obj)]
+        if len(functions) != 1:
+            messagebox.showerror("Error", "The model configuration content must contain exactly one function")
+            return
         
         self.model_function = functions[0]
 
@@ -499,7 +639,7 @@ class DataProcessor:
 class TrainingDataCallback(Callback):
     def __init__(self, data_visualizer):
         super().__init__()
-        self.visualize_data = data_visualizer
+        self.data_visualizer = data_visualizer
 
         # track latest training values
         self.loss_values = []
@@ -519,7 +659,7 @@ class TrainingDataCallback(Callback):
         self.mae_values.append(logs['mae'])
         self.val_mae_values.append(logs['val_mae'])
         
-        print(f"Epoch {epoch + 1}/{self.params['epochs']} - loss: {logs['loss']}, val_loss: {logs['val_loss']}, mae: {logs['mae']}, val_mae: {logs['val_mae']}")
+        # print(f"Epoch {epoch + 1}/{self.params['epochs']} - loss: {logs['loss']}, val_loss: {logs['val_loss']}, mae: {logs['mae']}, val_mae: {logs['val_mae']}")
         
         if len(self.loss_values) > 50:
             self.loss_values.pop(0)
@@ -527,8 +667,8 @@ class TrainingDataCallback(Callback):
             self.mae_values.pop(0)
             self.val_mae_values.pop(0)
         
-        self.visualize_data.update_loss_plot(self.loss_values, self.val_loss_values)
-        self.visualize_data.update_mae_plot(self.mae_values, self.val_mae_values)
+        self.data_visualizer.update_loss_plot(self.loss_values, self.val_loss_values)
+        self.data_visualizer.update_mae_plot(self.mae_values, self.val_mae_values)
         
         self.full_loss_values.append(logs['loss'])
         self.full_val_loss_values.append(logs['val_loss'])
@@ -536,7 +676,7 @@ class TrainingDataCallback(Callback):
         self.full_val_mae_values.append(logs['val_mae'])
 
     def on_train_end(self, logs=None):
-        self.visualize_data.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values)
+        self.data_visualizer.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values)
 
 
 class VisualizeData:
@@ -664,6 +804,35 @@ class VisualizeData:
 
         # Close the figure to release memory
         plt.close(fig)
+    
+class ModelDetailsWindow(ctk.CTkToplevel):
+    def __init__(self, modelTrainUI, model_name, model_file_content):
+        super().__init__(modelTrainUI)
+        self.title(f"Model Details - {model_name}")
+        self.geometry("1750x860+50+50")
+        self.modelTrainUI = modelTrainUI
+        self.model_name = model_name
+        self.model_file_content = model_file_content
+        
+        self.init_window()
+        
+    def init_window(self):
+        self.model_text = ctk.CTkTextbox(self, font=("Arial", 15))
+        self.model_text.pack(padx=15, pady=15, fill='both', expand=True)
+        
+        self.model_text.insert(tk.END, self.model_file_content)
+        self.model_text.configure(state=tk.DISABLED)
+        
+        self.protocol("WM_DELETE_WINDOW", self.close)
+        
+        # self.modelTrainUI.update()
+        # self.focus_force()
+        
+    def close(self):
+        self.destroy()
+        
+    def on_resize(self, event):
+        self.model_text.configure(width=event.width, height=event.height)
 
 if __name__ == "__main__":
     modelTrainUI()
