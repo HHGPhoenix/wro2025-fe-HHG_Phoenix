@@ -18,6 +18,9 @@ import importlib.util
 import inspect
 import time
 import types
+from pygments import lex
+from pygments.lexers.python import PythonLexer
+from pygments.styles import get_style_by_name
 
 DEBUG = False
 
@@ -51,10 +54,12 @@ class modelTrainUI(ctk.CTk):
         self.epochs_default = 10
         self.batch_size_default = 32
         self.patience_default = 5
+        self.epochs_graphed_default = 50
         
         self.epochs = tk.StringVar(value=self.epochs_default)
         self.batch_size = tk.StringVar(value=self.batch_size_default)
         self.patience = tk.StringVar(value=self.patience_default)
+        self.epochs_graphed = tk.StringVar(value=self.epochs_graphed_default)
         
         self.handle_settings()
         
@@ -100,17 +105,29 @@ class modelTrainUI(ctk.CTk):
             file_content = {
                 "epochs": self.epochs_default,
                 "batch_size": self.batch_size_default,
-                "patience": self.patience_default
+                "patience": self.patience_default,
+                "epochs_graphed": self.epochs_graphed_default
             }
             json.dump(file_content, f)
 
     def load_settings(self):
         if os.path.exists("settings.json"):
-            with open("settings.json", "r") as f:
-                file_content = json.load(f)
-                self.epochs.set(file_content["epochs"])
-                self.batch_size.set(file_content["batch_size"])
-                self.patience.set(file_content["patience"])
+            try:
+                with open("settings.json", "r") as f:
+                    file_content = json.load(f)
+                    self.epochs.set(file_content["epochs"])
+                    self.batch_size.set(file_content["batch_size"])
+                    self.patience.set(file_content["patience"]),
+                    self.epochs_graphed.set(file_content["epochs_graphed"])
+            except KeyError:
+                
+                delete_or_not = messagebox.askyesno("Error", "The settings file is corrupted. Do you want to delete it? Or exit!")
+                if delete_or_not:
+                    os.remove("settings.json")
+                    self.create_settings_file()
+                    self.load_settings()
+                else:
+                    self.close()
                 
 ############################################################################################################
 
@@ -198,7 +215,7 @@ class modelTrainUI(ctk.CTk):
         self.queue_clear_button = ctk.CTkButton(self.queue_top_frame, text="Clear", command=self.clear_queue, width=30, height=10, corner_radius=5)
         self.queue_clear_button.grid(row=0, column=2, padx=0, pady=(0, 0), sticky='e')
         
-        self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15))
+        self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15)) # type: ignore
         self.queue_listbox.pack(padx=15, pady=(0, 5), anchor='n', expand=True, fill='both')
         
         self.queue_config_frame = ctk.CTkFrame(self.queue_frame)
@@ -293,7 +310,7 @@ class modelTrainUI(ctk.CTk):
         model_name_entry_content = self.model_name.get()
         
         if model_name_entry_content and model_name_entry_content != "":
-            name = self.queue[-1].model_name
+            name = model_name_entry_content
         else:
             name = f"Model {self.model_name_counter}"
         
@@ -302,8 +319,9 @@ class modelTrainUI(ctk.CTk):
         epochs = int(self.epochs.get())
         batch_size = int(self.batch_size.get())
         patience = int(self.patience.get())
+        epochs_graphed = int(self.epochs_graphed.get())
         
-        self.data_processor.pass_training_options(self.data_visualizer, model_name_entry_content, epochs, batch_size, patience, custom_model_name=name)
+        self.data_processor.pass_training_options(self.data_visualizer, model_name_entry_content, epochs, batch_size, patience, custom_model_name=name, epochs_graphed=epochs_graphed)
         self.queue.append(self.data_processor)
         
         self.data_processor = DataProcessor(self)
@@ -318,6 +336,8 @@ class modelTrainUI(ctk.CTk):
             self.selected_model_configuration_path_basename = None
             
             self.model_name.set("")
+        else:
+            self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
         
         self.queue_listbox.insert(tk.END, name)
 
@@ -335,7 +355,7 @@ class modelTrainUI(ctk.CTk):
         for i, item in enumerate(queue):
             if i != 0:
                 self.queue_listbox.delete(i-1)
-                self.queue_listbox.insert(i-1, item.custom_model_name)
+                self.queue_listbox.insert(i-1, queue[i-1].custom_model_name)
                 
             self.queue_listbox.delete(i)
             self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing")
@@ -393,6 +413,19 @@ class modelTrainUI(ctk.CTk):
         self.patience_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
         
         self.patience_entry.bind("<FocusOut>", lambda e: self.save_settings())
+        
+        
+        self.epochs_graphed_frame = ctk.CTkFrame(self.settings_window)
+        self.epochs_graphed_frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
+        
+        self.epochs_graphed_label = ctk.CTkLabel(self.epochs_graphed_frame, text="Epochs Shown", font=("Arial", 15))
+        self.epochs_graphed_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+        
+        self.epochs_graphed_entry = ctk.CTkEntry(self.epochs_graphed_frame, font=("Arial", 15), textvariable=self.epochs_graphed)
+        self.epochs_graphed_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
+        
+        self.epochs_graphed_entry.bind("<FocusOut>", lambda e: self.save_settings())
+        
         self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
         self.settings_window.protocol("WM_DELETE_WINDOW", lambda: self.save_settings(True))
         
@@ -411,8 +444,9 @@ class modelTrainUI(ctk.CTk):
             int(self.epochs.get())
             int(self.batch_size.get())
             int(self.patience.get())
+            int(self.epochs_graphed.get())
         except ValueError:
-            if self.epochs.get() != "" or self.batch_size.get() != "" or self.patience.get() != "":
+            if self.epochs.get() != "" or self.batch_size.get() != "" or self.patience.get() != "" or self.epochs_graphed.get() != "":
                 messagebox.showerror("Error", "All values must be integers")
             return
         
@@ -420,7 +454,8 @@ class modelTrainUI(ctk.CTk):
             file_content = {
                 "epochs": self.epochs.get(),
                 "batch_size": self.batch_size.get(),
-                "patience": self.patience.get()
+                "patience": self.patience.get(),
+                "epochs_graphed": self.epochs_graphed.get()
             }
             json.dump(file_content, f)
         
@@ -432,6 +467,9 @@ class modelTrainUI(ctk.CTk):
         
         if not selected_index and selected_index != 0:
             messagebox.showerror("Error", "No item selected")
+            return
+        
+        if not self.queue:
             return
         
         index = selected_index
@@ -448,7 +486,7 @@ class modelTrainUI(ctk.CTk):
         
         model_name = self.queue_listbox.get(selected_index)
         
-        details_view = ModelDetailsWindow(self, model_name, self.queue[selected_index].model_file_content)
+        details_view = ModelDetailsWindow(self, model_name, self.queue[selected_index].model_file_content, selected_index)
         
         self.focus_window(details_view)
         
@@ -489,12 +527,13 @@ class DataProcessor:
         self.model_file_content = None
         self.model_function = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, custom_model_name=""):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, custom_model_name=""):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
         self.batch_size = batch_size
         self.patience = patience
+        self.epochs_graphed = epochs_graphed
         self.custom_model_name = custom_model_name
         
         if self.model_name == "":
@@ -537,7 +576,7 @@ class DataProcessor:
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         checkpoint_filename = f"best_model_{model_name}.h5"
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
-        data_callback = TrainingDataCallback(self.data_visualizer)
+        data_callback = TrainingDataCallback(self.data_visualizer, epochs_graphed=self.epochs_graphed)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
@@ -555,6 +594,8 @@ class DataProcessor:
         if not folder_path:
             messagebox.showerror("Error", "No data folder selected")
             return
+        
+        # print(f"Loading data from {folder_path}")
 
         lidar_data_list = []
         image_data_list = []
@@ -588,22 +629,9 @@ class DataProcessor:
         self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=42)
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=42)
         self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=42)
-        
-        # self.lidar_train = np.reshape(self.lidar_train, (self.lidar_train.shape[0], self.lidar_train.shape[1], 2, 1))  # Reshape for CNN input
-        # self.lidar_val = np.reshape(self.lidar_val, (self.lidar_val.shape[0], self.lidar_val.shape[1], 2, 1))  # Reshape for CNN input
-        
-        # self.counter_train = np.expand_dims(self.counter_train, axis=-1)
-        # self.counter_val = np.expand_dims(self.counter_val, axis=-1)
-        
-        # Assuming your counter data is initially shaped (1158, 2, 1), you need to reshape it:
-        counter_train_reshaped = self.counter_train.reshape(-1, 2)
-        counter_val_reshaped = self.counter_val.reshape(-1, 2)
-        
-        self.counter_train = counter_train_reshaped
-        self.counter_val = counter_val_reshaped
 
         # messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
-        
+
     def load_model_configuration(self, file_path):
         with open(file_path, 'r') as file:
             self.model_file_content = file.read()
@@ -637,9 +665,10 @@ class DataProcessor:
 
 
 class TrainingDataCallback(Callback):
-    def __init__(self, data_visualizer):
+    def __init__(self, data_visualizer, epochs_graphed=50):
         super().__init__()
         self.data_visualizer = data_visualizer
+        self.epochs_graphed = epochs_graphed
 
         # track latest training values
         self.loss_values = []
@@ -661,7 +690,7 @@ class TrainingDataCallback(Callback):
         
         # print(f"Epoch {epoch + 1}/{self.params['epochs']} - loss: {logs['loss']}, val_loss: {logs['val_loss']}, mae: {logs['mae']}, val_mae: {logs['val_mae']}")
         
-        if len(self.loss_values) > 50:
+        if len(self.loss_values) > self.epochs_graphed:
             self.loss_values.pop(0)
             self.val_loss_values.pop(0)
             self.mae_values.pop(0)
@@ -804,35 +833,77 @@ class VisualizeData:
 
         # Close the figure to release memory
         plt.close(fig)
-    
+
 class ModelDetailsWindow(ctk.CTkToplevel):
-    def __init__(self, modelTrainUI, model_name, model_file_content):
+    def __init__(self, modelTrainUI, model_name, model_file_content, queue_id):
         super().__init__(modelTrainUI)
         self.title(f"Model Details - {model_name}")
         self.geometry("1750x860+50+50")
         self.modelTrainUI = modelTrainUI
         self.model_name = model_name
         self.model_file_content = model_file_content
+        self.queue_id = queue_id
         
         self.init_window()
         
     def init_window(self):
-        self.model_text = ctk.CTkTextbox(self, font=("Arial", 15))
+        self.model_text = ctk.CTkTextbox(self, font=("Monaco", 16))
         self.model_text.pack(padx=15, pady=15, fill='both', expand=True)
         
-        self.model_text.insert(tk.END, self.model_file_content)
-        self.model_text.configure(state=tk.DISABLED)
+        save_image = Image.open(r"AI\assets\save.png")
+        save_image = ctk.CTkImage(save_image, save_image, (45, 45))
         
+        self.save_button = ctk.CTkButton(self, text="", image=save_image, command=self.save_model, width=45, height=45, corner_radius=5)
+        self.save_button.pack(padx=15, pady=15, side='bottom')
+
+        self.model_text.insert(tk.END, self.model_file_content)
+        self.setup_syntax_highlighting()
+        self.apply_syntax_highlighting(self.model_file_content)
+
+        # Bind the KeyRelease event to apply syntax highlighting on the fly
+        self.model_text.bind("<KeyRelease>", self.on_key_release)
+
         self.protocol("WM_DELETE_WINDOW", self.close)
         
-        # self.modelTrainUI.update()
-        # self.focus_force()
+    def setup_syntax_highlighting(self):
+        # Set up the Pygments style for syntax highlighting
+        style = get_style_by_name("lightbulb")
+        self.tags = {}
+
+        for token, style_data in style:
+            foreground_color = style_data['color']
+            if foreground_color:
+                tag_name = str(token)
+                self.model_text.tag_config(tag_name, foreground=f"#{foreground_color}")
+                self.tags[token] = tag_name
+
+    def on_key_release(self, event=None):
+        # Get the current content of the text widget
+        code = self.model_text.get("1.0", tk.END)
+        self.apply_syntax_highlighting(code)
+
+    def apply_syntax_highlighting(self, code):
+        # Remove previous highlighting
+        for tag in self.tags.values():
+            self.model_text.tag_remove(tag, "1.0", tk.END)
+
+        # Track the position in the text widget
+        position = 0
+
+        for token, content in lex(code, PythonLexer()):
+            start_index = self.model_text.index(f"1.0 + {position} chars")
+            position += len(content)
+            end_index = self.model_text.index(f"1.0 + {position} chars")
+            tag_name = str(token)
+            self.model_text.tag_add(tag_name, start_index, end_index)
         
+        self.model_text.update_idletasks()
+
     def close(self):
         self.destroy()
         
-    def on_resize(self, event):
-        self.model_text.configure(width=event.width, height=event.height)
-
+    def save_model(self):
+        self.modelTrainUI.queue[self.queue_id].load_model_from_content(self.model_text.get("1.0", tk.END))
+        
 if __name__ == "__main__":
     modelTrainUI()
