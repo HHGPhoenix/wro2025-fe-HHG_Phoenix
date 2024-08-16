@@ -19,8 +19,8 @@ import inspect
 
 ############################################################################################################
 
-def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
-    return None
+# def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
+#     return None
 
 ############################################################################################################
 
@@ -254,7 +254,8 @@ class modelTrainUI(ctk.CTk):
         self.queue_thread.start()
         
     def process_queue(self):
-        for item in self.queue:
+        queue = self.queue.copy()
+        for item in queue:
             item.start_training()
             while item.model_train_thread.is_alive():
                 pass
@@ -305,6 +306,8 @@ class modelTrainUI(ctk.CTk):
         self.patience_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
         
         self.patience_entry.bind("<FocusOut>", lambda e: self.save_settings())
+        self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
+        self.settings_window.protocol("WM_DELETE_WINDOW", lambda: self.save_settings(True))
         
         self.update()
         self.settings_window.focus_force()
@@ -314,7 +317,7 @@ class modelTrainUI(ctk.CTk):
         button_width = self.settings_button.winfo_reqwidth()
         self.settings_button.place(x=parent_width - button_width - 10, y=10)
         
-    def save_settings(self):
+    def save_settings(self, exit=False):
         # check if all values are integers
         try:
             int(self.epochs.get())
@@ -331,6 +334,9 @@ class modelTrainUI(ctk.CTk):
                 "patience": self.patience.get()
             }
             json.dump(file_content, f)
+        
+        if exit:
+            self.settings_window.destroy()
 
 
 class DataProcessor:
