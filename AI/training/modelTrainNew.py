@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from CTkListbox import *
 import tkinter as tk
 from tkinter import messagebox, filedialog
 import numpy as np
@@ -47,8 +48,6 @@ class modelTrainUI(ctk.CTk):
         self.patience = tk.StringVar(value=self.patience_default)
         
         self.handle_settings()
-        
-        self.SAVE_WAITTIME = 5
         
         self.protocol("WM_DELETE_WINDOW", self.close)
         signal.signal(signal.SIGINT, self.close)
@@ -165,6 +164,17 @@ class modelTrainUI(ctk.CTk):
         
         ############################################################################################################
         
+        self.queue_frame = ctk.CTkFrame(self.configuration_frame)
+        self.queue_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+        
+        self.queue_label = ctk.CTkLabel(self.queue_frame, text="Queue", font=("Arial", 15), width=0, height=0)
+        self.queue_label.pack(padx=15, pady=(0, 0), anchor='n', expand=True, fill='both')
+        
+        self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15))
+        self.queue_listbox.pack(padx=15, pady=(0, 15), anchor='n', expand=True, fill='both')
+        
+        ############################################################################################################
+        
         self.start_queue_button = ctk.CTkButton(self.configuration_frame, text="Start Queue", command=self.start_queue)
         self.start_queue_button.pack(padx=15, pady=20, anchor='n', expand=True, fill='x')
         
@@ -247,6 +257,10 @@ class modelTrainUI(ctk.CTk):
         self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
         
+        name = self.queue[-1].model_name if self.queue[-1].model_name else f"Model {len(self.queue)}"
+        
+        self.queue_listbox.insert(tk.END, name)
+        
         # messagebox.showinfo("Success", "Added to queue successfully")
     
     def start_queue(self):
@@ -257,7 +271,7 @@ class modelTrainUI(ctk.CTk):
         queue = self.queue.copy()
         for item in queue:
             item.start_training()
-            while item.model_train_thread.is_alive():
+            while item.model_train_thread and item.model_train_thread.is_alive():
                 pass
         messagebox.showinfo("Success", "Queue processed successfully")
         
@@ -365,6 +379,9 @@ class DataProcessor:
         self.epochs = epochs
         self.batch_size = batch_size
         self.patience = patience
+        
+        if self.model_name == "":
+            self.model_name = str(uuid.uuid4())
     
     def start_training(self):
         if not self.modelTrainUI.tensorflow_imported:
@@ -374,13 +391,8 @@ class DataProcessor:
         if self.lidar_train is None or self.image_train is None or self.controller_train is None or self.counter_train is None:
             messagebox.showerror("Error", "No training data loaded")
             return
-
-        if self.model_name == "":
-            if messagebox.askyesno("Warning", "No model name provided. Do you want to continue? A random UUID will be used!"):
-                self.model_name = str(uuid.uuid4())
-            else:
-                return
-            
+        
+        
         self.train_model(self.model_name, self.epochs, self.batch_size, self.patience)
 
     def train_model(self, model_name, epochs, batch_size, patience):
