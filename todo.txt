@@ -1,0 +1,3 @@
+- keep config global
+- dont keep folder name if nothing found
+- no save of new changes when edit opens new

@@ -51,6 +51,8 @@ class modelTrainUI(ctk.CTk):
         self.model_name = tk.StringVar()
         self.keep_config_var = tk.BooleanVar()
         
+        # SETTINGS
+        
         self.epochs_default = 10
         self.batch_size_default = 32
         self.patience_default = 5
@@ -60,6 +62,13 @@ class modelTrainUI(ctk.CTk):
         self.batch_size = tk.StringVar(value=self.batch_size_default)
         self.patience = tk.StringVar(value=self.patience_default)
         self.epochs_graphed = tk.StringVar(value=self.epochs_graphed_default)
+        
+        self.settings = {
+            "epochs": (self.epochs, self.epochs_default),
+            "batch_size": (self.batch_size, self.batch_size_default),
+            "patience": (self.patience, self.patience_default),
+            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default)
+        }
         
         self.handle_settings()
         
@@ -98,29 +107,27 @@ class modelTrainUI(ctk.CTk):
             self.create_settings_file()
         else:
             self.load_settings()
-            
+        
     def create_settings_file(self):
-        # if the settings file does not exist, create it
+        settings = self.settings
+        
         with open("settings.json", "w") as f:
-            file_content = {
-                "epochs": self.epochs_default,
-                "batch_size": self.batch_size_default,
-                "patience": self.patience_default,
-                "epochs_graphed": self.epochs_graphed_default
-            }
+            file_content = {}
+            for key, (value, default) in settings.items():
+                file_content[key] = default
             json.dump(file_content, f)
 
     def load_settings(self):
+        settings = self.settings
+        
         if os.path.exists("settings.json"):
             try:
                 with open("settings.json", "r") as f:
                     file_content = json.load(f)
-                    self.epochs.set(file_content["epochs"])
-                    self.batch_size.set(file_content["batch_size"])
-                    self.patience.set(file_content["patience"]),
-                    self.epochs_graphed.set(file_content["epochs_graphed"])
-            except KeyError:
-                
+                    for key, (value, default) in settings.items():
+                        if key in file_content:
+                            value.set(file_content[key])
+            except (KeyError, json.decoder.JSONDecodeError):
                 delete_or_not = messagebox.askyesno("Error", "The settings file is corrupted. Do you want to delete it? Or exit!")
                 if delete_or_not:
                     os.remove("settings.json")
@@ -128,6 +135,17 @@ class modelTrainUI(ctk.CTk):
                     self.load_settings()
                 else:
                     self.close()
+    
+    def toggle_button_state(self, button, state=True):
+        if state:
+            button.configure(state=tk.NORMAL)
+            button.configure(fg_color='#1F6AA5')
+        else:
+            button.configure(state=tk.DISABLED)
+            button.configure(fg_color='#0d2b42')
+
+        self.update()
+        self.update_idletasks()
                 
 ############################################################################################################
 
@@ -347,26 +365,38 @@ class modelTrainUI(ctk.CTk):
         self.queue_thread.start()
         
     def process_queue(self):
-        queue = self.queue.copy()
+        queue = self.queue
         
         if not queue:
             messagebox.showerror("Error", "Queue is empty")
             return
         
+        self.toggle_button_state(self.start_queue_button, False)
+        self.toggle_button_state(self.queue_clear_button, False)
+        self.toggle_button_state(self.queue_delete_button, False)
+        self.toggle_button_state(self.queue_details_button, False)
+        
         for i, item in enumerate(queue):
             if i != 0:
-                self.queue_listbox.delete(i-1)
-                self.queue_listbox.insert(i-1, queue[i-1].custom_model_name)
+                # self.queue_listbox.delete(i-1, True)
+                self.queue_listbox.insert(i-1, queue[i-1].custom_model_name, update=True)
                 
-            self.queue_listbox.delete(i)
-            self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing")
+            print(f"Processing {i} - {item.custom_model_name}")
+            
+            # self.queue_listbox.delete(i, True)
+            self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing", update=True)
             
             item.start_training()
         
-        self.queue_listbox.delete(len(queue)-1)
-        self.queue_listbox.insert(len(queue)-1, f"{queue[-1].custom_model_name}")
+        # self.queue_listbox.delete(len(queue)-1, True)
+        self.queue_listbox.insert(len(queue)-1, f"{queue[-1].custom_model_name}", update=True)
         
         messagebox.showinfo("Success", "Queue processed successfully")
+        
+        self.toggle_button_state(self.start_queue_button, True)
+        self.toggle_button_state(self.queue_clear_button, True)
+        self.toggle_button_state(self.queue_delete_button, True)
+        self.toggle_button_state(self.queue_details_button, True)
         
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
@@ -376,26 +406,20 @@ class modelTrainUI(ctk.CTk):
             return
         
         # Define the settings parameters
-        settings_params = [
-            ("Epochs", self.epochs),
-            ("Batch Size", self.batch_size),
-            ("Patience", self.patience),
-            ("Epochs Shown", self.epochs_graphed)
-        ]
-        
+        settings = self.settings
         # Create the settings window
         self.settings_window = ctk.CTkToplevel(self)
         self.settings_window.title("Settings")
         
         # Iterate over the settings parameters to create frames, labels, and entries
-        for param_name, param_var in settings_params:
+        for key, (value, default) in settings.items():
             frame = ctk.CTkFrame(self.settings_window)
             frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
             
-            label = ctk.CTkLabel(frame, text=param_name, font=("Arial", 15))
+            label = ctk.CTkLabel(frame, text=key, font=("Arial", 15))
             label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
             
-            entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=param_var)
+            entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=value)
             entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
             
             entry.bind("<FocusOut>", lambda e: self.save_settings())
@@ -414,24 +438,26 @@ class modelTrainUI(ctk.CTk):
         self.settings_button.place(x=parent_width - button_width - 10, y=10)
         
     def save_settings(self, exit=False):
-        # check if all values are integers
-        try:
-            int(self.epochs.get())
-            int(self.batch_size.get())
-            int(self.patience.get())
-            int(self.epochs_graphed.get())
-        except ValueError:
-            if self.epochs.get() != "" or self.batch_size.get() != "" or self.patience.get() != "" or self.epochs_graphed.get() != "":
-                messagebox.showerror("Error", "All values must be integers")
-            return
+        settings = self.settings
+    
+        for key, (value, default) in settings.items():
+            try:
+                numeric_value = ''.join(filter(str.isdigit, value.get()))
+                if numeric_value == '':
+                    int_value = default
+                else:
+                    int_value = int(numeric_value)
+                    if int_value <= 0:
+                        int_value = default
+                settings[key][0].set(int_value)
+            except ValueError:
+                settings[key][0].set(default)
+                messagebox.showerror("Error", f"Invalid value for {key}. Reverting to {default}.")
         
         with open("settings.json", "w") as f:
-            file_content = {
-                "epochs": self.epochs.get(),
-                "batch_size": self.batch_size.get(),
-                "patience": self.patience.get(),
-                "epochs_graphed": self.epochs_graphed.get()
-            }
+            file_content = {}
+            for key, (value, default) in settings.items():
+                file_content[key] = int(value.get())
             json.dump(file_content, f)
         
         if exit:
