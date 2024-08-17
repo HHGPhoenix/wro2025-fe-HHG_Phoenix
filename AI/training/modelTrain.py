@@ -26,20 +26,17 @@ DEBUG = False
 
 ############################################################################################################
 
-# def create_model(lidar_input_shape, frame_input_shape, counter_input_shape):
-#     return None
-
-############################################################################################################
-
 class modelTrainUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Model Training")
         self.geometry("+50+50")
+        self.minsize(height=930, width=1250)
         
-        self.select_training_data_path = None
+        self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
         self.selected_model_configuration_path = None
+        self.selected_model_configuration_path_basename = None
         self.settings_window = None
         
         self.lazy_imports_imported = False
@@ -50,9 +47,9 @@ class modelTrainUI(ctk.CTk):
         
         self.model_name = tk.StringVar()
         self.keep_config_var = tk.BooleanVar()
+        self.keep_config_var_global = tk.BooleanVar()
         
         # SETTINGS
-        
         self.epochs_default = 10
         self.batch_size_default = 32
         self.patience_default = 5
@@ -70,6 +67,8 @@ class modelTrainUI(ctk.CTk):
             "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default)
         }
         
+        self.configuration_path_global = "model_preset_configuration.json"
+        
         self.handle_settings()
         
         self.protocol("WM_DELETE_WINDOW", self.close)
@@ -84,11 +83,17 @@ class modelTrainUI(ctk.CTk):
         
         self.data_processor = DataProcessor(self)
         
+        if os.path.exists(self.configuration_path_global):
+            self.load_model_configuration_file()
+            self.keep_config_var_global.set(True)
+            self.keep_config_var.set(True)
+        
         self.mainloop()
 
 ############################################################################################################
 
     def close(self, *args):
+        self.handle_save_model_configuration()
         self.stopped = True
         self.quit()  # Stop the main loop
         os._exit(0)
@@ -135,6 +140,51 @@ class modelTrainUI(ctk.CTk):
                     self.load_settings()
                 else:
                     self.close()
+                    
+    def save_model_configuration_file(self):
+        if not self.keep_config_var_global.get():
+            return
+        self.configuration_to_save = {
+            "selected_training_data_path": self.selected_training_data_path,
+            "selected_training_data_path_basename": self.selected_training_data_path_basename,
+            "selected_model_configuration_path": self.selected_model_configuration_path,
+            "selected_model_configuration_path_basename": self.selected_model_configuration_path_basename,
+            "model_name": self.model_name.get(),
+        }
+        
+        with open(self.configuration_path_global, "w") as f:
+            json.dump(self.configuration_to_save, f)
+            
+    def load_model_configuration_file(self):
+        if not os.path.exists(self.configuration_path_global):
+            return
+        
+        with open(self.configuration_path_global, "r") as f:
+            file_content = json.load(f)
+            self.selected_training_data_path = file_content["selected_training_data_path"]
+            self.selected_training_data_path_basename = file_content["selected_training_data_path_basename"]
+            self.selected_model_configuration_path = file_content["selected_model_configuration_path"]
+            self.selected_model_configuration_path_basename = file_content["selected_model_configuration_path_basename"]
+            self.model_name.set(file_content["model_name"])
+            
+            if self.selected_training_data_path_basename:
+                self.selected_training_data_path_label.configure(text=f"Selected Training Data: \n{self.selected_training_data_path_basename}")
+            if self.selected_model_configuration_path_basename:
+                self.select_model_configuration_label.configure(text=f"Model Configuration File: \n{self.selected_model_configuration_path_basename}")
+            
+            if self.selected_training_data_path:
+                self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+            if self.selected_model_configuration_path:
+                self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+
+    def handle_save_model_configuration(self, advanced=False):
+        if self.keep_config_var_global.get():
+            if advanced:
+                self.keep_config_var.set(True)
+            self.save_model_configuration_file()
+        elif advanced:
+            if os.path.exists(self.configuration_path_global):
+                os.remove(self.configuration_path_global)
     
     def toggle_button_state(self, button, state=True):
         if state:
@@ -204,10 +254,19 @@ class modelTrainUI(ctk.CTk):
         self.select_model_name_entry = ctk.CTkEntry(self.select_model_name_frame, font=("Arial", 15), textvariable=self.model_name)
         self.select_model_name_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
         
+        self.select_model_name_frame.bind("<FocusOut>", lambda e: self.handle_save_model_configuration())
+        self.select_model_name_entry.bind("<FocusOut>", lambda e: self.handle_save_model_configuration())
+        
         ############################################################################################################
         
-        self.keep_config_checkbox = ctk.CTkCheckBox(self.queue_item_frame, text="Keep Configuration", font=("Arial", 13), variable=self.keep_config_var)
-        self.keep_config_checkbox.pack(padx=15, pady=(15, 0), side='top')
+        self.keep_config_frame = ctk.CTkFrame(self.queue_item_frame)
+        self.keep_config_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
+        
+        self.keep_config_checkbox = ctk.CTkCheckBox(self.keep_config_frame, text="Keep Configuration", font=("Arial", 13), variable=self.keep_config_var)
+        self.keep_config_checkbox.pack(padx=(20, 10), pady=(10, 10), side='left', expand=True, fill='both')
+        
+        self.keep_config_global_checkbox = ctk.CTkCheckBox(self.keep_config_frame, text="Keep Configuration Globally", font=("Arial", 13), variable=self.keep_config_var_global, command=lambda: self.handle_save_model_configuration(True))
+        self.keep_config_global_checkbox.pack(padx=(10, 20), pady=(10, 10), side='right', expand=False, fill='both')
         
         ############################################################################################################
         
@@ -233,7 +292,7 @@ class modelTrainUI(ctk.CTk):
         self.queue_clear_button = ctk.CTkButton(self.queue_top_frame, text="Clear", command=self.clear_queue, width=30, height=10, corner_radius=5)
         self.queue_clear_button.grid(row=0, column=2, padx=5, pady=(0, 0), sticky='e')
         
-        self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15)) # type: ignore
+        self.queue_listbox = CTkListbox(self.queue_frame, font=("Arial", 15), height=110) # type: ignore
         self.queue_listbox.pack(padx=15, pady=(0, 5), anchor='n', expand=True, fill='both')
         
         self.queue_config_frame = ctk.CTkFrame(self.queue_frame)
@@ -246,15 +305,18 @@ class modelTrainUI(ctk.CTk):
         details_image = ctk.CTkImage(details_image, details_image, (35, 35))
         
         self.queue_delete_button = ctk.CTkButton(self.queue_config_frame, text="", image=delete_image, command=self.delete_queue_item)
-        self.queue_delete_button.pack(padx=5, pady=5, side=tk.LEFT)
+        self.queue_delete_button.pack(padx=5, pady=5, side=tk.LEFT, expand=True, fill='x')
         
         self.queue_details_button = ctk.CTkButton(self.queue_config_frame, text="", image=details_image, command=self.show_queue_item_details)
-        self.queue_details_button.pack(padx=5, pady=5, side=tk.LEFT)
+        self.queue_details_button.pack(padx=5, pady=5, side=tk.RIGHT, expand=True, fill='x')
         
         ############################################################################################################
         
-        self.start_queue_button = ctk.CTkButton(self.configuration_frame, text="Start Queue", command=self.start_queue)
-        self.start_queue_button.pack(padx=15, pady=20, anchor='n', expand=True, fill='x')
+        start_image = Image.open(r"AI\assets\play_icon.png")
+        start_image = ctk.CTkImage(start_image, start_image, (35, 35))
+        
+        self.start_queue_button = ctk.CTkButton(self.configuration_frame, text="Start Queue", image=start_image, command=self.start_queue, width=30, height=20, corner_radius=5)
+        self.start_queue_button.pack(padx=15, pady=(20, 0), anchor='n', expand=True, fill='both')
         
         ############################################################################################################
         
@@ -269,22 +331,125 @@ class modelTrainUI(ctk.CTk):
         button_width = self.settings_button.winfo_reqwidth()
         self.settings_button.place(x=parent_width - button_width - 10, y=10)
         
+        self.credit_frame = ctk.CTkFrame(self.configuration_frame)
+        self.credit_frame.pack(padx=15, pady=(15, 15), anchor='s', expand=False, fill='x', side='bottom')
+
+        self.credit_label = ctk.CTkLabel(self.credit_frame, text="Developed by HHG_Phoenix", font=("Arial", 18, "bold"), corner_radius=5, padx=10, pady=10)
+        self.credit_label.pack(padx=15, pady=10, side='left')
+
+        light_image = Image.open(r"AI\assets\phoenix_logo.png")
+
+        dark_image = Image.open(r"AI\assets\phoenix_logo.png")
+
+        self.credit_logo = ctk.CTkImage(light_image, dark_image, size=(90, 90))
+        self.credit_logo_label = ctk.CTkLabel(self.credit_frame, image=self.credit_logo, text="", corner_radius=5, padx=10, pady=10)
+        self.credit_logo_label.pack(padx=15, pady=10, side='right')
+        
         self.bind("<Configure>", self.on_resize)
         
     def create_information_frame(self):
         self.information_frame.grid_rowconfigure(0, weight=1)
-        self.information_frame.grid_columnconfigure(0, weight=1)
+        self.information_frame.grid_columnconfigure(0, weight=3)
+        self.information_frame.grid_columnconfigure(1, weight=1)
         
-        self.loss_plot_frame = ctk.CTkFrame(self.information_frame, height=1000, width=1000)
+        ############################################################################################################
+        
+        self.plot_frame = ctk.CTkFrame(self.information_frame)
+        self.plot_frame.grid(row=0, column=0, padx=15, pady=15, sticky='nsew')
+        
+        self.plot_frame.grid_rowconfigure(0, weight=1, uniform='plot')
+        self.plot_frame.grid_rowconfigure(1, weight=1, uniform='plot')
+        self.plot_frame.grid_columnconfigure(0, weight=1)
+        
+        self.loss_plot_frame = ctk.CTkFrame(self.plot_frame, height=1000, width=1000, corner_radius=5)
         self.loss_plot_frame.grid(row=0, column=0, padx=15, pady=15, sticky='nsew')
         self.data_visualizer.create_loss_plot(self.loss_plot_frame)
         
-        self.mae_plot_frame = ctk.CTkFrame(self.information_frame, height=1000, width=1000)
+        self.mae_plot_frame = ctk.CTkFrame(self.plot_frame, height=1000, width=1000, corner_radius=5)
         self.mae_plot_frame.grid(row=1, column=0, padx=15, pady=15, sticky='nsew')
         self.data_visualizer.create_mae_plot(self.mae_plot_frame)
         
-        self.information_frame.grid_rowconfigure(1, weight=1)
-
+        ############################################################################################################
+        
+        self.stats_frame = ctk.CTkFrame(self.information_frame)
+        self.stats_frame.grid(row=0, column=1, padx=15, pady=15, sticky='nsew')
+        
+        
+        self.mae_frame = ctk.CTkFrame(self.stats_frame)
+        self.mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
+        
+        
+        self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
+        self.lowest_val_mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
+        
+        self.lowest_val_mae_desc_label = ctk.CTkLabel(self.lowest_val_mae_frame, text="Lowest Validation MAE:", font=("Arial", 17, 'bold'))
+        self.lowest_val_mae_desc_label.pack(padx=15, pady=(15, 0), expand=True, fill='y')
+        
+        self.lowest_val_mae_label = ctk.CTkLabel(self.lowest_val_mae_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_val_mae_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        self.lowest_val_mae_epoch_desc_label = ctk.CTkLabel(self.lowest_val_mae_frame, text="Epoch:", font=("Arial", 17, 'bold'))
+        self.lowest_val_mae_epoch_desc_label.pack(padx=15, pady=(0, 0), expand=True, fill='y')
+        
+        self.lowest_val_mae_epoch_label = ctk.CTkLabel(self.lowest_val_mae_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_val_mae_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        
+        self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
+        self.lowest_mae_frame.pack(padx=15, pady=(15, 15), fill='both', expand=True)
+        
+        self.lowest_mae_desc_label = ctk.CTkLabel(self.lowest_mae_frame, text="Lowest MAE:", font=("Arial", 17, 'bold'))
+        self.lowest_mae_desc_label.pack(padx=15, pady=(15, 0), expand=True, fill='y')
+        
+        self.lowest_mae_label = ctk.CTkLabel(self.lowest_mae_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_mae_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        self.lowest_mae_epoch_desc_label = ctk.CTkLabel(self.lowest_mae_frame, text="Epoch:", font=("Arial", 17, 'bold'))
+        self.lowest_mae_epoch_desc_label.pack(padx=15, pady=(0, 0), expand=True, fill='y')
+        
+        self.lowest_mae_epoch_label = ctk.CTkLabel(self.lowest_mae_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_mae_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        
+        self.loss_frame = ctk.CTkFrame(self.stats_frame)
+        self.loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True, side='bottom')
+        
+        
+        self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
+        self.lowest_val_loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
+        
+        self.lowest_val_loss_desc_label = ctk.CTkLabel(self.lowest_val_loss_frame, text="Lowest Validation Loss:", font=("Arial", 17, 'bold'))
+        self.lowest_val_loss_desc_label.pack(padx=15, pady=(15, 0), expand=True, fill='y')
+        
+        self.lowest_val_loss_label = ctk.CTkLabel(self.lowest_val_loss_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_val_loss_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        self.lowest_val_loss_epoch_desc_label = ctk.CTkLabel(self.lowest_val_loss_frame, text="Epoch:", font=("Arial", 17, 'bold'))
+        self.lowest_val_loss_epoch_desc_label.pack(padx=15, pady=(0, 0), expand=True, fill='y')
+        
+        self.lowest_val_loss_epoch_label = ctk.CTkLabel(self.lowest_val_loss_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_val_loss_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        
+        self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
+        self.lowest_loss_frame.pack(padx=15, pady=(15, 15), fill='both', expand=True)
+        
+        self.lowest_loss_desc_label = ctk.CTkLabel(self.lowest_loss_frame, text="Lowest Loss:", font=("Arial", 17, 'bold'))
+        self.lowest_loss_desc_label.pack(padx=15, pady=(15, 0), expand=True, fill='y')
+        
+        self.lowest_loss_label = ctk.CTkLabel(self.lowest_loss_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_loss_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        self.lowest_loss_epoch_desc_label = ctk.CTkLabel(self.lowest_loss_frame, text="Epoch:", font=("Arial", 17, 'bold'))
+        self.lowest_loss_epoch_desc_label.pack(padx=15, pady=(0, 0), expand=True, fill='y')
+        
+        self.lowest_loss_epoch_label = ctk.CTkLabel(self.lowest_loss_frame, text="N/A", font=("Arial", 20, 'bold'))
+        self.lowest_loss_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
+        
+        self.stats_value_labels = [self.lowest_val_mae_label, self.lowest_mae_label, self.lowest_val_loss_label, self.lowest_loss_label]
+        self.stats_epoch_labels = [self.lowest_val_mae_epoch_label, self.lowest_mae_epoch_label, self.lowest_val_loss_epoch_label, self.lowest_loss_epoch_label]
+        self.stats_frames = [self.lowest_val_mae_frame, self.lowest_mae_frame, self.lowest_val_loss_frame, self.lowest_loss_frame]
+        
 ############################################################################################################
 
     def select_training_data(self):
@@ -299,6 +464,7 @@ class modelTrainUI(ctk.CTk):
         self.selected_training_data_path_label.configure(text=f"Selected Training Data: \n{self.selected_training_data_path_basename}")
         
         self.data_processor.load_training_data_wrapper(path)
+        self.handle_save_model_configuration()
         
     def select_model_configuration(self):
         path = filedialog.askopenfilename(filetypes=[("Python Files", "*.py")])
@@ -316,6 +482,7 @@ class modelTrainUI(ctk.CTk):
         self.select_model_configuration_label.configure(text=f"Model Configuration File: \n{self.selected_model_configuration_path_basename}")
         
         self.data_processor.load_model_configuration(path)
+        self.handle_save_model_configuration()
 
     def add_to_queue(self):
         if self.selected_training_data_path is None:
@@ -358,11 +525,16 @@ class modelTrainUI(ctk.CTk):
             self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
             self.data_processor.load_model_configuration(self.selected_model_configuration_path)
         
+        self.handle_save_model_configuration()
+        
         self.queue_listbox.insert(tk.END, name)
 
     def start_queue(self):
         self.queue_thread = threading.Thread(target=self.process_queue, daemon=True)
         self.queue_thread.start()
+        
+        # how would i kill this thread if i wanted to stop the queue?
+        # self.queue_thread.join()
         
     def process_queue(self):
         queue = self.queue
@@ -376,7 +548,15 @@ class modelTrainUI(ctk.CTk):
         self.toggle_button_state(self.queue_delete_button, False)
         self.toggle_button_state(self.queue_details_button, False)
         
+        
         for i, item in enumerate(queue):
+            
+            for value, epoch in zip(self.stats_value_labels, self.stats_epoch_labels):
+                value.configure(text="N/A")
+                epoch.configure(text="N/A")
+                
+            self.data_visualizer.clear_plots()
+                
             if i != 0:
                 # self.queue_listbox.delete(i-1, True)
                 self.queue_listbox.insert(i-1, queue[i-1].custom_model_name, update=True)
@@ -387,6 +567,8 @@ class modelTrainUI(ctk.CTk):
             self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing", update=True)
             
             item.start_training()
+            
+            time.sleep(4)
         
         # self.queue_listbox.delete(len(queue)-1, True)
         self.queue_listbox.insert(len(queue)-1, f"{queue[-1].custom_model_name}", update=True)
@@ -570,14 +752,16 @@ class DataProcessor:
             print(f"Validation Frame data shape: {self.image_val.shape}")
             print(f"Validation Counter data shape: {self.counter_val.shape}")
         
-        self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1), frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), counter_input_shape=(self.counter_train.shape[1], ))
+        self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
+                                         frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]),
+                                         counter_input_shape=(self.counter_train.shape[1], ))
 
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         checkpoint_filename = f"best_model_{model_name}.h5"
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
-        data_callback = TrainingDataCallback(self.data_visualizer, epochs_graphed=self.epochs_graphed)
+        data_callback = TrainingDataCallback(self.modelTrainUI, self.data_visualizer, epochs_graphed=self.epochs_graphed)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
@@ -666,8 +850,9 @@ class DataProcessor:
 
 
 class TrainingDataCallback(Callback):
-    def __init__(self, data_visualizer, epochs_graphed=50):
+    def __init__(self, model_train_ui, data_visualizer, epochs_graphed=50):
         super().__init__()
+        self.model_train_ui = model_train_ui
         self.data_visualizer = data_visualizer
         self.epochs_graphed = epochs_graphed
 
@@ -682,12 +867,60 @@ class TrainingDataCallback(Callback):
         self.full_val_loss_values = []
         self.full_mae_values = []
         self.full_val_mae_values = []
+        
+        self.color_reset_timers = {}
+        self.frame_colors = {}
 
     def on_epoch_end(self, epoch, logs=None):
-        self.loss_values.append(logs['loss'])
-        self.val_loss_values.append(logs['val_loss'])
-        self.mae_values.append(logs['mae'])
-        self.val_mae_values.append(logs['val_mae'])
+        loss = logs['loss']
+        val_loss = logs['val_loss']
+        mae = logs['mae']
+        val_mae = logs['val_mae']
+        
+        current_stats_array = [
+            (val_mae, epoch),
+            (mae, epoch),
+            (val_loss, epoch),
+            (loss, epoch)
+        ]
+        
+        for lowest_variable, epoch_number, frame, (current_variable, current_epoch) in zip(self.model_train_ui.stats_value_labels, self.model_train_ui.stats_epoch_labels, self.model_train_ui.stats_frames, current_stats_array):
+            
+            lowest_variable_text = lowest_variable.cget("text")
+            
+            current_variable = round(current_variable, 4)
+            current_epoch = current_epoch + 1
+            
+            if lowest_variable_text == "N/A" or current_variable < float(lowest_variable_text):
+                lowest_variable.configure(text=f"{current_variable}")
+                epoch_number.configure(text=f"{current_epoch}")
+                
+                # Store the original color if not already stored
+                if frame not in self.frame_colors:
+                    # print("Storing color")
+                    self.frame_colors[frame] = frame.cget('fg_color')
+                
+                old_color = self.frame_colors[frame]
+                # print(f"Old color: {old_color}")
+                
+                # Change the color to red
+                frame.configure(fg_color='#520606')
+                self.model_train_ui.after(300, lambda frame=frame: frame.configure(fg_color='red'))
+                self.model_train_ui.update_idletasks()
+                self.model_train_ui.update()
+                
+                # Reset the timer if it exists
+                if frame in self.color_reset_timers and self.color_reset_timers[frame] is not None:
+                    self.color_reset_timers[frame].cancel()
+                
+                # Create a new timer to reset the color after 3.5 seconds
+                self.color_reset_timers[frame] = threading.Timer(3.5, lambda frame=frame, old_color=old_color: frame.configure(fg_color=old_color))
+                self.color_reset_timers[frame].start()
+        
+        self.loss_values.append(loss)
+        self.val_loss_values.append(val_loss)
+        self.mae_values.append(mae)
+        self.val_mae_values.append(val_mae)
         
         # print(f"Epoch {epoch + 1}/{self.params['epochs']} - loss: {logs['loss']}, val_loss: {logs['val_loss']}, mae: {logs['mae']}, val_mae: {logs['val_mae']}")
         
@@ -700,12 +933,14 @@ class TrainingDataCallback(Callback):
         self.data_visualizer.update_loss_plot(self.loss_values, self.val_loss_values)
         self.data_visualizer.update_mae_plot(self.mae_values, self.val_mae_values)
         
-        self.full_loss_values.append(logs['loss'])
-        self.full_val_loss_values.append(logs['val_loss'])
-        self.full_mae_values.append(logs['mae'])
-        self.full_val_mae_values.append(logs['val_mae'])
+        self.full_loss_values.append(loss)
+        self.full_val_loss_values.append(val_loss)
+        self.full_mae_values.append(mae)
+        self.full_val_mae_values.append(val_mae)
 
     def on_train_end(self, logs=None):
+        self.color_reset_timers = {}
+        self.frame_colors = {}
         self.data_visualizer.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values)
 
 
@@ -834,6 +1069,10 @@ class VisualizeData:
 
         # Close the figure to release memory
         plt.close(fig)
+        
+    def clear_plots(self):
+        self.clear_loss_plot()
+        self.clear_mae_plot()
 
 class ModelDetailsWindow(ctk.CTkToplevel):
     def __init__(self, modelTrainUI, model_name, model_file_content, queue_id):
@@ -848,9 +1087,16 @@ class ModelDetailsWindow(ctk.CTkToplevel):
         self.init_window()
         
     def init_window(self):
-        self.model_text = ctk.CTkTextbox(self, font=("Monaco", 16))
-        self.model_text.pack(padx=15, pady=15, fill='both', expand=True)
+        self.iconbitmap(r"AI\assets\phoenix_logo.ico")
         
+        # Create a frame to hold the text widget and the scrollbar
+        text_frame = ctk.CTkFrame(self)
+        text_frame.pack(padx=15, pady=15, fill='both', expand=True)
+
+        # Adjust the font settings here
+        self.model_text = ctk.CTkTextbox(text_frame, font=("Consolas", 16), wrap='none')
+        self.model_text.pack(side='left', fill='both', expand=True)
+
         save_image = Image.open(r"AI\assets\save.png")
         save_image = ctk.CTkImage(save_image, save_image, (45, 45))
         
@@ -905,6 +1151,6 @@ class ModelDetailsWindow(ctk.CTkToplevel):
         
     def save_model(self):
         self.modelTrainUI.queue[self.queue_id].load_model_from_content(self.model_text.get("1.0", tk.END))
-        
+
 if __name__ == "__main__":
     modelTrainUI()

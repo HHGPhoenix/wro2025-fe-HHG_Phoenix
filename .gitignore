@@ -10,3 +10,4 @@ PC_Tools/sync_handler_data.json
 *.h5
 *.tflite
 settings.json
+model_preset_configuration.json
