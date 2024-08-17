@@ -3,9 +3,12 @@ from CTkListbox import *
 import tkinter as tk
 from tkinter import messagebox, filedialog
 # import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.use('agg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import signal
 import threading
 # from sklearn.model_selection import train_test_split
@@ -559,12 +562,22 @@ class modelTrainUI(ctk.CTk):
         if not queue:
             messagebox.showerror("Error", "Queue is empty")
             return
-        
-        self.toggle_button_state(self.start_queue_button, False)
-        self.toggle_button_state(self.queue_clear_button, False)
-        self.toggle_button_state(self.queue_delete_button, False)
-        self.toggle_button_state(self.queue_details_button, False)
-        
+        try:
+            self.toggle_button_state(self.start_queue_button, False)
+            self.toggle_button_state(self.queue_clear_button, False)
+            self.toggle_button_state(self.queue_delete_button, False)
+            self.toggle_button_state(self.queue_details_button, False)
+        except tk.TclError:
+            try:
+                self.update()
+                time.sleep(0.2)
+                self.toggle_button_state(self.start_queue_button, False)
+                self.toggle_button_state(self.queue_clear_button, False)
+                self.toggle_button_state(self.queue_delete_button, False)
+                self.toggle_button_state(self.queue_details_button, False)
+            except tk.TclError:
+                messagebox.showerror("Error", "Wierd error occurred. Please restart the application.")
+                return
         
         for i, item in enumerate(queue):
             
@@ -741,6 +754,8 @@ class DataProcessor:
         
         if self.model_name == "":
             self.model_name = str(uuid.uuid4())
+        else:
+            self.model_name = self.model_name.replace(" ", "_")
 
     def start_training(self):
         if not self.modelTrainUI.lazy_imports_imported:
@@ -759,9 +774,9 @@ class DataProcessor:
             return
         
         
-        self.train_model(self.model_name, self.epochs, self.batch_size, self.patience)
+        self.train_model(self.epochs, self.batch_size, self.patience)
 
-    def train_model(self, model_name, epochs, batch_size, patience):
+    def train_model(self, epochs, batch_size, patience):
         if DEBUG:
             print(f"Train LIDAR data shape: {self.lidar_train.shape}")
             print(f"Train Controller data shape: {self.controller_train.shape}")
@@ -779,9 +794,9 @@ class DataProcessor:
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
-        checkpoint_filename = f"best_model_{model_name}.h5"
+        checkpoint_filename = f"best_model_{self.model_name}.h5"
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
-        data_callback = TrainingDataCallback(self.modelTrainUI, self.data_visualizer, epochs_graphed=self.epochs_graphed)
+        data_callback = TrainingDataCallback(self.modelTrainUI, self.data_visualizer, self, epochs_graphed=self.epochs_graphed)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
@@ -790,6 +805,8 @@ class DataProcessor:
             callbacks=[early_stopping, model_checkpoint, data_callback],
             batch_size=batch_size
         )
+        
+        print(f"Model {self.model_name} trained successfully")
         
     def load_training_data_wrapper(self, folder_path):
         self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path,), daemon=True)
@@ -873,10 +890,11 @@ class DataProcessor:
 
 
 class TrainingDataCallback(Callback):
-    def __init__(self, model_train_ui, data_visualizer, epochs_graphed=50):
+    def __init__(self, model_train_ui, data_visualizer, data_processor, epochs_graphed=50):
         super().__init__()
         self.model_train_ui = model_train_ui
         self.data_visualizer = data_visualizer
+        self.data_processor = data_processor
         self.epochs_graphed = epochs_graphed
 
         # track latest training values
@@ -907,55 +925,61 @@ class TrainingDataCallback(Callback):
             (loss, epoch)
         ]
         
-        for lowest_variable, epoch_number, frame, (current_variable, current_epoch) in zip(self.model_train_ui.stats_value_labels, self.model_train_ui.stats_epoch_labels, self.model_train_ui.stats_frames, current_stats_array):
-            
-            lowest_variable_text = lowest_variable.cget("text")
-            
-            current_variable = round(current_variable, 4)
-            current_epoch = current_epoch + 1
-            
-            if lowest_variable_text == "N/A" or current_variable < float(lowest_variable_text):
-                lowest_variable.configure(text=f"{current_variable}")
-                epoch_number.configure(text=f"{current_epoch}")
+        def update_ui():
+            for lowest_variable, epoch_number, frame, (current_variable, current_epoch) in zip(self.model_train_ui.stats_value_labels, self.model_train_ui.stats_epoch_labels, self.model_train_ui.stats_frames, current_stats_array):
                 
-                # Store the original color if not already stored
-                if frame not in self.frame_colors:
-                    # print("Storing color")
-                    self.frame_colors[frame] = frame.cget('fg_color')
+                lowest_variable_text = lowest_variable.cget("text")
                 
-                old_color = self.frame_colors[frame]
-                # print(f"Old color: {old_color}")
+                current_variable = round(current_variable, 4)
+                current_epoch = current_epoch + 1
                 
-                # Change the color to red
-                frame.configure(fg_color='#520606')
-                self.model_train_ui.after(300, lambda frame=frame: frame.configure(fg_color='red'))
-                self.model_train_ui.update_idletasks()
-                self.model_train_ui.update()
-                
-                # Reset the timer if it exists
-                if frame in self.color_reset_timers and self.color_reset_timers[frame] is not None:
-                    self.color_reset_timers[frame].cancel()
-                
-                # Create a new timer to reset the color after 3.5 seconds
-                self.color_reset_timers[frame] = threading.Timer(3.5, lambda frame=frame, old_color=old_color: frame.configure(fg_color=old_color))
-                self.color_reset_timers[frame].start()
+                if lowest_variable_text == "N/A" or current_variable < float(lowest_variable_text):
+                    lowest_variable.configure(text=f"{current_variable}")
+                    epoch_number.configure(text=f"{current_epoch}")
+                    
+                    # Store the original color if not already stored
+                    if frame not in self.frame_colors:
+                        self.frame_colors[frame] = frame.cget('fg_color')
+                    
+                    old_color = self.frame_colors[frame]
+                    
+                    # Change the color to red
+                    frame.configure(fg_color='#520606')
+                    self.model_train_ui.after(300, lambda frame=frame: frame.configure(fg_color='red'))
+                    self.model_train_ui.update_idletasks()
+                    self.model_train_ui.update()
+                    
+                    # Reset the timer if it exists
+                    if frame in self.color_reset_timers and self.color_reset_timers[frame] is not None:
+                        self.color_reset_timers[frame].cancel()
+                    
+                    # Create a new timer to reset the color after 3.5 seconds
+                    self.color_reset_timers[frame] = threading.Timer(3.5, lambda frame=frame, old_color=old_color: frame.configure(fg_color=old_color))
+                    self.color_reset_timers[frame].start()
         
+        def update_visualization():
+            if len(self.loss_values) > self.epochs_graphed:
+                self.loss_values.pop(0)
+                self.val_loss_values.pop(0)
+                self.mae_values.pop(0)
+                self.val_mae_values.pop(0)
+            
+            self.data_visualizer.update_loss_plot(self.loss_values, self.val_loss_values)
+            self.data_visualizer.update_mae_plot(self.mae_values, self.val_mae_values)
+        
+        # Update UI in a separate thread
+        threading.Thread(target=update_ui).start()
+        
+        # Append new values to lists (quick operation)
         self.loss_values.append(loss)
         self.val_loss_values.append(val_loss)
         self.mae_values.append(mae)
         self.val_mae_values.append(val_mae)
         
-        # print(f"Epoch {epoch + 1}/{self.params['epochs']} - loss: {logs['loss']}, val_loss: {logs['val_loss']}, mae: {logs['mae']}, val_mae: {logs['val_mae']}")
+        # Update visualization in a separate thread
+        threading.Thread(target=update_visualization).start()
         
-        if len(self.loss_values) > self.epochs_graphed:
-            self.loss_values.pop(0)
-            self.val_loss_values.pop(0)
-            self.mae_values.pop(0)
-            self.val_mae_values.pop(0)
-        
-        self.data_visualizer.update_loss_plot(self.loss_values, self.val_loss_values)
-        self.data_visualizer.update_mae_plot(self.mae_values, self.val_mae_values)
-        
+        # Store full values for further use (quick operation)
         self.full_loss_values.append(loss)
         self.full_val_loss_values.append(val_loss)
         self.full_mae_values.append(mae)
@@ -964,8 +988,7 @@ class TrainingDataCallback(Callback):
     def on_train_end(self, logs=None):
         self.color_reset_timers = {}
         self.frame_colors = {}
-        self.data_visualizer.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values)
-
+        self.data_visualizer.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values, f"plots_{self.data_processor.model_name}.png")
 
 class VisualizeData:
     def create_loss_plot(self, tk_frame):
@@ -1056,7 +1079,7 @@ class VisualizeData:
 
     ############################################################################################################
 
-    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path='training_plots.png'):
+    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path):
         # Create a figure with two subplots
         fig, (loss_ax, mae_ax) = plt.subplots(2, 1, figsize=(10, 8), facecolor='#222222')
 
