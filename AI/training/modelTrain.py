@@ -38,12 +38,15 @@ class modelTrainUI(ctk.CTk):
         self.selected_model_configuration_path = None
         self.selected_model_configuration_path_basename = None
         self.settings_window = None
+        self.found_training_data = None
         
         self.lazy_imports_imported = False
         
         self.model_name_counter = 0
         
         self.queue = []
+        
+        self.open_details_windows = {}
         
         self.model_name = tk.StringVar()
         self.keep_config_var = tk.BooleanVar()
@@ -463,8 +466,22 @@ class modelTrainUI(ctk.CTk):
         
         self.selected_training_data_path_label.configure(text=f"Selected Training Data: \n{self.selected_training_data_path_basename}")
         
+        self.found_training_data = None
+        
         self.data_processor.load_training_data_wrapper(path)
-        self.handle_save_model_configuration()
+        
+        while self.found_training_data is None:
+            self.update()
+            time.sleep(0.1)
+        
+        if self.found_training_data == False:
+            self.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
+            self.selected_training_data_path = None
+            self.selected_training_data_path_basename = None
+            self.found_training_data = None
+            return
+        else:
+            self.handle_save_model_configuration()
         
     def select_model_configuration(self):
         path = filedialog.askopenfilename(filetypes=[("Python Files", "*.py")])
@@ -669,9 +686,12 @@ class modelTrainUI(ctk.CTk):
         
         model_name = self.queue_listbox.get(selected_index)
         
-        details_view = ModelDetailsWindow(self, model_name, self.queue[selected_index].model_file_content, selected_index)
-        
-        self.focus_window(details_view)
+        if selected_index in self.open_details_windows:
+            self.focus_window(self.open_details_windows[selected_index])
+            
+        else:
+            details_view = ModelDetailsWindow(self, model_name, self.queue[selected_index].model_file_content, selected_index)
+            self.focus_window(details_view)
         
     def clear_queue(self):
         self.queue = []
@@ -801,7 +821,10 @@ class DataProcessor:
 
         if not lidar_data_list or not image_data_list or not controller_data_list or not counter_data_list:
             messagebox.showerror("Error", "No data files found in the selected folder")
+            self.modelTrainUI.found_training_data = False
             return
+        else:
+            self.modelTrainUI.found_training_data = True
 
         # Combine data from all folders
         lidar_data = np.concatenate(lidar_data_list, axis=0)
@@ -1085,6 +1108,13 @@ class ModelDetailsWindow(ctk.CTkToplevel):
         self.queue_id = queue_id
         
         self.init_window()
+        self.modelTrainUI.open_details_windows[queue_id] = self
+
+    def destroy(self):
+        # Remove the window from the dictionary of open windows
+        if self.queue_id in self.modelTrainUI.open_details_windows:
+            del self.modelTrainUI.open_details_windows[self.queue_id]
+        super().destroy()
         
     def init_window(self):
         self.iconbitmap(r"AI\assets\phoenix_logo.ico")
@@ -1151,6 +1181,7 @@ class ModelDetailsWindow(ctk.CTkToplevel):
         
     def save_model(self):
         self.modelTrainUI.queue[self.queue_id].load_model_from_content(self.model_text.get("1.0", tk.END))
+        self.modelTrainUI.queue[self.queue_id].model_file_content = self.model_text.get("1.0", tk.END)
 
 if __name__ == "__main__":
     modelTrainUI()
