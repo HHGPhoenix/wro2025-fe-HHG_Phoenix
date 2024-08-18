@@ -174,15 +174,24 @@ class modelTrainUI(ctk.CTk):
             self.selected_model_configuration_path_basename = file_content["selected_model_configuration_path_basename"]
             self.model_name.set(file_content["model_name"])
             
-            if self.selected_training_data_path_basename:
-                self.selected_training_data_path_label.configure(text=f"Selected Training Data: \n{self.selected_training_data_path_basename}")
-            if self.selected_model_configuration_path_basename:
-                self.select_model_configuration_label.configure(text=f"Model Configuration File: \n{self.selected_model_configuration_path_basename}")
-            
-            if self.selected_training_data_path:
-                self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
-            if self.selected_model_configuration_path:
-                self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+        if not os.path.exists(self.selected_training_data_path) or not os.path.exists(self.selected_model_configuration_path):
+            answer = messagebox.askyesno("Error", "The nessesary files are not found. Do you want to delete the configuration file or exit?")
+            if answer:
+                os.remove(self.configuration_path_global)
+                return
+            else:
+                self.close()
+                return
+        
+        if self.selected_training_data_path_basename:
+            self.selected_training_data_path_label.configure(text=f"Selected Training Data: \n{self.selected_training_data_path_basename}")
+        if self.selected_model_configuration_path_basename:
+            self.select_model_configuration_label.configure(text=f"Model Configuration File: \n{self.selected_model_configuration_path_basename}")
+        
+        if self.selected_training_data_path:
+            self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+        if self.selected_model_configuration_path:
+            self.data_processor.load_model_configuration(self.selected_model_configuration_path)
 
     def handle_save_model_configuration(self, advanced=False):
         if self.keep_config_var_global.get():
