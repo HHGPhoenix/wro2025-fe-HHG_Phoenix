@@ -35,7 +35,7 @@ class modelTrainUI(ctk.CTk):
         super().__init__()
         self.title("Model Training")
         self.geometry("+50+50")
-        self.minsize(height=930, width=1250)
+        self.minsize(height=940, width=1250)
         
         self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
@@ -323,7 +323,7 @@ class modelTrainUI(ctk.CTk):
         start_image = ctk.CTkImage(start_image, start_image, (35, 35))
         
         self.start_queue_button = ctk.CTkButton(self.configuration_frame, text="Start Queue", image=start_image, command=self.start_queue, width=30, height=20, corner_radius=5)
-        self.start_queue_button.pack(padx=15, pady=(20, 0), anchor='n', expand=True, fill='both')
+        self.start_queue_button.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
         
         ############################################################################################################
         
@@ -340,14 +340,14 @@ class modelTrainUI(ctk.CTk):
         
         self.credit_frame = ctk.CTkFrame(self.configuration_frame)
         self.credit_frame.pack(padx=15, pady=(15, 15), anchor='s', expand=False, fill='x', side='bottom')
-
+        
         self.credit_label = ctk.CTkLabel(self.credit_frame, text="Developed by HHG_Phoenix", font=("Arial", 18, "bold"), corner_radius=5, padx=10, pady=10)
         self.credit_label.pack(padx=15, pady=10, side='left')
-
+        
         light_image = Image.open(r"AI\assets\phoenix_logo.png")
-
+        
         dark_image = Image.open(r"AI\assets\phoenix_logo.png")
-
+        
         self.credit_logo = ctk.CTkImage(light_image, dark_image, size=(90, 90))
         self.credit_logo_label = ctk.CTkLabel(self.credit_frame, image=self.credit_logo, text="", corner_radius=5, padx=10, pady=10)
         self.credit_logo_label.pack(padx=15, pady=10, side='right')
@@ -378,11 +378,14 @@ class modelTrainUI(ctk.CTk):
         
         ############################################################################################################
         
-        self.stats_frame = ctk.CTkFrame(self.information_frame)
+        self.stats_frame = ctk.CTkFrame(self.information_frame, fg_color="#2b2b2b")
         self.stats_frame.grid(row=0, column=1, padx=15, pady=15, sticky='nsew')
         
+        self.text_stats_frame = ctk.CTkFrame(self.stats_frame, fg_color="#2b2b2b")
+        self.text_stats_frame.pack(padx=0, pady=(0, 0), fill='both', expand=True, side='left')
         
-        self.mae_frame = ctk.CTkFrame(self.stats_frame)
+        
+        self.mae_frame = ctk.CTkFrame(self.text_stats_frame, fg_color="#333333")
         self.mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         
@@ -418,7 +421,7 @@ class modelTrainUI(ctk.CTk):
         self.lowest_mae_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
         
         
-        self.loss_frame = ctk.CTkFrame(self.stats_frame)
+        self.loss_frame = ctk.CTkFrame(self.text_stats_frame, fg_color="#333333")
         self.loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True, side='bottom')
         
         
@@ -456,6 +459,31 @@ class modelTrainUI(ctk.CTk):
         self.stats_value_labels = [self.lowest_val_mae_label, self.lowest_mae_label, self.lowest_val_loss_label, self.lowest_loss_label]
         self.stats_epoch_labels = [self.lowest_val_mae_epoch_label, self.lowest_mae_epoch_label, self.lowest_val_loss_epoch_label, self.lowest_loss_epoch_label]
         self.stats_frames = [self.lowest_val_mae_frame, self.lowest_mae_frame, self.lowest_val_loss_frame, self.lowest_loss_frame]
+        
+        self.patience_frame = ctk.CTkFrame(self.stats_frame, fg_color="#333333")
+        self.patience_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True, side='right')
+        
+        self.patience_desc_label = ctk.CTkLabel(self.patience_frame, text="Patience:", font=("Arial", 20, 'bold'))
+        self.patience_desc_label.pack(padx=15, pady=(15, 0), expand=False, fill='x', side='top')
+        
+        self.patience_progressbar = ctk.CTkProgressBar(self.patience_frame, corner_radius=10, orientation='vertical')
+        self.patience_progressbar.pack(padx=35, pady=(10, 10), expand=True, fill='both', side='top')
+        self.patience_progressbar.set(100)
+        
+        self.patience_stats_frame = ctk.CTkFrame(self.patience_frame)
+        self.patience_stats_frame.pack(padx=15, pady=(0, 15), expand=False, fill='x', side='top')
+        
+        self.patience_value_desc_label = ctk.CTkLabel(self.patience_stats_frame, text="Patience Remaining:", font=("Arial", 14, 'bold'))
+        self.patience_value_desc_label.pack(padx=15, pady=(15, 0), expand=True, fill='x', side='top')
+        
+        self.patience_value_label = ctk.CTkLabel(self.patience_stats_frame, text="N/A", font=("Arial", 25, 'bold'), width=100)
+        self.patience_value_label.pack(padx=15, pady=(0, 10), expand=True, fill='x', side='top')
+        
+        self.patience_epoch_desc_label = ctk.CTkLabel(self.patience_stats_frame, text="Epoch:", font=("Arial", 18, 'bold'))
+        self.patience_epoch_desc_label.pack(padx=15, pady=(0, 0), expand=True, fill='x', side='top')
+        
+        self.patience_epoch_label = ctk.CTkLabel(self.patience_stats_frame, text="N/A", font=("Arial", 25, 'bold'))
+        self.patience_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='x', side='top')
         
 ############################################################################################################
 
@@ -575,6 +603,37 @@ class modelTrainUI(ctk.CTk):
         if not queue:
             messagebox.showerror("Error", "Queue is empty")
             return
+        
+        self.pre_training()
+        
+        for i, item in enumerate(queue):
+            
+            for value, epoch in zip(self.stats_value_labels, self.stats_epoch_labels):
+                value.configure(text="N/A")
+                epoch.configure(text="N/A")
+                
+            self.data_visualizer.clear_plots()
+            
+            self.patience_progressbar.set(100)
+            self.patience_value_label.configure(text="N/A")
+            self.patience_epoch_label.configure(text="N/A")
+            
+            if i != 0:
+                # self.queue_listbox.delete(i-1, True)
+                self.queue_listbox.insert(i-1, queue[i-1].custom_model_name, update=True)
+                
+            print(f"Processing {i} - {item.custom_model_name}")
+            
+            # self.queue_listbox.delete(i, True)
+            self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing", update=True)
+            
+            item.start_training()
+            
+            time.sleep(4)
+            
+        self.post_training(queue)
+    
+    def pre_training(self):
         try:
             self.toggle_button_state(self.start_queue_button, False)
             self.toggle_button_state(self.queue_clear_button, False)
@@ -591,28 +650,8 @@ class modelTrainUI(ctk.CTk):
             except tk.TclError:
                 messagebox.showerror("Error", "Wierd error occurred. Please restart the application.")
                 return
-        
-        for i, item in enumerate(queue):
-            
-            for value, epoch in zip(self.stats_value_labels, self.stats_epoch_labels):
-                value.configure(text="N/A")
-                epoch.configure(text="N/A")
-                
-            self.data_visualizer.clear_plots()
-                
-            if i != 0:
-                # self.queue_listbox.delete(i-1, True)
-                self.queue_listbox.insert(i-1, queue[i-1].custom_model_name, update=True)
-                
-            print(f"Processing {i} - {item.custom_model_name}")
-            
-            # self.queue_listbox.delete(i, True)
-            self.queue_listbox.insert(i, f"{item.custom_model_name} - Processing", update=True)
-            
-            item.start_training()
-            
-            time.sleep(4)
-        
+    
+    def post_training(self, queue):
         # self.queue_listbox.delete(len(queue)-1, True)
         self.queue_listbox.insert(len(queue)-1, f"{queue[-1].custom_model_name}", update=True)
         
@@ -622,7 +661,7 @@ class modelTrainUI(ctk.CTk):
         self.toggle_button_state(self.queue_clear_button, True)
         self.toggle_button_state(self.queue_delete_button, True)
         self.toggle_button_state(self.queue_details_button, True)
-        
+    
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
             # self.update()
@@ -976,6 +1015,22 @@ class TrainingDataCallback(Callback):
                     # Create a new timer to reset the color after 3.5 seconds
                     self.color_reset_timers[frame] = threading.Timer(3.5, lambda frame=frame, old_color=old_color: frame.configure(fg_color=old_color))
                     self.color_reset_timers[frame].start()
+                    
+                    
+            # # based on epochs since last improvement
+            # epochs_since_last_improvement = (epoch + 1) - self.last_best_epoch
+            # remaining_patience = max(0, PATIENCE - epochs_since_last_improvement)
+            # self.secondary_pb['value'] = remaining_patience
+            
+            lowest_validation_mae_epoch = self.model_train_ui.lowest_val_mae_epoch_label.cget("text")
+            
+            epoch_since_last_improvement = epoch + 1 - int(lowest_validation_mae_epoch)
+            
+            remaining_patience = max(0, self.data_processor.patience - epoch_since_last_improvement)
+            
+            self.model_train_ui.patience_progressbar.set(remaining_patience / self.data_processor.patience)
+            self.model_train_ui.patience_value_label.configure(text=f"{remaining_patience}")
+            self.model_train_ui.patience_epoch_label.configure(text=f"{current_epoch}/{self.data_processor.epochs}")
         
         def update_visualization():
             if len(self.loss_values) > self.epochs_graphed:
