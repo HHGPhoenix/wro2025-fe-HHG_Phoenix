@@ -562,6 +562,9 @@ class modelTrainUI(ctk.CTk):
         
         self.model_name_counter += 1
         
+        self.data_processor.selected_training_data_path = self.selected_training_data_path
+        self.data_processor.selected_model_configuration_path = self.selected_model_configuration_path
+        
         epochs = int(self.epochs.get())
         batch_size = int(self.batch_size.get())
         patience = int(self.patience.get())
@@ -801,6 +804,9 @@ class DataProcessor:
         
         self.model_file_content = None
         self.model_function = None
+        
+        self.selected_training_data_path = None
+        self.selected_model_configuration_path = None
 
     def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, custom_model_name=""):
         self.data_visualizer = data_visualizer
@@ -933,20 +939,24 @@ class DataProcessor:
         self.model_function = functions[0]
         
     def load_model_from_content(self, content):
-        # Create a new module
-        module = types.ModuleType("model")
-        
-        # Execute the content in the new module's namespace
-        exec(content, module.__dict__)
-        
-        # Find the only function in the module
-        functions = [obj for name, obj in inspect.getmembers(module) if inspect.isfunction(obj)]
-        if len(functions) != 1:
-            messagebox.showerror("Error", "The model configuration content must contain exactly one function")
+        try:
+            # Create a new module
+            module = types.ModuleType("model")
+            
+            # Execute the content in the new module's namespace
+            exec(content, module.__dict__)
+            
+            # Find the only function in the module
+            functions = [obj for name, obj in inspect.getmembers(module) if inspect.isfunction(obj)]
+            if len(functions) != 1:
+                messagebox.showerror("Error", "The model configuration content must contain exactly one function")
+                return
+            
+            self.model_function = functions[0]
+        except SyntaxError as e:
+            messagebox.showerror("Error", f"Syntax error in the model configuration content! Check the console for more information.")
+            print(f"Syntax error in the model configuration content: {e}")
             return
-        
-        self.model_function = functions[0]
-
 
 class TrainingDataCallback(Callback):
     def __init__(self, model_train_ui, data_visualizer, data_processor, epochs_graphed=50):
@@ -1016,11 +1026,6 @@ class TrainingDataCallback(Callback):
                     self.color_reset_timers[frame] = threading.Timer(3.5, lambda frame=frame, old_color=old_color: frame.configure(fg_color=old_color))
                     self.color_reset_timers[frame].start()
                     
-                    
-            # # based on epochs since last improvement
-            # epochs_since_last_improvement = (epoch + 1) - self.last_best_epoch
-            # remaining_patience = max(0, PATIENCE - epochs_since_last_improvement)
-            # self.secondary_pb['value'] = remaining_patience
             
             lowest_validation_mae_epoch = self.model_train_ui.lowest_val_mae_epoch_label.cget("text")
             
@@ -1093,22 +1098,22 @@ class VisualizeData:
     def update_loss_plot(self, loss_values, val_loss_values):
         self.loss_plot_axis.clear()
         
-        self.loss_plot_axis.plot(loss_values, label='Training Loss', color='cyan')
         self.loss_plot_axis.plot(val_loss_values, label='Validation Loss', color='magenta')
+        self.loss_plot_axis.plot(loss_values, label='Training Loss', color='cyan')
         
         self.loss_plot_axis.set_xlabel('Epochs', color='white')
         self.loss_plot_axis.set_ylabel('Loss', color='white')
         self.loss_plot_axis.legend()
         
         self.loss_plot_canvas.draw()
-
+    
     def clear_loss_plot(self):
         self.loss_plot_axis.clear()
         self.loss_plot_axis.grid(True, color='gray', linestyle='--', linewidth=0.5)
         self.loss_plot_canvas.draw()
-
+        
     ############################################################################################################
-
+    
     def create_mae_plot(self, tk_frame):
         self.mae_plot_fig = plt.figure(facecolor='#222222', edgecolor='#222222')
         self.mae_plot_axis = self.mae_plot_fig.add_subplot(111)
@@ -1118,7 +1123,7 @@ class VisualizeData:
         
         for spine in self.mae_plot_axis.spines.values():
             spine.set_edgecolor('white')
-
+        
         self.mae_plot_axis.grid(True, color='gray', linestyle='--', linewidth=0.5)
         self.mae_plot_axis.set_facecolor('#222222')
         
@@ -1130,37 +1135,37 @@ class VisualizeData:
         self.mae_plot_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
         tk_frame.bind("<Configure>", self.on_resize_mae)
-
+    
     def on_resize_mae(self, event):
         # Update the plot size on window resize
         self.mae_plot_canvas.get_tk_widget().config(width=event.width, height=event.height)
-
+    
     def update_mae_plot(self, mae_values, val_mae_values):
         self.mae_plot_axis.clear()
         
-        self.mae_plot_axis.plot(mae_values, label='Training MAE', color='cyan')
         self.mae_plot_axis.plot(val_mae_values, label='Validation MAE', color='magenta')
+        self.mae_plot_axis.plot(mae_values, label='Training MAE', color='cyan')
         
         self.mae_plot_axis.set_xlabel('Epochs', color='white')
         self.mae_plot_axis.set_ylabel('MAE', color='white')
         self.mae_plot_axis.legend()
         
         self.mae_plot_canvas.draw()
-
+    
     def clear_mae_plot(self):
         self.mae_plot_axis.clear()
         self.mae_plot_axis.grid(True, color='gray', linestyle='--', linewidth=0.5)
         self.mae_plot_canvas.draw()
-
+        
     ############################################################################################################
-
+    
     def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path):
         # Create a figure with two subplots
         fig, (loss_ax, mae_ax) = plt.subplots(2, 1, figsize=(10, 8), facecolor='#222222')
-
+        
         # Customize the loss plot
-        loss_ax.plot(loss_values, label='Training Loss', color='blue')
         loss_ax.plot(val_loss_values, label='Validation Loss', color='red')
+        loss_ax.plot(loss_values, label='Training Loss', color='blue')
         loss_ax.set_xlabel('Epochs', color='white')
         loss_ax.set_ylabel('Loss', color='white')
         loss_ax.legend()
@@ -1169,10 +1174,10 @@ class VisualizeData:
         loss_ax.tick_params(axis='y', colors='white')
         for spine in loss_ax.spines.values():
             spine.set_edgecolor('white')
-
+        
         # Customize the MAE plot
-        mae_ax.plot(mae_values, label='Training MAE', color='blue')
         mae_ax.plot(val_mae_values, label='Validation MAE', color='red')
+        mae_ax.plot(mae_values, label='Training MAE', color='blue')
         mae_ax.set_xlabel('Epochs', color='white')
         mae_ax.set_ylabel('MAE', color='white')
         mae_ax.legend()
@@ -1181,13 +1186,13 @@ class VisualizeData:
         mae_ax.tick_params(axis='y', colors='white')
         for spine in mae_ax.spines.values():
             spine.set_edgecolor('white')
-
+        
         # Adjust layout
         plt.tight_layout()
-
+        
         # Save the figure to a file
         plt.savefig(save_path)
-
+        
         # Close the figure to release memory
         plt.close(fig)
         
@@ -1205,66 +1210,102 @@ class ModelDetailsWindow(ctk.CTkToplevel):
         self.model_file_content = model_file_content
         self.queue_id = queue_id
         
+        self.button_disabled = True
+        self.button_pressed = False
+        
+        self.no_questions_mode = tk.BooleanVar()
+        
         self.init_window()
         self.modelTrainUI.open_details_windows[queue_id] = self
-
+    
     def destroy(self):
         # Remove the window from the dictionary of open windows
         if self.queue_id in self.modelTrainUI.open_details_windows:
             del self.modelTrainUI.open_details_windows[self.queue_id]
         super().destroy()
-        
+    
     def init_window(self):
         self.iconbitmap(r"AI\assets\phoenix_logo.ico")
         
         # Create a frame to hold the text widget and the scrollbar
         text_frame = ctk.CTkFrame(self)
         text_frame.pack(padx=15, pady=15, fill='both', expand=True)
-
+        
         # Adjust the font settings here
         self.model_text = ctk.CTkTextbox(text_frame, font=("Consolas", 16), wrap='none')
         self.model_text.pack(side='left', fill='both', expand=True)
-
+        
+        self.save_frame = ctk.CTkFrame(self)
+        self.save_frame.pack(padx=15, pady=15, side='bottom')
+        
+        self.save_frame.rowconfigure(0, weight=3)
+        self.save_frame.rowconfigure(1, weight=1)
+        self.save_frame.columnconfigure(0, weight=1)
+        self.save_frame.columnconfigure(1, weight=1)
+        
         save_image = Image.open(r"AI\assets\save.png")
         save_image = ctk.CTkImage(save_image, save_image, (45, 45))
         
-        self.save_button = ctk.CTkButton(self, text="", image=save_image, command=self.save_model, width=45, height=45, corner_radius=5)
-        self.save_button.pack(padx=15, pady=15, side='bottom')
-
+        save_to_file_image = Image.open(r"AI\assets\upload_file.png")
+        save_to_file_image = ctk.CTkImage(save_to_file_image, save_to_file_image, (45, 45))
+        
+        self.save_local_button = ctk.CTkButton(self.save_frame, text="", image=save_image, command=self.save_model_local, width=45, height=45, corner_radius=5)
+        self.save_local_button.grid(row=0, column=0, padx=15, pady=15)
+        self.modelTrainUI.toggle_button_state(self.save_local_button, False)
+        
+        self.save_model_to_file_button = ctk.CTkButton(self.save_frame, text="", image=save_to_file_image, command=self.save_model_to_file, width=45, height=45, corner_radius=5)
+        self.save_model_to_file_button.grid(row=0, column=1, padx=15, pady=15)
+        self.modelTrainUI.toggle_button_state(self.save_model_to_file_button, False)
+        
+        self.no_questions_mode_checkbox = ctk.CTkCheckBox(self.save_frame, text="No Questions Mode", variable=self.no_questions_mode, font=("Arial", 15))
+        self.no_questions_mode_checkbox.grid(row=1, column=0, columnspan=2, padx=15, pady=15)
+        
         self.model_text.insert(tk.END, self.model_file_content)
         self.setup_syntax_highlighting()
         self.apply_syntax_highlighting(self.model_file_content)
-
+        
         # Bind the KeyRelease event to apply syntax highlighting on the fly
         self.model_text.bind("<KeyRelease>", self.on_key_release)
-
-        self.protocol("WM_DELETE_WINDOW", self.close)
         
+        self.protocol("WM_DELETE_WINDOW", self.close)
+    
     def setup_syntax_highlighting(self):
         # Set up the Pygments style for syntax highlighting
         style = get_style_by_name("lightbulb")
         self.tags = {}
-
+        
         for token, style_data in style:
             foreground_color = style_data['color']
             if foreground_color:
                 tag_name = str(token)
                 self.model_text.tag_config(tag_name, foreground=f"#{foreground_color}")
                 self.tags[token] = tag_name
-
+    
     def on_key_release(self, event=None):
         # Get the current content of the text widget
         code = self.model_text.get("1.0", tk.END)
         self.apply_syntax_highlighting(code)
-
+        
+        file_changed = code.replace(" ", "").replace("\n", "") != self.model_file_content.replace(" ", "").replace("\n", "")
+        
+        if file_changed and self.button_disabled:
+            self.modelTrainUI.toggle_button_state(self.save_local_button, True)
+            self.modelTrainUI.toggle_button_state(self.save_model_to_file_button, True)
+            self.button_disabled = False
+        elif not file_changed and not self.button_disabled:
+            if not self.button_pressed:
+                self.modelTrainUI.toggle_button_state(self.save_local_button, False)
+                self.modelTrainUI.toggle_button_state(self.save_model_to_file_button, False)
+            self.button_disabled = True
+    
     def apply_syntax_highlighting(self, code):
         # Remove previous highlighting
         for tag in self.tags.values():
             self.model_text.tag_remove(tag, "1.0", tk.END)
-
+        
         # Track the position in the text widget
         position = 0
-
+        
         for token, content in lex(code, PythonLexer()):
             start_index = self.model_text.index(f"1.0 + {position} chars")
             position += len(content)
@@ -1273,13 +1314,64 @@ class ModelDetailsWindow(ctk.CTkToplevel):
             self.model_text.tag_add(tag_name, start_index, end_index)
         
         self.model_text.update_idletasks()
-
+    
     def close(self):
         self.destroy()
+    
+    def save_model_local(self):
+        if not self.no_questions_mode.get():
+            answer = messagebox.askyesno("Save Model", "Are you sure you want to overwrite the model configuration for this model?")
+        else:
+            answer = True
         
-    def save_model(self):
+        if not answer:
+            return
+        
+        self.button_pressed = True
+        
         self.modelTrainUI.queue[self.queue_id].load_model_from_content(self.model_text.get("1.0", tk.END))
         self.modelTrainUI.queue[self.queue_id].model_file_content = self.model_text.get("1.0", tk.END)
+    
+    def save_model_to_file(self):
+        if not self.no_questions_mode.get():
+            answer = messagebox.askyesno("Save Model", "Are you sure you want to overwrite the model configuration FILE for this model? This will overwrite the file on disk.")
+        else:
+            answer = True
+        
+        if not answer:
+            return
+        
+        self.button_pressed = True
+        
+        if not self.no_questions_mode.get():
+            answer = messagebox.askyesno("Reselect Model Configuration", "Would you like to reselect where to save the model configuration file?")
+        else:
+            answer = False
+        
+        if answer:
+            path = filedialog.askopenfilename(filetypes=[("Python Files", "*.py")])
+            
+            if path == "" or not path:
+                return
+            
+            if not path.endswith(".py"):
+                answer = messagebox.askyesno("Bad File Extension", "The selected file is not a Python file. Would you like to continue?")
+                if not answer:
+                    return
+            
+            with open(path, 'r') as file:
+                file_content = file.read()
+                if file_content.replace(" ", "").replace("\n", "") != self.model_file_content.replace(" ", "").replace("\n", ""):
+                    answer = messagebox.askyesno("Overwrite File", "The selected file already contains data which is different from the current model configuration. Would you like to overwrite it?")
+                    if not answer:
+                        return
+            
+            with open(path, 'w') as file:
+                file.write(self.model_text.get("1.0", tk.END))
+                
+        else:
+            with open(self.modelTrainUI.queue[self.queue_id].selected_model_configuration_path, 'w') as file:
+                file.write(self.model_text.get("1.0", tk.END))
 
 if __name__ == "__main__":
     modelTrainUI()

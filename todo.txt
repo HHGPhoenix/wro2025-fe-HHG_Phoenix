@@ -1,2 +1,1 @@
-- option to save to model or to file and to model
 - add mark for where best model is in graph
