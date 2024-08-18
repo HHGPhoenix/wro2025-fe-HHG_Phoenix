@@ -21,6 +21,7 @@ import importlib.util
 import inspect
 import time
 import types
+import re
 from pygments import lex
 from pygments.lexers.python import PythonLexer
 from pygments.styles import get_style_by_name
@@ -515,7 +516,19 @@ class modelTrainUI(ctk.CTk):
         model_name_entry_content = self.model_name.get()
         
         if model_name_entry_content and model_name_entry_content != "":
-            name = model_name_entry_content
+            # name = model_name_entry_content
+            alredy_exists_counter = 0
+            for item in self.queue:
+                if item.custom_model_name == model_name_entry_content:
+                    alredy_exists_counter += 1
+                elif re.match(rf'^{re.escape(model_name_entry_content)} \(\d+\)$', item.custom_model_name):
+                    alredy_exists_counter += 1
+            
+            if alredy_exists_counter > 0:
+                name = f"{model_name_entry_content} ({alredy_exists_counter + 1})"
+            else:
+                name = model_name_entry_content
+            
         else:
             name = f"Model {self.model_name_counter}"
         
@@ -628,13 +641,17 @@ class modelTrainUI(ctk.CTk):
             frame = ctk.CTkFrame(self.settings_window)
             frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
             
-            label = ctk.CTkLabel(frame, text=key, font=("Arial", 15))
+            modified_key = key.replace("_", " ").title()
+            
+            label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
             label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
             
             entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=value)
             entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
             
             entry.bind("<FocusOut>", lambda e: self.save_settings())
+            # bind enter key to save settings
+            entry.bind("<Return>", lambda e: self.save_settings())
         
         # Bind the settings window to save settings on focus out and on close
         self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
@@ -651,11 +668,11 @@ class modelTrainUI(ctk.CTk):
         
     def save_settings(self, exit=False):
         settings = self.settings
-    
+        
         for key, (value, default) in settings.items():
             try:
                 numeric_value = ''.join(filter(str.isdigit, value.get()))
-                if numeric_value == '':
+                if numeric_value == '' or numeric_value == '0' or numeric_value == None:
                     int_value = default
                 else:
                     int_value = int(numeric_value)
@@ -665,6 +682,9 @@ class modelTrainUI(ctk.CTk):
             except ValueError:
                 settings[key][0].set(default)
                 messagebox.showerror("Error", f"Invalid value for {key}. Reverting to {default}.")
+            except tk.TclError:
+                print(f"Error setting {key} to {value}")
+                settings[key][0].set(default)
         
         with open("settings.json", "w") as f:
             file_content = {}
@@ -987,7 +1007,7 @@ class TrainingDataCallback(Callback):
 
     def on_train_end(self, logs=None):
         self.color_reset_timers = {}
-        self.frame_colors = {}
+        # self.frame_colors = {}
         self.data_visualizer.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values, f"plots_{self.data_processor.model_name}.png")
 
 class VisualizeData:
