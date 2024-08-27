@@ -14,4 +14,4 @@ def main_loop_opening_race(self):
         
         time.sleep(0.1)
     
-    print("Opening ended. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ")
+    print("Opening ended.")

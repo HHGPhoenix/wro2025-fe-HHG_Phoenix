@@ -23,6 +23,8 @@ def main_loop_training(self):
 
     start_time = time.time()
 
+    x_values = []
+    lidar_arrays = []
     raw_frames = []
     simplified_frames = []
 
@@ -59,22 +61,20 @@ def main_loop_training(self):
                 if recording_status:
                     saved_after_recording = False
                     
-                    with open(f"RPIs/DataManager/Data/lidar_data_{file_uuid}_{date}.txt", "a") as file:
-                        file.write(f"{lidar_data}\n")
-                        
-                    with open(f"RPIs/DataManager/Data/x_values_{file_uuid}_{date}.txt", "a") as file:
-                        file.write(f"{x}\n")
-                        
+                    x_values.append(x)
+                    lidar_arrays.append(lidar_data)
+                    
                     raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((110, 213, 3))
                     raw_frames.append(raw_frame)
-        
+
                     simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
                     simplified_frames.append(simplified_frame)
                 
                 elif not saved_after_recording:
-                    np.savez(f"RPIs/DataManager/Data/frames_{file_uuid}_{date}.npz", raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+                    np.savez(f"RPIs/DataManager/Data/data_{file_uuid}_{date}.npz", x_values=np.array(x_values), 
+                             lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
                     saved_after_recording = True
-                        
+                    
             end_time = time.time()
             sleep_time = 0.1 - (end_time - start_time)
 
@@ -87,5 +87,6 @@ def main_loop_training(self):
         pass
     
     finally:
-        np.savez(f"RPIs/DataManager/Data/raw_frames_{file_uuid}_{date}.npz", raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+        np.savez(f"RPIs/DataManager/Data/data_{file_uuid}_{date}.npz", x_values=np.array(x_values), 
+                 lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
 
