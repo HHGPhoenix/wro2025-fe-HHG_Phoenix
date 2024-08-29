@@ -5,7 +5,9 @@ import time
 import threading
 import pandas as pd
 from scipy.interpolate import interp1d
-from RPIs.Devices.Camera.CameraManager import Camera
+
+# from RPIs.Devices.Camera.CameraManager import Camera
+from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 
 class DataTransferer:
     def __init__(self, lidar, frame_list=None, lidar_data_list=None, interpolated_lidar_data=None):
@@ -38,7 +40,7 @@ class DataTransferer:
 
     def process_cam_frames(self):
         self.camera = Camera()
-        last_draw_blocks_time = time.time()
+        last_draw_blocks_time = time.time() - 100
         
         print("Processing camera frames", self.camera)
         try:

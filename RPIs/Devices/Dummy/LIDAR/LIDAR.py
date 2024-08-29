@@ -8,8 +8,8 @@ from io import BytesIO
 import pandas as pd
 from scipy.interpolate import interp1d
 
-class LidarSensor():
-    def __init__(self, address, lidar_data_list, LIDAR_commands_path=r"RPIs/Devices/LIDAR/LIDARCommands.json"):
+class Lidar():
+    def __init__(self, lidar_data_list):
         """
         Initialize the dummy LIDAR sensor with random behavior.
         
@@ -17,10 +17,6 @@ class LidarSensor():
             address (str): The address of the LIDAR sensor.
             LIDAR_commands_path (str, optional): Path to the LIDAR command mapping. Defaults to "./LIDARCommands.json".
         """
-        
-        # Load dummy LIDAR commands from the JSON file
-        with open(LIDAR_commands_path) as f:
-            self.LIDAR_commands = json.load(f)
         
         self.lidar_data_list = lidar_data_list
         self.ser_device = "DummySerial"  # Placeholder for the serial device

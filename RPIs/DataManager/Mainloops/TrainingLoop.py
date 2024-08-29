@@ -4,8 +4,8 @@ import datetime
 from copy import deepcopy
 import numpy as np
 
-# from RPIs.Devices.Dummy.PSController.PSController import PSController
-from RPIs.Devices.PSController.PSController import PSController
+from RPIs.Devices.Dummy.PSController.PSController import PSController
+# from RPIs.Devices.PSController.PSController import PSController
 
 
 def main_loop_training(self):
