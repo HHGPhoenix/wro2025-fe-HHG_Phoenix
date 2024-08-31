@@ -14,17 +14,15 @@ from RPIs.AIController.Mainloops.OpeningRace import main_loop_opening_race
 from RPIs.AIController.Mainloops.ObstacleRace import main_loop_obstacle_race
 from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
 
-# from RPIs.Devices.Dummy.Servo.Servo import Servo
-# from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
-from RPIs.Devices.Servo.Servo import Servo
-from RPIs.Devices.MotorController.MotorController import MotorController
+from RPIs.Devices.Dummy.Servo.Servo import Servo
+from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
+# from RPIs.Devices.Servo.Servo import Servo
+# from RPIs.Devices.MotorController.MotorController import MotorController
 # import tensorflow as tf
-
-from RPIs.WebServer.WebServer import WebServer
 
 ###########################################################################
 
-START_LOCAL_SERVER = False
+START_LOCAL_SERVER = True
 
 ###########################################################################
 

@@ -9,8 +9,11 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 # from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import LidarSensor
+
 from RPIs.Devices.LIDAR.LIDAR import Lidar
-from RPIs.Devices.I2C.I2Chandler import I2Chandler
+# from RPIs.Devices.I2C.I2Chandler import I2Chandler
+from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
+# from RPIs.Devices.Dummy.I2C.I2Chandler import I2Chandler
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
@@ -25,7 +28,7 @@ import platform
 
 ###########################################################################
 
-START_LOCAL_SERVER = False
+START_LOCAL_SERVER = True
 
 ###########################################################################
 

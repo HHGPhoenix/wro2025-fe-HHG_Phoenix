@@ -13,6 +13,9 @@ class Camera():
         # Variable initialization
         self.freeze = False
         self.frame = None
+        
+        self.red_counter = []
+        self.green_counter = []
 
         # Define the color ranges for green and red in HSV color space
         self.lower_green = np.array([53, 100, 40])
@@ -123,26 +126,66 @@ class Camera():
         
         cv2.circle(frameraw, (640, 720), 10, (255, 0, 0), -1)
 
+        green_counter_set = False
+        red_counter_set = False
+
         # Process each green contour
         for contour in contours_green:
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 20 and h > 50:  # Only consider boxes larger than 50x50
+            if w > 5 and h > 10:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
+                
+                if green_counter_set == False:
+                    self.green_counter.append(-1)
+                    green_counter_set = True
+        else:
+            last_green_counter = self.green_counter[-1] if self.green_counter else 0
+            if last_green_counter > 0 and last_green_counter < 30:
+                self.green_counter.append(last_green_counter + 1)
+                green_counter_set = True
+                
+            elif last_green_counter == -1:
+                self.green_counter.append(1)    
+                green_counter_set = True
+                
+            else:
+                self.green_counter.append(0)
+                green_counter_set = True
+                
+        if len(self.green_counter) > 10:
+            self.green_counter.pop(0)
 
         # Process each red contour
         for contour in contours_red:
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 20 and h > 50:  # Only consider boxes larger than 50x50
+            if w > 5 and h > 10:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
                 cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
+                
+                if red_counter_set == False:
+                    self.red_counter.append(-1)
+                    red_counter_set = True
+        else:
+            last_red_counter = self.red_counter[-1] if self.red_counter else 0
+            if last_red_counter > 0 and last_red_counter < 30:
+                self.red_counter.append(last_red_counter + 1)
+                red_counter_set = True
+                
+            elif last_red_counter == -1:
+                self.red_counter.append(1)
+                red_counter_set = True
+                
+            else:
+                self.red_counter.append(0)
+                red_counter_set = True
             
         return frameraw
 
     # Compress the video frames for the webstream    
-    def compress_frame(self, frame, new_height=480):
+    def compress_frame(self, frame, new_height=120):
         """
         Compress the frame to a specified height while maintaining the aspect ratio.
 
@@ -165,6 +208,7 @@ class Camera():
             raise ValueError(f"Unexpected number of dimensions in frame: {dimensions}")
         new_width = int(new_height * width / height)
         frame = cv2.resize(frame, (new_width, new_height))
+        frame = frame[10:, :]
         
         return frame
 

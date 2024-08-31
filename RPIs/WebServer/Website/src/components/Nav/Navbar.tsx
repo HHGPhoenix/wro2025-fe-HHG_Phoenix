@@ -29,6 +29,14 @@ const Navbar: React.FC = () => {
                         LIDAR
                     </Link>
                 </li>
+                <li>
+                    <Link
+                        to="/log"
+                        className="block py-2 px-4 rounded hover:bg-slate-400 dark:hover:bg-slate-700 transition duration-300"
+                    >
+                        Log
+                    </Link>
+                </li>
             </ul>
         </nav>
     );
