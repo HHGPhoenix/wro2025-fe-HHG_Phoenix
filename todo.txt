@@ -1,1 +1,4 @@
 - add mark for where best model is in graph
+- block bad signs in model_name
+- pop thors error
+- close details view
