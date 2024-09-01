@@ -10,8 +10,10 @@ import time
 class GyroSensor():
     def __init__(self):
         i2c = busio.I2C(board.D1, board.D0)
-        self.sensor = adafruit_mpu6050.MPU6050(i2c)
+        self.sensor = adafruit_mpu6050.MPU6050(i2c, address=0x68)
+        time.sleep(0.1)
         self.sensor.gyro_range = adafruit_mpu6050.GyroRange.RANGE_250_DPS
+        time.sleep(0.1)
         
         self.angle = 0.0  # Initial angle
         self.last_time = time.time()

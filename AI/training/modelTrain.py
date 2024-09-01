@@ -660,7 +660,7 @@ class modelTrainUI(ctk.CTk):
                 self.toggle_button_state(self.queue_delete_button, False)
                 self.toggle_button_state(self.queue_details_button, False)
             except tk.TclError:
-                messagebox.showerror("Error", "Wierd error occurred. Please restart the application.")
+                messagebox.showerror("Error", "Weird error occurred. Please restart the application.")
                 return
     
     def post_training(self, queue):
@@ -904,10 +904,10 @@ class DataProcessor:
                 if file.startswith("run_data_"):
                     file_path = os.path.join(root, file)
                     np_arrays = np.load(file_path, allow_pickle=True)
-                    lidar_data_list.append(np_arrays['train_lidar'])
-                    image_data_list.append(np_arrays['train_frame'])
-                    controller_data_list.append(np_arrays['train_controller'])
-                    counter_data_list.append(np_arrays['train_counters'])
+                    lidar_data_list.append(np_arrays['lidar_data'])
+                    image_data_list.append(np_arrays['simplified_frames'])
+                    controller_data_list.append(np_arrays['controller_data'])
+                    counter_data_list.append(np_arrays['counters'])
                     file_count += 1
 
         if not lidar_data_list or not image_data_list or not controller_data_list or not counter_data_list:

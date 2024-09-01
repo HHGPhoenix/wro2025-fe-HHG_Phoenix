@@ -4,8 +4,8 @@ import datetime
 from copy import deepcopy
 import numpy as np
 
-from RPIs.Devices.Dummy.PSController.PSController import PSController
-# from RPIs.Devices.PSController.PSController import PSController
+# from RPIs.Devices.Dummy.PSController.PSController import PSController
+from RPIs.Devices.PSController.PSController import PSController
 
 
 def main_loop_training(self):
@@ -27,6 +27,7 @@ def main_loop_training(self):
     lidar_arrays = []
     raw_frames = []
     simplified_frames = []
+    counters = []
 
     try:
         while self.running:
@@ -69,9 +70,11 @@ def main_loop_training(self):
 
                     simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
                     simplified_frames.append(simplified_frame)
+                    
+                    counters.append([self.frame_list[3], self.frame_list[4]])
                 
                 elif not saved_after_recording:
-                    np.savez(f"RPIs/DataManager/Data/data_{file_uuid}_{date}.npz", x_values=np.array(x_values), 
+                    np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), counters = np.array(counters),
                              lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
                     saved_after_recording = True
                     
@@ -87,6 +90,6 @@ def main_loop_training(self):
         pass
     
     finally:
-        np.savez(f"RPIs/DataManager/Data/data_{file_uuid}_{date}.npz", x_values=np.array(x_values), 
+        np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), counters = np.array(counters),
                  lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
 

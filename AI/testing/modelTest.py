@@ -395,10 +395,10 @@ class DataProcessing:
             return
 
         np_arrays = np.load(comparison_file_path, allow_pickle=True)
-        self.lidar_data = np_arrays['train_lidar']
-        self.simplified_image_data = np_arrays['train_frame']
-        self.controller_data = np_arrays['train_controller']
-        self.counter_data = np_arrays['train_counters']
+        self.lidar_data = np_arrays['lidar_data']
+        self.simplified_image_data = np_arrays['simplified_frames']
+        self.controller_data = np_arrays['controller_data']
+        self.counter_data = np_arrays['counters']
 
     def load_model_wrapper(self, model_path):
         self.load_model_thread = threading.Thread(target=self.load_model, args=(model_path,), daemon=True)
@@ -465,7 +465,7 @@ class VisualizeData:
         self.lidar_axis.clear()
     
         # Plot the data as individual points with neon green color
-        angles, distances = zip(*lidar_array)
+        angles, distances, _ = zip(*lidar_array)
         self.lidar_axis.scatter(angles, distances, color='#39FF14', s=10)
     
         # Set the background color of the axes

@@ -6,8 +6,8 @@ import threading
 import pandas as pd
 from scipy.interpolate import interp1d
 
-# from RPIs.Devices.Camera.CameraManager import Camera
-from RPIs.Devices.Dummy.Camera.CameraManager import Camera
+from RPIs.Devices.Camera.CameraManager import Camera
+# from RPIs.Devices.Dummy.Camera.CameraManager import Camera
 
 class DataTransferer:
     def __init__(self, lidar, frame_list=None, lidar_data_list=None, interpolated_lidar_data=None):

@@ -14,15 +14,17 @@ from RPIs.AIController.Mainloops.OpeningRace import main_loop_opening_race
 from RPIs.AIController.Mainloops.ObstacleRace import main_loop_obstacle_race
 from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
 
-from RPIs.Devices.Dummy.Servo.Servo import Servo
-from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
-# from RPIs.Devices.Servo.Servo import Servo
-# from RPIs.Devices.MotorController.MotorController import MotorController
+# from RPIs.Devices.Dummy.Servo.Servo import Servo
+# from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
+from RPIs.Devices.Servo.Servo import Servo
+from RPIs.Devices.MotorController.MotorController import MotorController
+from RPIs.Devices.I2C.I2Chandler import I2Chandler
+
 # import tensorflow as tf
 
 ###########################################################################
 
-START_LOCAL_SERVER = True
+START_LOCAL_SERVER = False
 
 ###########################################################################
 
@@ -91,6 +93,9 @@ class AIController:
         servo.setAngle(120)
         
         motor_controller = MotorController()
+        
+        # i2c_handler = I2Chandler()
+        # i2c_handler.start_threads()
         
         camera_frames_process = mp.Process(target=self.get_cam_frames, args=(self.frame_list,), daemon=True)
         camera_frames_process.start()

@@ -160,7 +160,7 @@ class AddBlockCounter(ctk.CTk):
                     
             print(f"Frame {i}: Red: {red_counter[-1]}, Green: {green_counter[-1]}")
                     
-        np.savez(output_file_path, red_counter=red_counter, green_counter=green_counter)
+        np.savez(output_file_path, counters=np.array(zip(red_counter, green_counter)))
                     
     def open_file_dialog(self):
         file_path = filedialog.askopenfilename()
