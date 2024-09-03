@@ -37,6 +37,14 @@ const Navbar: React.FC = () => {
                         Log
                     </Link>
                 </li>
+                <li>
+                    <Link
+                        to="/system"
+                        className="block py-2 px-4 rounded hover:bg-slate-400 dark:hover:bg-slate-700 transition duration-300"
+                    >
+                        System
+                    </Link>
+                </li>
             </ul>
         </nav>
     );

@@ -7,6 +7,7 @@ import StreamSite from '../pages/Vidstreams.js';
 import LIDAR from '../pages/LiDAR.js';
 import Header from '../components/Misc/Header.js';
 import Log from '../pages/Log.js';
+import System from '../pages/System.js';
 
 const App: React.FC = () => {
     return (
@@ -20,6 +21,7 @@ const App: React.FC = () => {
                         <Route path="/stream" element={<StreamSite />} />
                         <Route path="/lidar" element={<LIDAR />} />
                         <Route path="/log" element={<Log />} />
+                        <Route path="/system" element={<System />} />
                     </Routes>
                 </div>
             </div>

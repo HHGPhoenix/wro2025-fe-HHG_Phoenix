@@ -9,6 +9,7 @@ import time
 import logging
 import signal
 import sys
+import psutil
 
 ###########################################################################
 
@@ -146,6 +147,19 @@ class WebServer:
                 return jsonify(log_data)
             else:
                 return jsonify({"error": "No log files found"})
+            
+        @self.app.route('/system/usage')
+        def system_usage():
+            cpu_temp = None
+            if os.path.exists('/sys/class/thermal/thermal_zone0/temp'):
+                cpu_temp = int(open('/sys/class/thermal/thermal_zone0/temp').read()) / 1000
+            
+            return jsonify({
+                "cpu_usage": psutil.cpu_percent(interval=1),
+                "memory_usage": psutil.virtual_memory(),
+                "disk_usage": psutil.disk_usage('/'),
+                "temperature": cpu_temp if cpu_temp else "N/A",
+            })
 
         def read_log_file(file_path):
             with open(file_path, 'r') as file:
