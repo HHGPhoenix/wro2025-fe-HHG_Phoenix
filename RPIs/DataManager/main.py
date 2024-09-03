@@ -105,8 +105,8 @@ class DataManager:
     def initialize_components(self):
         self.logger.info("Initializing LIDAR sensor...")
         
-        # i2c_handler = I2Chandler()
-        # i2c_handler.start_threads()
+        i2c_handler = I2Chandler()
+        i2c_handler.start_threads()
         
         lidar = Lidar(self.lidar_data_list)
         self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)

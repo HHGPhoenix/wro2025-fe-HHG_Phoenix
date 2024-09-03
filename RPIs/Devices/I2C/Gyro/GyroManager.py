@@ -1,5 +1,5 @@
 import threading
-import adafruit_mpu6050
+from mpu6050 import mpu6050
 import busio
 import board
 import time
@@ -9,11 +9,9 @@ import time
 
 class GyroSensor():
     def __init__(self):
-        i2c = busio.I2C(board.D1, board.D0)
-        self.sensor = adafruit_mpu6050.MPU6050(i2c, address=0x68)
-        time.sleep(0.1)
-        self.sensor.gyro_range = adafruit_mpu6050.GyroRange.RANGE_250_DPS
-        time.sleep(0.1)
+        self.sensor = mpu6050(0x68, bus=0)
+        print(type(0x68))
+        time.sleep(1)
         
         self.angle = 0.0  # Initial angle
         self.last_time = time.time()
@@ -21,16 +19,17 @@ class GyroSensor():
         self._thread = None
 
     def _get_angle_loop(self):
-        offset_x = 0.29
+        offset_x = 0.0
         offset_y = 0.0
         offset_z = 0.0
 
         while self._running:
-            time.sleep(0.01)
+            time.sleep(0.03)
             
             # Read gyroscope data and apply offsets
-            gyro_data = self.sensor.gyro
-            gyro_data = [gyro_data[0] + offset_x, gyro_data[1] + offset_y, gyro_data[2] + offset_z]
+            gyro_data = self.sensor.get_accel_data()
+            print(f"Gyro data: {gyro_data}")
+            gyro_data = [gyro_data['x'] + offset_x, gyro_data['y'] + offset_y, gyro_data['z'] + offset_z]
             
             # Get the current time
             current_time = time.time()

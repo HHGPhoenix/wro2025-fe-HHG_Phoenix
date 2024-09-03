@@ -37,3 +37,7 @@ class I2Chandler:
         
         self.ADC.threadStop = 1
         self.Gyro.stop()
+        
+if __name__ == '__main__':
+    i2c_handler = I2Chandler()
+    i2c_handler.start_threads()
