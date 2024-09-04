@@ -9,6 +9,12 @@ export default {
                 darkBackground: '#1f2937', // Custom dark background color
                 lightGray: '#d1d5db', // Custom light gray color for hover effects
             },
+            minHeight: {
+                customfull: '100vh',
+            },
+            height: {
+                customfull: '100%',
+            },
         },
     },
     plugins: [

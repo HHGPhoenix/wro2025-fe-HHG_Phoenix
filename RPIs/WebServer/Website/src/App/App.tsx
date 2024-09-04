@@ -11,21 +11,23 @@ import System from '../pages/System.js';
 
 const App: React.FC = () => {
     return (
-        <Router>
-            <div className="App flex bg-white dark:bg-slate-700 h-screen">
-                <Navbar />
-                <div className="flex-grow ml-32 p-2">
-                    <Header />
-                    <Routes>
-                        <Route path="/" element={<Overview />} />
-                        <Route path="/stream" element={<StreamSite />} />
-                        <Route path="/lidar" element={<LIDAR />} />
-                        <Route path="/log" element={<Log />} />
-                        <Route path="/system" element={<System />} />
-                    </Routes>
+        <div className="h-customfull min-h-customfull bg-white dark:bg-slate-700">
+            <Router>
+                <div className="App flex min-h-screen">
+                    <Navbar />
+                    <div className="flex-grow p-2 ml-32">
+                        <Header />
+                        <Routes>
+                            <Route path="/" element={<Overview />} />
+                            <Route path="/stream" element={<StreamSite />} />
+                            <Route path="/lidar" element={<LIDAR />} />
+                            <Route path="/log" element={<Log />} />
+                            <Route path="/system" element={<System />} />
+                        </Routes>
+                    </div>
                 </div>
-            </div>
-        </Router>
+            </Router>
+        </div>
     );
 };
 

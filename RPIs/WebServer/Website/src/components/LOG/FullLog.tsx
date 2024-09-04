@@ -56,7 +56,7 @@ const FullLog: React.FC = () => {
 
     return (
         <div className="h-full flex-col">
-            <div className="overflow-y-scroll scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-gray-500 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-700 p-4 bg-white dark:bg-slate-800 rounded flex-grow">
+            <div className="overflow-y-scroll scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-gray-500 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-700 p-4 bg-slate-300 dark:bg-slate-800 rounded flex-grow">
                 {logEntries.map((entry, index) => (
                     <div key={index} className="log-entry mb-2">
                         <div>
