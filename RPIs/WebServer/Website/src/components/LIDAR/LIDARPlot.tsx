@@ -11,39 +11,42 @@ const LIDARPlot: React.FC = () => {
     );
 
     useEffect(() => {
-        const socket = io();
+        async function fetchLidarData() {
+            const socket = io();
 
-        socket.on('connect', () => {
-            console.log('WebSocket connection established');
-        });
+            socket.on('connect', () => {
+                console.log('WebSocket connection established');
+            });
 
-        const handleLidarData = (data: any) => {
-            const updatedData = data.map(
-                (arr: [number, number, number]) => arr
-            );
-            // console.log(updatedData);
-            updateChart(updatedData);
-        };
+            const handleLidarData = (data: any) => {
+                const updatedData = data.map(
+                    (arr: [number, number, number]) => arr
+                );
+                // console.log(updatedData);
+                updateChart(updatedData);
+            };
 
-        if (dataType === 'normal') {
-            socket.on('lidar_data', handleLidarData);
-            socket.off('interpolated_lidar_data');
-        } else {
-            socket.on('interpolated_lidar_data', handleLidarData);
-            socket.off('lidar_data');
-        }
-
-        socket.on('disconnect', () => {
-            console.log('WebSocket connection closed');
-        });
-
-        return () => {
-            socket.disconnect();
-            if (chartRef.current) {
-                chartRef.current.destroy();
-                chartRef.current = null;
+            if (dataType === 'normal') {
+                socket.on('lidar_data', handleLidarData);
+                socket.off('interpolated_lidar_data');
+            } else {
+                socket.on('interpolated_lidar_data', handleLidarData);
+                socket.off('lidar_data');
             }
-        };
+
+            socket.on('disconnect', () => {
+                console.log('WebSocket connection closed');
+            });
+
+            return () => {
+                socket.disconnect();
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                    chartRef.current = null;
+                }
+            };
+        }
+        fetchLidarData();
     }, [dataType]);
 
     const interpolateColor = (
@@ -201,8 +204,8 @@ const LIDARPlot: React.FC = () => {
 
     return (
         <div className="w-full h-auto max-w-3xl mx-auto p-4 bg-white dark:bg-slate-700 text-black dark:text-white">
-            <div className="flex justify-center mb-4">
-                <label className="mr-4">
+            <div className="flex justify-evenly mb-4">
+                <label className="flex flex-nowrap">
                     <input
                         type="radio"
                         name="lidar-data-type"
@@ -210,9 +213,9 @@ const LIDARPlot: React.FC = () => {
                         checked={dataType === 'normal'}
                         onChange={() => setDataType('normal')}
                     />
-                    Normal Data
+                    <div className="pl-3 text-lg">Normal Data</div>
                 </label>
-                <label>
+                <label className="flex flex-nowrap">
                     <input
                         type="radio"
                         name="lidar-data-type"
@@ -220,7 +223,7 @@ const LIDARPlot: React.FC = () => {
                         checked={dataType === 'interpolated'}
                         onChange={() => setDataType('interpolated')}
                     />
-                    Interpolated Data
+                    <div className="pl-3 text-lg">Interpolated Data</div>
                 </label>
             </div>
             <canvas ref={canvasRef} className="w-full h-full"></canvas>

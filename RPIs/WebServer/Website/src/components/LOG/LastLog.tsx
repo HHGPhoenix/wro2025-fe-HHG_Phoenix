@@ -18,7 +18,7 @@ const LastLog: React.FC<{ logAmount: number }> = ({ logAmount }) => {
             const data: string[] = await response.json(); // Assuming the data is an array of log entries
             console.log('Raw data:', data); // Log the raw data
             const parsedEntries = parseLogData(data);
-            parsedEntries.pop(); // Remove the last parsed entry
+            // parsedEntries.pop(); // Remove the last parsed entry
             setLogEntries(parsedEntries);
         } catch (error) {
             console.error(
