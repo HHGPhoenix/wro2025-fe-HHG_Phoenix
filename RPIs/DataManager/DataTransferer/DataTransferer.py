@@ -40,21 +40,19 @@ class DataTransferer:
 
     def process_cam_frames(self):
         self.camera = Camera()
-        last_draw_blocks_time = time.time() - 100
         
         print("Processing camera frames", self.camera)
         try:
             while True:
+                start_time = time.time()
                 frameraw, framehsv = self.camera.capture_array()
                 
                 frameraw = self.camera.compress_frame(frameraw)
                 framehsv = self.camera.compress_frame(framehsv)
                 
                 # print(f"frameraw: {frameraw.shape}")
-                simplified_image = self.camera.simplify_image(framehsv.copy(), [0, 0, 255], [0, 255, 0])
-                if time.time() - last_draw_blocks_time >= 0.1:
-                    object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
-                    last_draw_blocks_time = time.time()
+                simplified_image = self.camera.simplify_image(framehsv.copy(), black_color=[255, 255, 255], shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
+                object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
                 
                 # Update shared list with the new frames
                 self.frame_list[0] = frameraw.tobytes()
@@ -62,13 +60,18 @@ class DataTransferer:
                 self.frame_list[2] = object_image.tobytes()
                 self.frame_list[3] = self.camera.green_counter[-1]
                 self.frame_list[4] = self.camera.red_counter[-1]
+                
+                stop_time = time.time()
+                elapsed_time = stop_time - start_time
+                time.sleep(max(0.1 - elapsed_time, 0))
+        
         except KeyboardInterrupt:
             pass
         except BrokenPipeError:
             pass
         except EOFError:
             pass
-            
+
     def process_lidar_data(self):        
         print("Processing LIDAR data", self.lidar)
         try:
