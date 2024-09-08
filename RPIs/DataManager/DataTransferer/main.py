@@ -2,7 +2,7 @@ from multiprocessing import Process, Manager
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
 from RPIs.Devices.Camera.CameraManager import Camera
-from RPIs.Devices.LIDAR.LIDARManager import LidarSensor
+from RPIs.Devices.LIDAR.LIDAR import LidarSensor
 import threading
 
 if __name__ == "__main__":

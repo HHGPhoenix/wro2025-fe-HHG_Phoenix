@@ -7,9 +7,9 @@ from RPIs.DataManager.DMLib import RemoteFunctions
 
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
-from RPIs.Devices.LIDAR.LIDAR import Lidar
-from RPIs.Devices.I2C.I2Chandler import I2Chandler
-# from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
+# from RPIs.Devices.LIDAR.LIDAR import Lidar
+# from RPIs.Devices.I2C.I2Chandler import I2Chandler
+from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
 # from RPIs.Devices.Dummy.I2C.I2Chandler import I2Chandler
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
@@ -25,7 +25,7 @@ import platform
 
 ###########################################################################
 
-START_LOCAL_SERVER = False
+START_LOCAL_SERVER = True
 
 ###########################################################################
 
@@ -105,8 +105,8 @@ class DataManager:
     def initialize_components(self):
         self.logger.info("Initializing LIDAR sensor...")
         
-        i2c_handler = I2Chandler()
-        i2c_handler.start_threads()
+        # i2c_handler = I2Chandler()
+        # i2c_handler.start_threads()
         
         lidar = Lidar(self.lidar_data_list)
         self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)
