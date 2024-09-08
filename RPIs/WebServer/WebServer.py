@@ -22,6 +22,8 @@ class WebServer:
         self.interpolated_lidar_list = shared_lidar_lists[1]
         self.last_shared_lidar_list = []
         self.last_interpolated_lidar_list = []
+        self.last_green_counter = 0
+        self.last_red_counter = 0
         self.should_run = True
 
         self.app = flask.Flask(__name__, static_folder='Website/dist', template_folder='Website/dist', static_url_path='/')
@@ -67,6 +69,7 @@ class WebServer:
     def check_for_new_data(self):
         try:
             while self.should_run:
+                start_time = time.time()
                 if len(self.shared_lidar_list) > 0 and self.shared_lidar_list[-1] != self.last_shared_lidar_list:
                     self.last_shared_lidar_list = self.shared_lidar_list[-1]
                     self.socketio.emit('lidar_data', self.last_shared_lidar_list)
@@ -75,7 +78,16 @@ class WebServer:
                     self.last_interpolated_lidar_list = self.interpolated_lidar_list[-1]
                     self.socketio.emit('interpolated_lidar_data', self.last_interpolated_lidar_list)
                     
-                time.sleep(0.1)
+                if self.shared_frames_list[3] != self.last_green_counter or self.shared_frames_list[4] != self.last_red_counter:
+                    self.last_green_counter = self.shared_frames_list[3]
+                    self.last_red_counter = self.shared_frames_list[4]
+                    self.socketio.emit('counters', {
+                        "green_counter": self.last_green_counter,
+                        "red_counter": self.last_red_counter,
+                    })
+                
+                stop_time = time.time()
+                time.sleep(max(0.1 - (stop_time - start_time), 0))
 
         except KeyboardInterrupt:
             pass
@@ -102,6 +114,13 @@ class WebServer:
         @self.app.route('/cam/object_video_stream')
         def object_video_stream():
             return Response(self.stream_camera(self.generate_object_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
+        
+        @self.app.route('/cam/counters')
+        def counters():
+            return jsonify({
+                "green_counter": self.shared_frames_list[3],
+                "red_counter": self.shared_frames_list[4],
+            })
         
         @self.app.route('/lidar/data')
         def lidar_data():
