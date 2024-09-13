@@ -20,6 +20,7 @@ class ModelTestUI(ctk.CTk):
         super().__init__()
         self.title("Model Test")
         # self.geometry("1200x800")
+        self.minsize(height=950, width=1500)
         self.tensorflow_imported = False
         self.thread_lazy_imports = threading.Thread(target=self.import_lazy_imports, daemon=True)
         self.thread_lazy_imports.start()

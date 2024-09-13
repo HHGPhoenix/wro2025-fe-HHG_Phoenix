@@ -25,6 +25,7 @@ import re
 from pygments import lex
 from pygments.lexers.python import PythonLexer
 from pygments.styles import get_style_by_name
+import platform
 
 DEBUG = False
 
@@ -35,7 +36,7 @@ class modelTrainUI(ctk.CTk):
         super().__init__()
         self.title("Model Training")
         self.geometry("+50+50")
-        self.minsize(height=940, width=1250)
+        self.minsize(height=950, width=1500)
         
         self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
@@ -216,7 +217,8 @@ class modelTrainUI(ctk.CTk):
 ############################################################################################################
 
     def init_window(self):
-        self.iconbitmap(r"AI\assets\phoenix_logo.ico")
+        if platform.system() == "Windows":
+            self.iconbitmap(r"AI\assets\phoenix_logo.ico")
         
         # Configure the grid of the main window to expand
         self.grid_rowconfigure(0, weight=1)
@@ -314,10 +316,10 @@ class modelTrainUI(ctk.CTk):
         self.queue_config_frame = ctk.CTkFrame(self.queue_frame)
         self.queue_config_frame.pack(padx=15, pady=5, fill='x', expand=True)
         
-        delete_image = Image.open(r"AI\assets\delete.png")
+        delete_image = Image.open(r"AI/assets/delete.png")
         delete_image = ctk.CTkImage(delete_image, delete_image, (35, 35))
         
-        details_image = Image.open(r"AI\assets\open_in_new.png")
+        details_image = Image.open(r"AI/assets/open_in_new.png")
         details_image = ctk.CTkImage(details_image, details_image, (35, 35))
         
         self.queue_delete_button = ctk.CTkButton(self.queue_config_frame, text="", image=delete_image, command=self.delete_queue_item)
@@ -328,7 +330,7 @@ class modelTrainUI(ctk.CTk):
         
         ############################################################################################################
         
-        start_image = Image.open(r"AI\assets\play_icon.png")
+        start_image = Image.open(r"AI/assets/play_icon.png")
         start_image = ctk.CTkImage(start_image, start_image, (35, 35))
         
         self.start_queue_button = ctk.CTkButton(self.configuration_frame, text="Start Queue", image=start_image, command=self.start_queue, width=30, height=20, corner_radius=5)
@@ -336,7 +338,7 @@ class modelTrainUI(ctk.CTk):
         
         ############################################################################################################
         
-        settings_image = Image.open(r"AI\assets\settings.png")
+        settings_image = Image.open(r"AI/assets/settings.png")
         settings_image = ctk.CTkImage(settings_image, settings_image, (25, 25))
         
         self.settings_button = ctk.CTkButton(self, image=settings_image, command=self.open_settings, text="", width=25, height=25, corner_radius=5,  bg_color='transparent')
@@ -353,9 +355,9 @@ class modelTrainUI(ctk.CTk):
         self.credit_label = ctk.CTkLabel(self.credit_frame, text="Developed by HHG_Phoenix", font=("Arial", 18, "bold"), corner_radius=5, padx=10, pady=10)
         self.credit_label.pack(padx=15, pady=10, side='left')
         
-        light_image = Image.open(r"AI\assets\phoenix_logo.png")
+        light_image = Image.open(r"AI/assets/phoenix_logo.png")
         
-        dark_image = Image.open(r"AI\assets\phoenix_logo.png")
+        dark_image = Image.open(r"AI/assets/phoenix_logo.png")
         
         self.credit_logo = ctk.CTkImage(light_image, dark_image, size=(90, 90))
         self.credit_logo_label = ctk.CTkLabel(self.credit_frame, image=self.credit_logo, text="", corner_radius=5, padx=10, pady=10)
