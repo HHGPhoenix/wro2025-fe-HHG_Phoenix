@@ -11,42 +11,35 @@ const LIDARPlot: React.FC = () => {
     );
 
     useEffect(() => {
-        async function fetchLidarData() {
-            const socket = io();
+        const socket = io();
 
-            socket.on('connect', () => {
-                console.log('WebSocket connection established');
-            });
+        socket.on('connect', () => {
+            console.log('WebSocket connection established');
+        });
 
-            const handleLidarData = (data: any) => {
-                const updatedData = data.map(
-                    (arr: [number, number, number]) => arr
-                );
-                // console.log(updatedData);
-                updateChart(updatedData);
-            };
+        const handleLidarData = (data: any) => {
+            const updatedData = data.map(
+                (arr: [number, number, number]) => arr
+            );
+            updateChart(updatedData);
+        };
 
-            if (dataType === 'normal') {
-                socket.on('lidar_data', handleLidarData);
-                socket.off('interpolated_lidar_data');
-            } else {
-                socket.on('interpolated_lidar_data', handleLidarData);
-                socket.off('lidar_data');
-            }
-
-            socket.on('disconnect', () => {
-                console.log('WebSocket connection closed');
-            });
-
-            return () => {
-                socket.disconnect();
-                if (chartRef.current) {
-                    chartRef.current.destroy();
-                    chartRef.current = null;
-                }
-            };
+        if (dataType === 'normal') {
+            socket.on('lidar_data', handleLidarData);
+            socket.off('interpolated_lidar_data');
+        } else {
+            socket.on('interpolated_lidar_data', handleLidarData);
+            socket.off('lidar_data');
         }
-        fetchLidarData();
+
+        socket.on('disconnect', () => {
+            console.log('WebSocket connection closed');
+        });
+
+        // Cleanup on component unmount
+        return () => {
+            socket.disconnect();
+        };
     }, [dataType]);
 
     const interpolateColor = (
@@ -61,79 +54,6 @@ const LIDARPlot: React.FC = () => {
     };
 
     const updateChart = (lidarData: [number, number, number][]) => {
-        var lightModeOptions = {
-            type: 'radar',
-            data: {},
-            options: {
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        suggestedMin: 0,
-                        suggestedMax: 2500,
-                        angleLines: { display: true },
-                        grid: {
-                            circular: true,
-                            color: 'rgba(0, 0, 0, 0.1)',
-                        },
-                        ticks: { color: 'black' },
-                    },
-                },
-                elements: {
-                    line: { borderWidth: 0 },
-                    point: { radius: 3 },
-                },
-                animation: {
-                    duration: 0,
-                },
-                plugins: {
-                    legend: { display: false },
-                    labels: { color: 'black' },
-                },
-            },
-        };
-
-        var darkModeOptions = {
-            type: 'radar',
-            data: {},
-            options: {
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        suggestedMin: 0,
-                        suggestedMax: 2500,
-                        angleLines: {
-                            display: true,
-                            color: 'rgba(255, 255, 255, 0.15)',
-                        },
-                        grid: {
-                            circular: true,
-                            color: 'rgba(255, 255, 255, 0.3)',
-                        },
-                        ticks: {
-                            color: 'white',
-                            backdropColor: 'rgba(0, 0, 0, 0.5)',
-                        },
-                    },
-                },
-                elements: {
-                    line: { borderWidth: 0 },
-                    point: { radius: 3 },
-                },
-                animation: {
-                    duration: 0,
-                },
-                plugins: {
-                    legend: { display: false },
-                    labels: {
-                        color: 'white',
-                        font: { size: 14 },
-                        backgroundColor: 'rgba(0, 0, 0, 1)',
-                        display: false,
-                    },
-                },
-            },
-        };
-
         const completeData = new Array(360).fill(null);
         const pointColors = new Array(360).fill('rgba(255, 99, 132, 1)');
 
@@ -174,30 +94,103 @@ const LIDARPlot: React.FC = () => {
             ],
         };
 
-        // get the browser color mode
-        let colorMode = window.matchMedia('(prefers-color-scheme: dark)');
+        const colorMode = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const lightModeOptions = {
+            type: 'radar',
+            data: data,
+            options: {
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        suggestedMin: 0,
+                        suggestedMax: 2500,
+                        pointLabels: {
+                            display: false,
+                        },
+                        angleLines: { display: true },
+                        grid: {
+                            circular: true,
+                            color: 'rgba(0, 0, 0, 0.1)',
+                        },
+                        ticks: { color: 'black' },
+                    },
+                },
+                elements: {
+                    line: { borderWidth: 0 },
+                    point: { radius: 3 },
+                },
+                animation: {
+                    duration: 0, // Disable animation
+                },
+                plugins: {
+                    legend: { display: false },
+                    labels: { color: 'black' },
+                },
+            },
+        };
+
+        const darkModeOptions = {
+            type: 'radar',
+            data: data,
+            options: {
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        suggestedMin: 0,
+                        suggestedMax: 2500,
+                        pointLabels: {
+                            display: false,
+                        },
+                        angleLines: {
+                            display: true,
+                            color: 'rgba(255, 255, 255, 0.15)',
+                        },
+                        grid: {
+                            circular: true,
+                            color: 'rgba(255, 255, 255, 0.3)',
+                        },
+                        ticks: {
+                            color: 'white',
+                            backdropColor: 'rgba(0, 0, 0, 0.5)',
+                        },
+                    },
+                },
+                elements: {
+                    line: { borderWidth: 0 },
+                    point: { radius: 3 },
+                },
+                animation: {
+                    duration: 0, // Disable animation
+                },
+                plugins: {
+                    legend: { display: false },
+                    labels: {
+                        color: 'white',
+                        font: { size: 14 },
+                        backgroundColor: 'rgba(0, 0, 0, 1)',
+                        display: false,
+                    },
+                },
+            },
+        };
+
+        const options = colorMode.matches
+            ? darkModeOptions.options
+            : lightModeOptions.options;
 
         if (chartRef.current) {
-            chartRef.current.data.labels = data.labels;
-            chartRef.current.data.datasets[0].data = completeData;
-            chartRef.current.data.datasets[0].borderColor = pointColors;
+            chartRef.current.data = data;
+            chartRef.current.options = options;
             chartRef.current.update();
         } else if (canvasRef.current) {
             const context = canvasRef.current.getContext('2d');
             if (context) {
-                if (colorMode.matches) {
-                    darkModeOptions.data = data;
-                    chartRef.current = new Chart(
-                        context,
-                        darkModeOptions as any
-                    );
-                } else {
-                    lightModeOptions.data = data;
-                    chartRef.current = new Chart(
-                        context,
-                        lightModeOptions as any
-                    );
-                }
+                chartRef.current = new Chart(context, {
+                    type: 'radar',
+                    data,
+                    options,
+                });
             }
         }
     };
