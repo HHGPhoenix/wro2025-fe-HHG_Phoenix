@@ -368,7 +368,7 @@ class DataProcessing:
             model_output = self.model.predict(model_input)[0][0]
             model_stop_time = time.time()
 
-            self.data_visualizer.update_polar_plot_lidar(lidar_array.tolist())
+            self.data_visualizer.update_polar_plot_lidar(lidar_array)
             self.data_visualizer.update_image_plot(image_array)
             
             self.controller_values.append(controller_value)
@@ -466,7 +466,7 @@ class VisualizeData:
     
         # Plot the data as individual points with neon green color
         angles, distances, _ = zip(*lidar_array)
-        self.lidar_axis.scatter(angles, distances, color='#39FF14', s=10)
+        self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
     
         # Set the background color of the axes
         self.lidar_axis.set_facecolor('#222222')
