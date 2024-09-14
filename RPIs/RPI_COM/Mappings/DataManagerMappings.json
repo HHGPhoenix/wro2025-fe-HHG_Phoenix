@@ -7,5 +7,6 @@
     "LOG_EXCEPTION": "log_exception",
     "HEART": "send_heartbeat",
     "BEAT": "receive_heartbeat",
-    "ALREADY_RUNNING": "handle_already_running"
+    "ALREADY_RUNNING": "handle_already_running",
+    "SYSTEM_INFO": "receive_system_info"
 }

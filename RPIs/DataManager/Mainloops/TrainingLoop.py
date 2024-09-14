@@ -49,6 +49,7 @@ def main_loop_training(self):
 
             if len(self.interpolated_lidar_data) > 0:
                 lidar_data = deepcopy(self.interpolated_lidar_data[-1])
+                print(lidar_data)
                 x, y, rx, ry = ps_controller.get_analog_stick_values()
 
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"

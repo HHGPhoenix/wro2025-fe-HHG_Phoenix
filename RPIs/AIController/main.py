@@ -4,6 +4,7 @@ import cv2
 import multiprocessing as mp
 import os
 import signal
+import psutil
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.AIController.AICLib import AICU_Logger, RemoteFunctions
@@ -18,7 +19,6 @@ from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
 # from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 from RPIs.Devices.Servo.Servo import Servo
 from RPIs.Devices.MotorController.MotorController import MotorController
-from RPIs.Devices.I2C.I2Chandler import I2Chandler
 
 # import tensorflow as tf
 
@@ -94,13 +94,30 @@ class AIController:
         
         motor_controller = MotorController()
         
-        # i2c_handler = I2Chandler()
-        # i2c_handler.start_threads()
-        
         camera_frames_process = mp.Process(target=self.get_cam_frames, args=(self.frame_list,), daemon=True)
         camera_frames_process.start()
         
+        transmit_information_thread = threading.Thread(target=self.transmit_information, daemon=True)
+        transmit_information_thread.start()
+        
         return servo, motor_controller
+    
+    def transmit_information(self):
+        while True:
+            self.stop_with_interrupt
+            start_time = time.time()
+            cpu_usage = psutil.cpu_percent()
+            memory_usage = psutil.virtual_memory().percent
+            disk_usage = psutil.disk_usage('/').percent 
+            cpu_temp = round(int(open('/sys/class/thermal/thermal_zone0/temp').read()) / 1000, 2)
+            
+            if self.motor_controller.voltage != 0:
+                self.client.send_message(f"SYSTEM_INFO#{cpu_usage}#{memory_usage}#{disk_usage}#{cpu_temp}#{self.motor_controller.voltage}")
+            stop_time = time.time()
+            # if it took longer than 1 second to get the information, raise a warning
+            if stop_time - start_time > 1:
+                self.logger.warning(f"Transmitting information took {stop_time - start_time} seconds.")
+            time.sleep(max(0, 1 - (stop_time - start_time)))
     
     ###########################################################################
     

@@ -11,7 +11,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import signal
 import threading
-# from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split
 import uuid
 import threading
 from tensorflow.keras.callbacks import Callback # type: ignore
