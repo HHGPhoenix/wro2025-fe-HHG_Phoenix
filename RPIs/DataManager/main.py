@@ -67,6 +67,7 @@ class DataManager:
         self.frame_list = self.mp_manager.list([None, None, None, None, None])
         self.interpolated_lidar_data = self.mp_manager.list([None])
         self.lidar_data_list = self.mp_manager.list()
+        self.shared_info_list = self.mp_manager.list([0, 0, 0, 0, 0])
         
         self.communicationestablisher = CommunicationEstablisher(self)
         
@@ -105,9 +106,6 @@ class DataManager:
     def initialize_components(self):
         self.logger.info("Initializing LIDAR sensor...")
         
-        i2c_handler = I2Chandler()
-        i2c_handler.start_threads()
-        
         lidar = Lidar(self.lidar_data_list)
         self.lidarProcess = mp.Process(target=target_with_nice_priority, args=(lidar.read_data, -10), daemon=True)
         self.lidarProcess.start()
@@ -118,9 +116,9 @@ class DataManager:
         self.dataTransferProcess.start()
         
         if not START_LOCAL_SERVER:
-            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
+            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], self.shared_info_list, 5000), daemon=True)
         else:
-            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], 5000), daemon=True)
+            self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], self.shared_info_list, 5000), daemon=True)
         self.webServerProcess.start()
 
         return lidar, data_transferer

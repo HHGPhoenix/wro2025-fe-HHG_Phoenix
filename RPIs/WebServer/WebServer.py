@@ -14,12 +14,13 @@ import psutil
 ###########################################################################
 
 class WebServer:
-    def __init__(self, shared_frames_list, shared_lidar_lists, port=5000, host='0.0.0.0'):
+    def __init__(self, shared_frames_list, shared_lidar_lists, shared_info_list, port=5000, host='0.0.0.0'):
         self.port = port
         self.host = host
         self.shared_frames_list = shared_frames_list
         self.shared_lidar_list = shared_lidar_lists[0]
         self.interpolated_lidar_list = shared_lidar_lists[1]
+        self.shared_info_list = shared_info_list
         self.last_shared_lidar_list = []
         self.last_interpolated_lidar_list = []
         self.last_green_counter = 0
@@ -174,10 +175,15 @@ class WebServer:
                 cpu_temp = int(open('/sys/class/thermal/thermal_zone0/temp').read()) / 1000
             
             return jsonify({
-                "cpu_usage": psutil.cpu_percent(interval=1),
-                "memory_usage": psutil.virtual_memory(),
-                "disk_usage": psutil.disk_usage('/'),
-                "temperature": cpu_temp if cpu_temp else "N/A",
+                "pi5_cpu_usage": psutil.cpu_percent(interval=1),
+                "pi5_memory_usage": psutil.virtual_memory().percent,
+                "pi5_disk_usage": psutil.disk_usage('/').percent,
+                "pi5_temperature": cpu_temp if cpu_temp else "N/A",
+                "pi4_cpu_usage": self.shared_info_list[0],
+                "pi4_memory_usage": self.shared_info_list[1],
+                "pi4_disk_usage": self.shared_info_list[2],
+                "pi4_temperature": self.shared_info_list[3],
+                "voltage": self.shared_info_list[4],
             })
 
         def read_log_file(file_path):

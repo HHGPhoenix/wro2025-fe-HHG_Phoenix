@@ -51,7 +51,7 @@ class DataTransferer:
                 framehsv = self.camera.compress_frame(framehsv)
                 
                 # print(f"frameraw: {frameraw.shape}")
-                simplified_image = self.camera.simplify_image(framehsv.copy(), black_color=[255, 255, 255], shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
+                simplified_image = self.camera.simplify_image(framehsv.copy(), shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
                 object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
                 
                 # Update shared list with the new frames
