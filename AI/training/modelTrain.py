@@ -917,9 +917,26 @@ class DataProcessor:
         else:
             self.modelTrainUI.found_training_data = True
 
-        # Combine data from all folders
+        # Assuming lidar_data_list is already defined
         lidar_data = np.concatenate(lidar_data_list, axis=0)
+
+        # Extract angles and distances
+        angles = lidar_data[:, :, 0]
+        distances = lidar_data[:, :, 1]
+
+        # Normalize angles and distances
+        normalized_angles = angles / 360
+        normalized_distances = distances / 5000
+
+        # Combine normalized angles and distances
+        new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+
+        # If you need to keep the original shape
+        lidar_data = new_lidar_data
+        
         simplified_image_data = np.concatenate(image_data_list, axis=0)
+        simplified_image_data = simplified_image_data / 255.0
+        
         controller_data = np.concatenate(controller_data_list, axis=0)
         counter_data = np.concatenate(counter_data_list, axis=0)
 
