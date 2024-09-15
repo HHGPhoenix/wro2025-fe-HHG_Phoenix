@@ -61,17 +61,20 @@ class modelTrainUI(ctk.CTk):
         self.batch_size_default = 32
         self.patience_default = 5
         self.epochs_graphed_default = 50
+        self.data_shift_default = 0
         
         self.epochs = tk.StringVar(value=self.epochs_default)
         self.batch_size = tk.StringVar(value=self.batch_size_default)
         self.patience = tk.StringVar(value=self.patience_default)
         self.epochs_graphed = tk.StringVar(value=self.epochs_graphed_default)
+        self.data_shift = tk.StringVar(value=self.data_shift_default)
         
         self.settings = {
             "epochs": (self.epochs, self.epochs_default),
             "batch_size": (self.batch_size, self.batch_size_default),
             "patience": (self.patience, self.patience_default),
-            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default)
+            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default),
+            "data_shift": (self.data_shift, self.data_shift_default),
         }
         
         self.configuration_path_global = "model_preset_configuration.json"
@@ -151,6 +154,10 @@ class modelTrainUI(ctk.CTk):
     def save_model_configuration_file(self):
         if not self.keep_config_var_global.get():
             return
+        
+        if self.selected_training_data_path is None or self.selected_model_configuration_path is None:
+            return
+        
         self.configuration_to_save = {
             "selected_training_data_path": self.selected_training_data_path,
             "selected_training_data_path_basename": self.selected_training_data_path_basename,
@@ -168,14 +175,19 @@ class modelTrainUI(ctk.CTk):
         
         with open(self.configuration_path_global, "r") as f:
             file_content = json.load(f)
-            self.selected_training_data_path = file_content["selected_training_data_path"]
-            self.selected_training_data_path_basename = file_content["selected_training_data_path_basename"]
-            self.selected_model_configuration_path = file_content["selected_model_configuration_path"]
-            self.selected_model_configuration_path_basename = file_content["selected_model_configuration_path_basename"]
-            self.model_name.set(file_content["model_name"])
+            self.selected_training_data_path = file_content.get("selected_training_data_path")
+            self.selected_training_data_path_basename = file_content.get("selected_training_data_path_basename")
+            self.selected_model_configuration_path = file_content.get("selected_model_configuration_path")
+            self.selected_model_configuration_path_basename = file_content.get("selected_model_configuration_path_basename")
+            self.model_name.set(file_content.get("model_name"))
+
+        # Ensure paths are not None before checking their existence
+        if (self.selected_training_data_path is None or 
+            self.selected_model_configuration_path is None or 
+            not os.path.exists(self.selected_training_data_path) or 
+            not os.path.exists(self.selected_model_configuration_path)):
             
-        if not os.path.exists(self.selected_training_data_path) or not os.path.exists(self.selected_model_configuration_path):
-            answer = messagebox.askyesno("Error", "The nessesary files are not found. Do you want to delete the configuration file or exit?")
+            answer = messagebox.askyesno("Error", "The necessary files are not found. Do you want to delete the configuration file (yes) or exit (no) ?")
             if answer:
                 os.remove(self.configuration_path_global)
                 return
@@ -737,7 +749,7 @@ class modelTrainUI(ctk.CTk):
             except ValueError:
                 settings[key][0].set(default)
                 messagebox.showerror("Error", f"Invalid value for {key}. Reverting to {default}.")
-            except tk.TclError:
+            except Exception as e:
                 print(f"Error setting {key} to {value}")
                 settings[key][0].set(default)
         
@@ -951,6 +963,13 @@ class DataProcessor:
         
         controller_data = np.concatenate(controller_data_list, axis=0)
         counter_data = np.concatenate(counter_data_list, axis=0)
+
+        data_shift = int(self.modelTrainUI.data_shift.get())
+        if data_shift != 0:
+            controller_data = controller_data[data_shift:]
+            lidar_data = lidar_data[:-data_shift]
+            simplified_image_data = simplified_image_data[:-data_shift]
+            counter_data = counter_data[:-data_shift]
 
         # Perform the train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=42)
