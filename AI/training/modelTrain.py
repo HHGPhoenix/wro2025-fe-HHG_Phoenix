@@ -378,11 +378,11 @@ class modelTrainUI(ctk.CTk):
         self.plot_frame.grid_columnconfigure(0, weight=1)
         
         self.loss_plot_frame = ctk.CTkFrame(self.plot_frame, height=1000, width=1000, corner_radius=5)
-        self.loss_plot_frame.grid(row=0, column=0, padx=15, pady=15, sticky='nsew')
+        self.loss_plot_frame.grid(row=1, column=0, padx=15, pady=15, sticky='nsew')
         self.data_visualizer.create_loss_plot(self.loss_plot_frame)
         
         self.mae_plot_frame = ctk.CTkFrame(self.plot_frame, height=1000, width=1000, corner_radius=5)
-        self.mae_plot_frame.grid(row=1, column=0, padx=15, pady=15, sticky='nsew')
+        self.mae_plot_frame.grid(row=0, column=0, padx=15, pady=15, sticky='nsew')
         self.data_visualizer.create_mae_plot(self.mae_plot_frame)
         
         ############################################################################################################
@@ -398,7 +398,8 @@ class modelTrainUI(ctk.CTk):
         self.mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         
-        self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
+        # self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
+        self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
         self.lowest_val_mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         self.lowest_val_mae_desc_label = ctk.CTkLabel(self.lowest_val_mae_frame, text="Lowest Validation MAE:", font=("Arial", 17, 'bold'))
@@ -414,7 +415,8 @@ class modelTrainUI(ctk.CTk):
         self.lowest_val_mae_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
         
         
-        self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
+        # self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
+        self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
         self.lowest_mae_frame.pack(padx=15, pady=(15, 15), fill='both', expand=True)
         
         self.lowest_mae_desc_label = ctk.CTkLabel(self.lowest_mae_frame, text="Lowest MAE:", font=("Arial", 17, 'bold'))
@@ -434,7 +436,8 @@ class modelTrainUI(ctk.CTk):
         self.loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True, side='bottom')
         
         
-        self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
+        # self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
+        self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
         self.lowest_val_loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         self.lowest_val_loss_desc_label = ctk.CTkLabel(self.lowest_val_loss_frame, text="Lowest Validation Loss:", font=("Arial", 17, 'bold'))
@@ -450,7 +453,8 @@ class modelTrainUI(ctk.CTk):
         self.lowest_val_loss_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
         
         
-        self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
+        # self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
+        self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
         self.lowest_loss_frame.pack(padx=15, pady=(15, 15), fill='both', expand=True)
         
         self.lowest_loss_desc_label = ctk.CTkLabel(self.lowest_loss_frame, text="Lowest Loss:", font=("Arial", 17, 'bold'))
@@ -899,16 +903,24 @@ class DataProcessor:
         counter_data_list = []
         file_count = 0
 
-        for root, dirs, files in os.walk(folder_path):
-            for file in files:
-                if file.startswith("run_data_"):
-                    file_path = os.path.join(root, file)
-                    np_arrays = np.load(file_path, allow_pickle=True)
-                    lidar_data_list.append(np_arrays['lidar_data'])
-                    image_data_list.append(np_arrays['simplified_frames'])
-                    controller_data_list.append(np_arrays['controller_data'])
-                    counter_data_list.append(np_arrays['counters'])
-                    file_count += 1
+        try:
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if file.startswith("run_data_"):
+                        file_path = os.path.join(root, file)
+                        np_arrays = np.load(file_path, allow_pickle=True)
+                        lidar_data_list.append(np_arrays['lidar_data'])
+                        image_data_list.append(np_arrays['simplified_frames'])
+                        controller_data_list.append(np_arrays['controller_data'])
+                        counter_data_list.append(np_arrays['counters'])
+                        file_count += 1
+        except KeyError as e:
+            messagebox.showerror("Error", f"Error loading data from {file_path}. {e}")
+            self.modelTrainUI.found_training_data = False
+            self.modelTrainUI.selected_training_data_path = None
+            self.modelTrainUI.selected_training_data_path_basename = None
+            self.modelTrainUI.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
+            return
 
         if not lidar_data_list or not image_data_list or not controller_data_list or not counter_data_list:
             messagebox.showerror("Error", "No data files found in the selected folder")
