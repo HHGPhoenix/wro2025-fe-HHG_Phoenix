@@ -61,17 +61,20 @@ class modelTrainUI(ctk.CTk):
         self.batch_size_default = 32
         self.patience_default = 5
         self.epochs_graphed_default = 50
+        self.data_shift_default = 0
         
         self.epochs = tk.StringVar(value=self.epochs_default)
         self.batch_size = tk.StringVar(value=self.batch_size_default)
         self.patience = tk.StringVar(value=self.patience_default)
         self.epochs_graphed = tk.StringVar(value=self.epochs_graphed_default)
+        self.data_shift = tk.StringVar(value=self.data_shift_default)
         
         self.settings = {
             "epochs": (self.epochs, self.epochs_default),
             "batch_size": (self.batch_size, self.batch_size_default),
             "patience": (self.patience, self.patience_default),
-            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default)
+            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default),
+            "data_shift": (self.data_shift, self.data_shift_default),
         }
         
         self.configuration_path_global = "model_preset_configuration.json"
@@ -151,6 +154,10 @@ class modelTrainUI(ctk.CTk):
     def save_model_configuration_file(self):
         if not self.keep_config_var_global.get():
             return
+        
+        if self.selected_training_data_path is None or self.selected_model_configuration_path is None:
+            return
+        
         self.configuration_to_save = {
             "selected_training_data_path": self.selected_training_data_path,
             "selected_training_data_path_basename": self.selected_training_data_path_basename,
@@ -168,14 +175,19 @@ class modelTrainUI(ctk.CTk):
         
         with open(self.configuration_path_global, "r") as f:
             file_content = json.load(f)
-            self.selected_training_data_path = file_content["selected_training_data_path"]
-            self.selected_training_data_path_basename = file_content["selected_training_data_path_basename"]
-            self.selected_model_configuration_path = file_content["selected_model_configuration_path"]
-            self.selected_model_configuration_path_basename = file_content["selected_model_configuration_path_basename"]
-            self.model_name.set(file_content["model_name"])
+            self.selected_training_data_path = file_content.get("selected_training_data_path")
+            self.selected_training_data_path_basename = file_content.get("selected_training_data_path_basename")
+            self.selected_model_configuration_path = file_content.get("selected_model_configuration_path")
+            self.selected_model_configuration_path_basename = file_content.get("selected_model_configuration_path_basename")
+            self.model_name.set(file_content.get("model_name"))
+
+        # Ensure paths are not None before checking their existence
+        if (self.selected_training_data_path is None or 
+            self.selected_model_configuration_path is None or 
+            not os.path.exists(self.selected_training_data_path) or 
+            not os.path.exists(self.selected_model_configuration_path)):
             
-        if not os.path.exists(self.selected_training_data_path) or not os.path.exists(self.selected_model_configuration_path):
-            answer = messagebox.askyesno("Error", "The nessesary files are not found. Do you want to delete the configuration file or exit?")
+            answer = messagebox.askyesno("Error", "The necessary files are not found. Do you want to delete the configuration file (yes) or exit (no) ?")
             if answer:
                 os.remove(self.configuration_path_global)
                 return
@@ -378,11 +390,11 @@ class modelTrainUI(ctk.CTk):
         self.plot_frame.grid_columnconfigure(0, weight=1)
         
         self.loss_plot_frame = ctk.CTkFrame(self.plot_frame, height=1000, width=1000, corner_radius=5)
-        self.loss_plot_frame.grid(row=0, column=0, padx=15, pady=15, sticky='nsew')
+        self.loss_plot_frame.grid(row=1, column=0, padx=15, pady=15, sticky='nsew')
         self.data_visualizer.create_loss_plot(self.loss_plot_frame)
         
         self.mae_plot_frame = ctk.CTkFrame(self.plot_frame, height=1000, width=1000, corner_radius=5)
-        self.mae_plot_frame.grid(row=1, column=0, padx=15, pady=15, sticky='nsew')
+        self.mae_plot_frame.grid(row=0, column=0, padx=15, pady=15, sticky='nsew')
         self.data_visualizer.create_mae_plot(self.mae_plot_frame)
         
         ############################################################################################################
@@ -398,7 +410,8 @@ class modelTrainUI(ctk.CTk):
         self.mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         
-        self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
+        # self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
+        self.lowest_val_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
         self.lowest_val_mae_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         self.lowest_val_mae_desc_label = ctk.CTkLabel(self.lowest_val_mae_frame, text="Lowest Validation MAE:", font=("Arial", 17, 'bold'))
@@ -414,7 +427,8 @@ class modelTrainUI(ctk.CTk):
         self.lowest_val_mae_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
         
         
-        self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
+        # self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#6b0669')
+        self.lowest_mae_frame = ctk.CTkFrame(self.mae_frame, fg_color='#077a6f')
         self.lowest_mae_frame.pack(padx=15, pady=(15, 15), fill='both', expand=True)
         
         self.lowest_mae_desc_label = ctk.CTkLabel(self.lowest_mae_frame, text="Lowest MAE:", font=("Arial", 17, 'bold'))
@@ -434,7 +448,8 @@ class modelTrainUI(ctk.CTk):
         self.loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True, side='bottom')
         
         
-        self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
+        # self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
+        self.lowest_val_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
         self.lowest_val_loss_frame.pack(padx=15, pady=(15, 0), fill='both', expand=True)
         
         self.lowest_val_loss_desc_label = ctk.CTkLabel(self.lowest_val_loss_frame, text="Lowest Validation Loss:", font=("Arial", 17, 'bold'))
@@ -450,7 +465,8 @@ class modelTrainUI(ctk.CTk):
         self.lowest_val_loss_epoch_label.pack(padx=15, pady=(0, 15), expand=True, fill='y')
         
         
-        self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
+        # self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#6b0669')
+        self.lowest_loss_frame = ctk.CTkFrame(self.loss_frame, fg_color='#077a6f')
         self.lowest_loss_frame.pack(padx=15, pady=(15, 15), fill='both', expand=True)
         
         self.lowest_loss_desc_label = ctk.CTkLabel(self.lowest_loss_frame, text="Lowest Loss:", font=("Arial", 17, 'bold'))
@@ -733,7 +749,7 @@ class modelTrainUI(ctk.CTk):
             except ValueError:
                 settings[key][0].set(default)
                 messagebox.showerror("Error", f"Invalid value for {key}. Reverting to {default}.")
-            except tk.TclError:
+            except Exception as e:
                 print(f"Error setting {key} to {value}")
                 settings[key][0].set(default)
         
@@ -899,16 +915,24 @@ class DataProcessor:
         counter_data_list = []
         file_count = 0
 
-        for root, dirs, files in os.walk(folder_path):
-            for file in files:
-                if file.startswith("run_data_"):
-                    file_path = os.path.join(root, file)
-                    np_arrays = np.load(file_path, allow_pickle=True)
-                    lidar_data_list.append(np_arrays['lidar_data'])
-                    image_data_list.append(np_arrays['simplified_frames'])
-                    controller_data_list.append(np_arrays['controller_data'])
-                    counter_data_list.append(np_arrays['counters'])
-                    file_count += 1
+        try:
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if file.startswith("run_data_"):
+                        file_path = os.path.join(root, file)
+                        np_arrays = np.load(file_path, allow_pickle=True)
+                        lidar_data_list.append(np_arrays['lidar_data'])
+                        image_data_list.append(np_arrays['simplified_frames'])
+                        controller_data_list.append(np_arrays['controller_data'])
+                        counter_data_list.append(np_arrays['counters'])
+                        file_count += 1
+        except KeyError as e:
+            messagebox.showerror("Error", f"Error loading data from {file_path}. {e}")
+            self.modelTrainUI.found_training_data = False
+            self.modelTrainUI.selected_training_data_path = None
+            self.modelTrainUI.selected_training_data_path_basename = None
+            self.modelTrainUI.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
+            return
 
         if not lidar_data_list or not image_data_list or not controller_data_list or not counter_data_list:
             messagebox.showerror("Error", "No data files found in the selected folder")
@@ -917,11 +941,35 @@ class DataProcessor:
         else:
             self.modelTrainUI.found_training_data = True
 
-        # Combine data from all folders
+        # Assuming lidar_data_list is already defined
         lidar_data = np.concatenate(lidar_data_list, axis=0)
+
+        # Extract angles and distances
+        angles = lidar_data[:, :, 0]
+        distances = lidar_data[:, :, 1]
+
+        # Normalize angles and distances
+        normalized_angles = angles / 360
+        normalized_distances = distances / 5000
+
+        # Combine normalized angles and distances
+        new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+
+        # If you need to keep the original shape
+        lidar_data = new_lidar_data
+        
         simplified_image_data = np.concatenate(image_data_list, axis=0)
+        simplified_image_data = simplified_image_data / 255.0
+        
         controller_data = np.concatenate(controller_data_list, axis=0)
         counter_data = np.concatenate(counter_data_list, axis=0)
+
+        data_shift = int(self.modelTrainUI.data_shift.get())
+        if data_shift != 0:
+            controller_data = controller_data[data_shift:]
+            lidar_data = lidar_data[:-data_shift]
+            simplified_image_data = simplified_image_data[:-data_shift]
+            counter_data = counter_data[:-data_shift]
 
         # Perform the train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=42)
