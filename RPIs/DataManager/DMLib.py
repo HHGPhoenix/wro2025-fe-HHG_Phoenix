@@ -55,6 +55,14 @@ class RemoteFunctions:
 
     def handle_already_running(self):
         self.DataManager.logger.error('DataManager already running!')
+        
+    def receive_system_info(self, cpu_usage, memory_usage, disk_usage, temperature, voltage):
+        self.DataManager.shared_info_list[0] = cpu_usage
+        self.DataManager.shared_info_list[1] = memory_usage
+        self.DataManager.shared_info_list[2] = disk_usage
+        self.DataManager.shared_info_list[3] = temperature
+        self.DataManager.shared_info_list[4] = voltage
+        # print(f"System info: {cpu_usage}, {memory_usage}, {disk_usage}, {temperature}, {voltage}")
 
 ###########################################################################
     

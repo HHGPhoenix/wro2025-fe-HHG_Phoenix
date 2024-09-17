@@ -12,6 +12,7 @@ int desiredSpeed = 0; // Desired speed in ticks per second
 int motorSpeed = 0;	  // Actual motor speed in PWM value
 int lastSpeed = 0;	  // Last measured speed
 unsigned long lastTime = 0;
+unsigned long lastTime_voltage = 0;
 
 // Adjust PD controller gains
 float Kp = 0.5; // Reduced Proportional gain
@@ -82,6 +83,13 @@ void loop()
 		Serial.println(currentSpeed);
 		controlMotor(currentSpeed);
 		lastTime = currentTime;
+	}
+
+	if (currentTime - lastTime_voltage >= 1000)
+	{
+		Serial.print("V: ");
+		Serial.println(analogRead(A0));
+		lastTime_voltage = currentTime;
 	}
 }
 

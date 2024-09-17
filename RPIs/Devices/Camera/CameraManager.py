@@ -57,7 +57,7 @@ class Camera():
         
         return frameraw, framehsv
     
-    def simplify_image(self, framehsv, shade_of_red, shade_of_green):
+    def simplify_image(self, framehsv, black_color=[255, 255, 255], shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0]):
         """
         Simplify the image by coloring red and green areas with specified shades.
 
@@ -77,30 +77,20 @@ class Camera():
 
         mask_black = cv2.inRange(framehsv, self.lower_black, self.upper_black)
 
-        # Apply morphological operations to clean up the masks
-        mask_green = cv2.morphologyEx(mask_green, cv2.MORPH_CLOSE, self.kernel)
-        mask_red = cv2.morphologyEx(mask_red, cv2.MORPH_CLOSE, self.kernel)
-        mask_black = cv2.morphologyEx(mask_black, cv2.MORPH_CLOSE, self.kernel)
-
         # Initialize a blank white image
         height, width = framehsv.shape[:2]
-        simplified_image = np.ones((height, width, 3), np.uint8) * 255  # White background
+        simplified_image = np.ones((height, width, 3), np.uint8) * 0  # White background
 
         # Apply specified shades to red and green areas
         simplified_image[mask_green > 0] = shade_of_green
         simplified_image[mask_red > 0] = shade_of_red
 
         # Apply black color to non-red and non-green areas
-        simplified_image[mask_black > 0] = [0, 0, 0]  # Black
+        simplified_image[mask_black > 0] = black_color  # Black color for non-red and non-green areas
 
-        # Blend the original image with the simplified image for better color representation
-        alpha = 0  # Blending factor
-        frame_rgb = cv2.cvtColor(framehsv, cv2.COLOR_HSV2RGB)
-        blended_image = cv2.addWeighted(frame_rgb, alpha, simplified_image, 1 - alpha, 0)
+        return simplified_image
 
-        return blended_image
-    
-    def draw_blocks(self, frameraw, framehsv):
+    def draw_blocks(self, frameraw, framehsv, counter_frames=30):
         """
         Draw rectangles around green and red blocks in the camera stream.
 
@@ -130,7 +120,7 @@ class Camera():
         contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         cv2.circle(frameraw, (640, 720), 10, (255, 0, 0), -1)
-        
+
         green_counter_set = False
         red_counter_set = False
 
@@ -143,19 +133,15 @@ class Camera():
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
                 
                 if green_counter_set == False:
-                    self.green_counter.append(-1)
+                    self.green_counter.append(1)
                     green_counter_set = True
         else:
             last_green_counter = self.green_counter[-1] if self.green_counter else 0
-            if last_green_counter > 0 and last_green_counter < 30:
-                self.green_counter.append(last_green_counter + 1)
+            if last_green_counter - 1 / counter_frames > 0 and last_green_counter <= 1 and not green_counter_set:
+                self.green_counter.append(round(last_green_counter - 1 / counter_frames, 5))
                 green_counter_set = True
                 
-            elif last_green_counter == -1:
-                self.green_counter.append(1)    
-                green_counter_set = True
-                
-            else:
+            elif not green_counter_set:
                 self.green_counter.append(0)
                 green_counter_set = True
                 
@@ -171,19 +157,15 @@ class Camera():
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
                 
                 if red_counter_set == False:
-                    self.red_counter.append(-1)
+                    self.red_counter.append(1)
                     red_counter_set = True
         else:
             last_red_counter = self.red_counter[-1] if self.red_counter else 0
-            if last_red_counter > 0 and last_red_counter < 30:
-                self.red_counter.append(last_red_counter + 1)
+            if last_red_counter - 1 / counter_frames > 0 and last_red_counter <= 1 and not red_counter_set:
+                self.red_counter.append(round(last_red_counter - 1 / counter_frames, 5))
                 red_counter_set = True
                 
-            elif last_red_counter == -1:
-                self.red_counter.append(1)
-                red_counter_set = True
-                
-            else:
+            elif not red_counter_set:
                 self.red_counter.append(0)
                 red_counter_set = True
             
