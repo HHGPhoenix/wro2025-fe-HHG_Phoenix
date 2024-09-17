@@ -7,9 +7,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 import threading
 import time
-import logging
+import platform
 import os
-import io
 from PIL import Image, ImageTk
 import signal
 print("\rImported libraries")
@@ -21,6 +20,7 @@ class ModelTestUI(ctk.CTk):
         super().__init__()
         self.title("Model Test")
         # self.geometry("1200x800")
+        self.minsize(height=950, width=1500)
         self.tensorflow_imported = False
         self.thread_lazy_imports = threading.Thread(target=self.import_lazy_imports, daemon=True)
         self.thread_lazy_imports.start()
@@ -57,17 +57,18 @@ class ModelTestUI(ctk.CTk):
         self.tensorflow_imported = True
 
     def import_assets(self):
-        pause_icon_image = ctk.CTkImage(Image.open(r"AI\assets\pause_icon.png"), Image.open(r"AI\assets\pause_icon.png"), size=(90, 90))
+        pause_icon_image = ctk.CTkImage(Image.open(r"AI/assets/pause_icon.png"), Image.open(r"AI/assets/pause_icon.png"), size=(90, 90))
         self.pause_icon = pause_icon_image
 
-        play_icon_image = ctk.CTkImage(Image.open(r"AI\assets\play_icon.png"), Image.open(r"AI\assets\play_icon.png"), size=(90, 90))
+        play_icon_image = ctk.CTkImage(Image.open(r"AI/assets/play_icon.png"), Image.open(r"AI/assets/play_icon.png"), size=(90, 90))
         self.play_icon = play_icon_image
 
-        stop_icon_image = ctk.CTkImage(Image.open(r"AI\assets\stop_icon.png"), Image.open(r"AI\assets\stop_icon.png"), size=(90, 90))
+        stop_icon_image = ctk.CTkImage(Image.open(r"AI/assets/stop_icon.png"), Image.open(r"AI/assets/stop_icon.png"), size=(90, 90))
         self.stop_icon = stop_icon_image
         
     def init_window(self):
-        self.iconbitmap(r"AI\assets\phoenix_logo.ico")
+        if platform.system() == "Windows":
+            self.iconbitmap(r"AI/assets/phoenix_logo.ico")
         
         # Configure the grid of the main window to expand
         self.grid_rowconfigure(0, weight=1)
@@ -183,9 +184,9 @@ class ModelTestUI(ctk.CTk):
         self.credit_label = ctk.CTkLabel(self.credit_frame, text="Developed by HHG_Phoenix", font=("Arial", 18, "bold"), corner_radius=5, padx=10, pady=10)
         self.credit_label.pack(padx=15, pady=10, side='left')
 
-        light_image = Image.open(r"AI\assets\phoenix_logo.png")
+        light_image = Image.open(r"AI/assets/phoenix_logo.png")
 
-        dark_image = Image.open(r"AI\assets\phoenix_logo.png")
+        dark_image = Image.open(r"AI/assets/phoenix_logo.png")
 
         self.credit_logo = ctk.CTkImage(light_image, dark_image, size=(90, 90))
         self.credit_logo_label = ctk.CTkLabel(self.credit_frame, image=self.credit_logo, text="", corner_radius=5, padx=10, pady=10)
@@ -502,7 +503,7 @@ class VisualizeData:
         self.image_canvas.get_tk_widget().pack()
         tk_frame.bind("<Configure>", self.on_resize)
         
-        path = r"AI\assets\hd-bars.jpg"
+        path = r"AI/assets/hd-bars.jpg"
         image = Image.open(path)
         resized_image = image.resize((213, 110))
         self.update_image_plot(resized_image)
@@ -532,7 +533,7 @@ class VisualizeData:
         self.image_fig.canvas.draw()
         
     def clear_image_plot(self):
-        path = r"AI\assets\hd-bars.jpg"
+        path = r"AI/assets/hd-bars.jpg"
         image = Image.open(path)
         resized_image = image.resize((213, 110))
         self.update_image_plot(resized_image)
