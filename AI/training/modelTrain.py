@@ -27,7 +27,12 @@ from pygments.lexers.python import PythonLexer
 from pygments.styles import get_style_by_name
 import platform
 
+global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
+
 DEBUG = True
+
+TRAIN_VAL_SPLIT_RANDOM_STATE = 42
+
 
 ############################################################################################################
 
@@ -52,6 +57,9 @@ class modelTrainUI(ctk.CTk):
         self.queue = []
         
         self.open_details_windows = {}
+        
+        self.data_processor = None
+        self.data_processor_old = None
         
         self.model_name = tk.StringVar()
         self.keep_config_var = tk.BooleanVar()
@@ -604,9 +612,11 @@ class modelTrainUI(ctk.CTk):
         self.data_processor.pass_training_options(self.data_visualizer, model_name_entry_content, epochs, batch_size, patience, custom_model_name=name, epochs_graphed=epochs_graphed)
         self.queue.append(self.data_processor)
         
-        self.data_processor = DataProcessor(self)
+        # self.data_processor_old = self.data_processor.copy()
+        
         
         if not self.keep_config_var.get():
+            self.data_processor = DataProcessor(self)
             self.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
             self.selected_training_data_path = None
             self.selected_training_data_path_basename = None
@@ -616,9 +626,13 @@ class modelTrainUI(ctk.CTk):
             self.selected_model_configuration_path_basename = None
             
             self.model_name.set("")
-        # else:
-        #     self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
-        #     self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+        else:
+            # self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+            # self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+            
+            # self.data_processor = deepcopy(self.data_processor)
+            
+            pass        
         
         self.handle_save_model_configuration()
         
@@ -1028,15 +1042,15 @@ class DataProcessor:
             
 
         # Perform the train-validation split
-        self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=42)
+        self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
         lidar_data = None
         
-        self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=42)
+        self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
         simplified_image_data = None
         
-        self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=42)
+        self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
         
-        self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=42)
+        self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
         
         self.data_loading_completed()
 
@@ -1055,7 +1069,7 @@ class DataProcessor:
         
         self.modelTrainUI.add_to_queue_button.configure(state='normal')
         self.modelTrainUI.add_to_queue_button.configure(text="Add to Queue")
-        self.modelTrainUI.add_to_queue_button.configure(fg_color='aqua')
+        self.modelTrainUI.add_to_queue_button.configure(fg_color='#1f6aa5')
         self.modelTrainUI.update_idletasks()
 
     def load_model_configuration(self, file_path):
