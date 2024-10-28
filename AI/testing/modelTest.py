@@ -361,12 +361,25 @@ class DataProcessing:
             counters = self.counter_data[i]
             
             model_input_lidar = np.expand_dims(lidar_array, axis=0)
+            
+            new_lidar_data = []
+            for data_point in model_input_lidar:
+                angles, distances, intensities = zip(*data_point)
+                new_data_point = [angles, distances]
+                new_lidar_data.append(new_data_point)
+
+            # Convert to NumPy array and reshape
+            new_lidar_data = np.array(new_lidar_data)
+            new_lidar_data = np.transpose(new_lidar_data, (0, 2, 1))  # Transpose to shape (None, 279, 2)
+            new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
+
             model_input_image = np.expand_dims(image_array, axis=0)
             model_input_counters = np.expand_dims(counters, axis=0)
-            model_input = [model_input_lidar, model_input_image, model_input_counters]
+            model_input = [new_lidar_data, model_input_image, model_input_counters]
             
             model_start_time = time.time()
             model_output = self.model.predict(model_input)[0][0]
+            print("Model Output: ", model_output)
             model_stop_time = time.time()
 
             self.data_visualizer.update_polar_plot_lidar(lidar_array)

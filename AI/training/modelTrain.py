@@ -27,7 +27,7 @@ from pygments.lexers.python import PythonLexer
 from pygments.styles import get_style_by_name
 import platform
 
-DEBUG = False
+DEBUG = True
 
 ############################################################################################################
 
@@ -568,6 +568,10 @@ class modelTrainUI(ctk.CTk):
             messagebox.showerror("Error", "No model configuration selected")
             return
         
+        if self.data_processor.data_loading is True:
+            messagebox.showerror("Error", "Data is still loading. Please wait.")
+            return
+        
         model_name_entry_content = self.model_name.get()
         
         if model_name_entry_content and model_name_entry_content != "":
@@ -612,15 +616,18 @@ class modelTrainUI(ctk.CTk):
             self.selected_model_configuration_path_basename = None
             
             self.model_name.set("")
-        else:
-            self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
-            self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+        # else:
+        #     self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+        #     self.data_processor.load_model_configuration(self.selected_model_configuration_path)
         
         self.handle_save_model_configuration()
         
         self.queue_listbox.insert(tk.END, name)
 
     def start_queue(self):
+        if self.data_processor.data_loading is True:
+            messagebox.showerror("Error", "Data is still loading. Please wait.")
+            return
         self.queue_thread = threading.Thread(target=self.process_queue, daemon=True)
         self.queue_thread.start()
         
@@ -828,6 +835,7 @@ class DataProcessor:
         self.patience = None
         self.model = None
         self.model_train_thread = None
+        self.data_loading = False
         
         self.model_file_content = None
         self.model_function = None
@@ -862,7 +870,13 @@ class DataProcessor:
         
         
         if self.lidar_train is None or self.image_train is None or self.controller_train is None or self.counter_train is None:
-            messagebox.showerror("Error", "No training data loaded")
+            messagebox.showerror("Error", "Probably No training data loaded?")
+            if DEBUG:
+                print("At least one of the training data is None")
+                print(f"Lidar Train: {self.lidar_train}")
+                print(f"Image Train: {self.image_train}")
+                print(f"Controller Train: {self.controller_train}")
+                print(f"Counter Train: {self.counter_train}")
             return
         
         
@@ -880,7 +894,7 @@ class DataProcessor:
             print(f"Validation Counter data shape: {self.counter_val.shape}")
         
         self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                         frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]),
+                                         frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
                                          counter_input_shape=(self.counter_train.shape[1], ))
 
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
@@ -901,12 +915,20 @@ class DataProcessor:
         print(f"Model {self.model_name} trained successfully")
         
     def load_training_data_wrapper(self, folder_path):
+        if self.data_loading:
+            return
+        
+        if DEBUG:
+            print("Starting data loading thread")
+        
+        self.data_loading_started()
         self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path,), daemon=True)
         self.load_training_data_thread.start()
 
     def load_training_data(self, folder_path):
         if not folder_path:
             messagebox.showerror("Error", "No data folder selected")
+            self.data_loading_completed()
             return
         
         # print(f"Loading data from {folder_path}")
@@ -934,17 +956,23 @@ class DataProcessor:
             self.modelTrainUI.selected_training_data_path = None
             self.modelTrainUI.selected_training_data_path_basename = None
             self.modelTrainUI.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
+            self.data_loading_completed()
             return
+
+        
+        np_arrays = None
 
         if not lidar_data_list or not image_data_list or not controller_data_list or not counter_data_list:
             messagebox.showerror("Error", "No data files found in the selected folder")
             self.modelTrainUI.found_training_data = False
+            self.data_loading_completed()
             return
         else:
             self.modelTrainUI.found_training_data = True
 
         # Assuming lidar_data_list is already defined
         lidar_data = np.concatenate(lidar_data_list, axis=0)
+        lidar_data_list = None
 
         # Extract angles and distances
         angles = lidar_data[:, :, 0]
@@ -956,15 +984,40 @@ class DataProcessor:
 
         # Combine normalized angles and distances
         new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+        normalized_angles = None
+        normalized_distances = None
 
         # If you need to keep the original shape
         lidar_data = new_lidar_data
+        new_lidar_data = None
         
         simplified_image_data = np.concatenate(image_data_list, axis=0)
+        
+        image_data_list = None
+        
+        # print(f"Loaded {file_count} files")
+        # print(f"Starting resizing")
+        # start_time = time.time()
+        # resized_frames = []
+        # for frame in simplified_image_data:
+        #     if len(frame.shape) == 3:  # Ensure frame has at least 3 dimensions
+        #         resized_frame = np.concatenate
+        #         resized_frame = np.resize(frame, (128, 128, frame.shape[2]))
+        #         resized_frames.append(resized_frame)
+        # print(f"Resizing took {time.time() - start_time} seconds")
+        # print("Ferddig Resizing!!!!!!!!!!!!!!")
+        # simplified_image_data = np.array(resized_frames)
         simplified_image_data = simplified_image_data / 255.0
         
         controller_data = np.concatenate(controller_data_list, axis=0)
         counter_data = np.concatenate(counter_data_list, axis=0)
+        
+        controller_data_list = None
+        counter_data_list = None
+        
+        # print(f"Data loaded successfully. {file_count} files were loaded.")
+        # while True:
+        #     pass
 
         data_shift = int(self.modelTrainUI.data_shift.get())
         if data_shift != 0:
@@ -972,14 +1025,38 @@ class DataProcessor:
             lidar_data = lidar_data[:-data_shift]
             simplified_image_data = simplified_image_data[:-data_shift]
             counter_data = counter_data[:-data_shift]
+            
 
         # Perform the train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=42)
+        lidar_data = None
+        
         self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=42)
+        simplified_image_data = None
+        
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=42)
+        
         self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=42)
+        
+        self.data_loading_completed()
 
-        # messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
+        messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
+    
+    def data_loading_started(self):
+        self.data_loading = True
+        
+        self.modelTrainUI.add_to_queue_button.configure(state='disabled')
+        self.modelTrainUI.add_to_queue_button.configure(text="Please wait, loading data...")
+        self.modelTrainUI.add_to_queue_button.configure(fg_color='#D3031C')
+        self.modelTrainUI.update_idletasks()
+        
+    def data_loading_completed(self):
+        self.data_loading = False
+        
+        self.modelTrainUI.add_to_queue_button.configure(state='normal')
+        self.modelTrainUI.add_to_queue_button.configure(text="Add to Queue")
+        self.modelTrainUI.add_to_queue_button.configure(fg_color='aqua')
+        self.modelTrainUI.update_idletasks()
 
     def load_model_configuration(self, file_path):
         with open(file_path, 'r') as file:
