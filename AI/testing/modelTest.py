@@ -332,6 +332,7 @@ class DataProcessing:
         self.simplified_image_data = None
         self.controller_data = None
         self.counter_data = None
+        self.model_type = ""
         self.controller_values = []
         self.model_values = []
         self.modelTestUI = modelTestUI
@@ -379,7 +380,17 @@ class DataProcessing:
             model_input = [new_lidar_data, model_input_image, model_input_counters]
             
             model_start_time = time.time()
-            model_output = self.model.predict(model_input)[0][0]
+            
+            if self.model_type == "h5":
+                model_output = self.model.predict(model_input)[0][0]
+            elif self.model_type == "tflite":
+                self.model.set_tensor(self.model.get_input_details()[0]['index'], model_input[1].astype(np.float32))
+                self.model.set_tensor(self.model.get_input_details()[1]['index'], model_input[0].astype(np.float32))
+                self.model.set_tensor(self.model.get_input_details()[2]['index'], model_input[2].astype(np.float32))
+                
+                self.model.invoke()
+                model_output = self.model.get_tensor(self.model.get_output_details()[0]['index'])[0][0]
+            
             print("Model Output: ", model_output)
             model_stop_time = time.time()
 
@@ -422,7 +433,19 @@ class DataProcessing:
     def load_model(self, model_path):
         while not self.modelTestUI.tensorflow_imported:
             time.sleep(0.1)
-        self.model = tf.keras.models.load_model(model_path)
+        
+        # could be h5 or tflite
+        if model_path.endswith(".h5"):
+            self.model = tf.keras.models.load_model(model_path)
+            self.model_type = "h5"
+        elif model_path.endswith(".tflite"):
+            self.model = tf.lite.Interpreter(model_path=model_path)
+            self.model.allocate_tensors()
+            self.model_type = "tflite"
+        else:
+            print("Model file format not supported")
+            return
+
         self.model_loaded = True
         
 ############################################################################################################
