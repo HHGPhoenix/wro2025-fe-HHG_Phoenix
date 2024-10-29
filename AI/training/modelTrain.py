@@ -63,7 +63,8 @@ class modelTrainUI(ctk.CTk):
         self.open_details_windows = {}
         
         self.data_processor = None
-        self.data_processor_old = None
+        self.current_queue_item = None
+        self.stop_training = False
         
         self.model_name = tk.StringVar()
         self.keep_config_var = tk.BooleanVar()
@@ -112,6 +113,10 @@ class modelTrainUI(ctk.CTk):
             self.load_model_configuration_file()
             self.keep_config_var_global.set(True)
             self.keep_config_var.set(True)
+            
+        # toggle button states
+        self.toggle_button_state(self.skip_queue_item_button, False)
+        self.toggle_button_state(self.stop_queue_button, False)
         
         self.mainloop()
 
@@ -637,12 +642,10 @@ class modelTrainUI(ctk.CTk):
         epochs_graphed = int(self.epochs_graphed.get())
         
         self.data_processor.pass_training_options(self.data_visualizer, model_name_entry_content, epochs, batch_size, patience, custom_model_name=name, epochs_graphed=epochs_graphed)
-        self.queue.append(self.data_processor)
-        
-        # self.data_processor_old = self.data_processor.copy()
-        
         
         if not self.keep_config_var.get():
+            self.queue.append(self.data_processor)
+            
             self.data_processor = DataProcessor(self)
             self.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
             self.selected_training_data_path = None
@@ -654,13 +657,23 @@ class modelTrainUI(ctk.CTk):
             
             self.model_name.set("")
         else:
-            # self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
-            # self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+            # Manually clone attributes
+            cloned_processor = DataProcessor(self)
+            for attr, value in self.data_processor.__dict__.items():
+                print("attr", attr, "value", value)
+                if not isinstance(value, (tk.Button, tk.Label, tk.Entry)):
+                    setattr(cloned_processor, attr, value)
             
-            # self.data_processor.
-            pass        
+            self.queue.append(cloned_processor)
         
         self.handle_save_model_configuration()
+        
+        if DEBUG:
+            print("###############################")
+            print("Queue length", len(self.queue))
+            for item in self.queue:
+                print(item.custom_model_name)
+            print("###############################")
         
         self.queue_listbox.insert(tk.END, name)
         
@@ -681,9 +694,18 @@ class modelTrainUI(ctk.CTk):
             messagebox.showerror("Error", "Queue is empty")
             return
         
+        if self.stop_training:
+            self.stop_training = False
+            return
+        
         self.pre_training()
         
         for i, item in enumerate(queue):
+            
+            self.current_queue_item = item
+
+            if self.stop_training:
+                break
             
             for value, epoch in zip(self.stats_value_labels, self.stats_epoch_labels):
                 value.configure(text="N/A")
@@ -738,6 +760,9 @@ class modelTrainUI(ctk.CTk):
                 return
     
     def post_training(self, queue):
+        self.stop_training = False
+        self.current_queue_item = None
+        
         # self.queue_listbox.delete(len(queue)-1, True)
         self.queue_listbox.insert(len(queue)-1, f"{queue[-1].custom_model_name}", update=True)
         
@@ -751,11 +776,17 @@ class modelTrainUI(ctk.CTk):
         self.toggle_button_state(self.skip_queue_item_button, False)
         self.toggle_button_state(self.stop_queue_button, False)
         
-    def stop_queue(self):
-        pass
-    
     def skip_queue_item(self):
-        pass
+        if self.current_queue_item is None:
+            return
+        
+        self.current_queue_item.stop_training = True
+        
+        self.
+    
+    def stop_queue(self):
+        self.stop_training = True
+        self.skip_queue_item()
     
     ############################################################################################################
     
@@ -993,8 +1024,6 @@ class DataProcessor:
         self.load_training_data_thread.start()
 
     def load_training_data(self, folder_path):
-        if self.data_loading:
-            return
         if not folder_path:
             messagebox.showerror("Error", "No data folder selected")
             self.data_loading_completed()
@@ -1166,8 +1195,12 @@ class DataProcessor:
             return
         
 class StopTrainingCallback(Callback):
+    def __init__(self, data_processor):
+        super().__init__()
+        self.data_processor = data_processor
+        
     def on_batch_end(self, batch, logs=None):
-        if self.stop_training:
+        if self.data_processor.stop_training:
             self.model.stop_training = True
             print("Training stopped by user.")
 
