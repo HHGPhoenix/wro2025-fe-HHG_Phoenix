@@ -1,4 +1,5 @@
 print("Importing nessesary modules...")
+import shutil
 import customtkinter as ctk
 from CTkListbox import *
 import tkinter as tk
@@ -69,6 +70,10 @@ class modelTrainUI(ctk.CTk):
         self.model_name = tk.StringVar()
         self.keep_config_var = tk.BooleanVar()
         self.keep_config_var_global = tk.BooleanVar()
+        
+        self.save_as_h5 = tk.BooleanVar(value=True)
+        self.save_as_tflite = tk.BooleanVar(value=False)
+        self.save_with_model_config = tk.BooleanVar(value=True)
         
         # SETTINGS
         self.epochs_default = 10
@@ -184,6 +189,9 @@ class modelTrainUI(ctk.CTk):
             "selected_model_configuration_path": self.selected_model_configuration_path,
             "selected_model_configuration_path_basename": self.selected_model_configuration_path_basename,
             "model_name": self.model_name.get(),
+            "save_as_h5": self.save_as_h5.get(),
+            "save_as_tflite": self.save_as_tflite.get(),
+            "save_with_model_config": self.save_with_model_config.get()
         }
         
         with open(self.configuration_path_global, "w") as f:
@@ -192,14 +200,25 @@ class modelTrainUI(ctk.CTk):
     def load_model_configuration_file(self):
         if not os.path.exists(self.configuration_path_global):
             return
-        
-        with open(self.configuration_path_global, "r") as f:
-            file_content = json.load(f)
-            self.selected_training_data_path = file_content.get("selected_training_data_path")
-            self.selected_training_data_path_basename = file_content.get("selected_training_data_path_basename")
-            self.selected_model_configuration_path = file_content.get("selected_model_configuration_path")
-            self.selected_model_configuration_path_basename = file_content.get("selected_model_configuration_path_basename")
-            self.model_name.set(file_content.get("model_name"))
+        try:
+            with open(self.configuration_path_global, "r") as f:
+                file_content = json.load(f)
+                self.selected_training_data_path = file_content.get("selected_training_data_path")
+                self.selected_training_data_path_basename = file_content.get("selected_training_data_path_basename")
+                self.selected_model_configuration_path = file_content.get("selected_model_configuration_path")
+                self.selected_model_configuration_path_basename = file_content.get("selected_model_configuration_path_basename")
+                self.model_name.set(file_content.get("model_name"))
+                self.save_as_h5.set(file_content.get("save_as_h5"))
+                self.save_as_tflite.set(file_content.get("save_as_tflite"))
+                self.save_with_model_config.set(file_content.get("save_with_model_config"))
+        except:
+            answer = messagebox.askyesno("Error", "The necessary files are not found. Do you want to delete the configuration file (yes) or exit (no) ?")
+            if answer:
+                os.remove(self.configuration_path_global)
+                return
+            else:
+                self.close()
+                return
 
         # Ensure paths are not None before checking their existence
         if (self.selected_training_data_path is None or 
@@ -315,6 +334,29 @@ class modelTrainUI(ctk.CTk):
         
         self.select_model_name_frame.bind("<FocusOut>", lambda e: self.handle_save_model_configuration())
         self.select_model_name_entry.bind("<FocusOut>", lambda e: self.handle_save_model_configuration())
+        
+        ############################################################################################################
+        
+        self.format_settings_frame = ctk.CTkFrame(self.queue_item_frame)
+        self.format_settings_frame.pack(padx=15, pady=(12, 0), anchor='n', expand=False, fill='x')
+        
+        self.format_settings_frame.grid_rowconfigure(0, weight=1)
+        self.format_settings_frame.grid_rowconfigure(1, weight=1)
+        self.format_settings_frame.grid_columnconfigure(0, weight=1)
+        self.format_settings_frame.grid_columnconfigure(1, weight=1)
+        self.format_settings_frame.grid_columnconfigure(2, weight=1)
+        
+        self.save_as_label = ctk.CTkLabel(self.format_settings_frame, text="Save the:", font=("Arial", 15))
+        self.save_as_label.grid(row=0, column=0, padx=(15, 15), pady=(5, 0), sticky='we', columnspan=3)
+        
+        self.save_as_h5_switch = ctk.CTkSwitch(self.format_settings_frame, text=".h5 Model", variable=self.save_as_h5, font=("Arial", 13), command=self.handle_save_model_configuration)
+        self.save_as_h5_switch.grid(row=1, column=0, padx=(5, 5), pady=(5, 5), sticky='we')
+        
+        self.save_as_tflite_switch = ctk.CTkSwitch(self.format_settings_frame, text=".tflite Model", variable=self.save_as_tflite, font=("Arial", 13), command=self.handle_save_model_configuration)
+        self.save_as_tflite_switch.grid(row=1, column=1, padx=(5, 5), pady=(5, 5), sticky='we')
+        
+        self.save_with_model_config_switch = ctk.CTkSwitch(self.format_settings_frame, text="Model Configuration", variable=self.save_with_model_config, font=("Arial", 13), command=self.handle_save_model_configuration)
+        self.save_with_model_config_switch.grid(row=1, column=2, padx=(5, 5), pady=(5, 5), sticky='we')
         
         ############################################################################################################
         
@@ -641,7 +683,20 @@ class modelTrainUI(ctk.CTk):
         patience = int(self.patience.get())
         epochs_graphed = int(self.epochs_graphed.get())
         
-        self.data_processor.pass_training_options(self.data_visualizer, model_name_entry_content, epochs, batch_size, patience, custom_model_name=name, epochs_graphed=epochs_graphed)
+        save_a_h5_model = self.save_as_h5.get()
+        save_a_tflite_model = self.save_as_tflite.get()
+        save_with_model_config = self.save_with_model_config.get()
+        
+        self.model_dir = None
+        model_dir = self.model_dir
+        
+        self.data_processor.pass_training_options(self.data_visualizer, 
+                                                  model_name_entry_content, 
+                                                  epochs, batch_size, patience, 
+                                                  epochs_graphed, name, model_dir, 
+                                                  save_a_h5_model, 
+                                                  save_a_tflite_model, 
+                                                  save_with_model_config)
         
         if not self.keep_config_var.get():
             self.queue.append(self.data_processor)
@@ -660,7 +715,7 @@ class modelTrainUI(ctk.CTk):
             # Manually clone attributes
             cloned_processor = DataProcessor(self)
             for attr, value in self.data_processor.__dict__.items():
-                print("attr", attr, "value", value)
+                # print("attr", attr, "value", value)
                 if not isinstance(value, (tk.Button, tk.Label, tk.Entry)):
                     setattr(cloned_processor, attr, value)
             
@@ -754,6 +809,9 @@ class modelTrainUI(ctk.CTk):
                 self.toggle_button_state(self.queue_clear_button, False)
                 self.toggle_button_state(self.queue_delete_button, False)
                 self.toggle_button_state(self.queue_details_button, False)
+                
+                self.toggle_button_state(self.skip_queue_item_button, True)
+                self.toggle_button_state(self.stop_queue_button, True)
                 
             except tk.TclError:
                 messagebox.showerror("Error", "Weird error occurred. Please restart the application.")
@@ -934,10 +992,13 @@ class DataProcessor:
         self.model_file_content = None
         self.model_function = None
         
+        self.checkpoint_filename = None
+        self.model_dir = None
+        
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, custom_model_name=""):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
@@ -950,6 +1011,12 @@ class DataProcessor:
             self.model_name = str(uuid.uuid4())
         else:
             self.model_name = self.model_name.replace(" ", "_")
+            
+        self.model_dir = model_dir
+            
+        self.save_a_h5_model = save_a_h5_model
+        self.save_a_tflite_model = save_a_tflite_model
+        self.save_with_model_config = save_with_model_config
 
     def start_training(self):
         if not self.modelTrainUI.lazy_imports_imported:
@@ -994,9 +1061,15 @@ class DataProcessor:
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
-        checkpoint_filename = f"best_model_{self.model_name}.h5"
         
-        model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
+        if self.model_dir:
+            self.checkpoint_filename = os.path.join(self.model_dir, f"best_model_{self.model_name}")
+        else:
+            self.checkpoint_filename = f"best_model_{self.model_name}"
+            
+        self.h5_model_path = f"{self.checkpoint_filename}.h5"
+        
+        model_checkpoint = ModelCheckpoint(self.h5_model_path, monitor='val_loss', save_best_only=True)
         
         data_callback = TrainingDataCallback(self.modelTrainUI, self.data_visualizer, self, epochs_graphed=self.epochs_graphed)
         
@@ -1010,7 +1083,29 @@ class DataProcessor:
             batch_size=batch_size
         )
         
+        if self.save_a_tflite_model:
+            print(f"Converting model {self.model_name} to tflite")
+            self.tflite_model_path = f"{self.checkpoint_filename}.tflite"
+            
+            self.convert_to_tflite_model(f"{self.checkpoint_filename}.h5", self.tflite_model_path)
+        
+        if not self.save_a_h5_model:
+            os.remove(self.checkpoint_filename)
+            
+        if self.save_with_model_config:
+            model_config_path = f"{self.checkpoint_filename}_config.json"
+            
+            # just copy the file from self.selected_model_configuration_path to the model_dir
+            shutil.copy(self.selected_model_configuration_path, model_config_path)
+        
         print(f"Model {self.model_name} trained successfully")
+        
+    def convert_to_tflite_model(self, model_path, output_path):
+        model = tf.keras.models.load_model(model_path)
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        tflite_model = converter.convert()
+        with open(output_path, 'wb') as f:
+            f.write(tflite_model)
         
     def load_training_data_wrapper(self, folder_path):
         if self.data_loading:
@@ -1199,7 +1294,7 @@ class StopTrainingCallback(Callback):
         super().__init__()
         self.data_processor = data_processor
         
-    def on_batch_end(self, batch, logs=None):
+    def on_epoch_end(self, epoch, logs=None):
         if self.data_processor.stop_training:
             self.model.stop_training = True
             print("Training stopped by user.")
