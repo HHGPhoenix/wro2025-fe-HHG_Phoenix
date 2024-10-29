@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import os
+import tensorflow as tf
 
 # Initialize the customtkinter theme
 ctk.set_appearance_mode("System")  # Options: "System" (default), "Dark", "Light"
@@ -10,8 +11,13 @@ ctk.set_default_color_theme("blue")  # Options: "blue" (default), "green", "dark
 def convert_to_tflite(input_file):
     # Example of conversion process - replace this with actual conversion logic
     output_file = os.path.splitext(input_file)[0] + ".tflite"
-    with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
-        f_out.write(f_in.read())  # Example of copying content (replace with actual conversion logic)
+    model = tf.keras.models.load_model(input_file)
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    tflite_model = converter.convert()
+    
+    with open(output_file, 'wb') as f:
+        f.write(tflite_model)
+    
     return output_file
 
 # Function to open file dialog and select a file
