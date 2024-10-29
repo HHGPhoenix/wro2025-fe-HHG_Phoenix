@@ -270,7 +270,7 @@ class modelTrainUI(ctk.CTk):
     def create_configuration_frame(self):
         
         self.queue_item_frame = ctk.CTkFrame(self.configuration_frame)
-        self.queue_item_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
+        self.queue_item_frame.pack(padx=15, pady=(10, 0), anchor='n', expand=False, fill='x')
         
         ############################################################################################################
         
@@ -278,40 +278,40 @@ class modelTrainUI(ctk.CTk):
         settings_image = ctk.CTkImage(settings_image, settings_image, (25, 25))
         
         self.settings_button = ctk.CTkButton(self.queue_item_frame, image=settings_image, command=self.open_settings, text="Settings", width=25, height=25, corner_radius=5,  bg_color='transparent')
-        self.settings_button.pack(padx=15, pady=(5, 0), anchor='n', expand=True, fill='x', side=tk.TOP) 
+        self.settings_button.pack(padx=15, pady=(10, 0), anchor='n', expand=True, fill='x', side=tk.TOP) 
         
         ############################################################################################################
         
         self.select_training_data_frame = ctk.CTkFrame(self.queue_item_frame)
-        self.select_training_data_frame.pack(padx=15, pady=(10, 0), anchor='n', expand=False, fill='x')
+        self.select_training_data_frame.pack(padx=15, pady=(12, 0), anchor='n', expand=False, fill='x')
         
         self.selected_training_data_path_label = ctk.CTkLabel(self.select_training_data_frame, text="Selected Training Data: \nNone", font=("Arial", 15))
-        self.selected_training_data_path_label.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
+        self.selected_training_data_path_label.pack(padx=15, pady=(7, 10), anchor='n', expand=True, fill='both')
         
         self.select_training_data_button = ctk.CTkButton(self.select_training_data_frame, text="Select Training Data", command=self.select_training_data)
-        self.select_training_data_button.pack(padx=15, pady=(5, 15), anchor='n', expand=True, fill='both')
+        self.select_training_data_button.pack(padx=15, pady=(0, 12), anchor='n', expand=True, fill='both')
         
         ############################################################################################################
         
         self.select_model_configuration_frame = ctk.CTkFrame(self.queue_item_frame)
-        self.select_model_configuration_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
+        self.select_model_configuration_frame.pack(padx=15, pady=(12, 0), anchor='n', expand=False, fill='x')
         
         self.select_model_configuration_label = ctk.CTkLabel(self.select_model_configuration_frame, text="Model Configuration File: \nNone", font=("Arial", 15))
-        self.select_model_configuration_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+        self.select_model_configuration_label.pack(padx=15, pady=(7, 10), anchor='n', expand=True, fill='both')
         
         self.select_model_configuration_button = ctk.CTkButton(self.select_model_configuration_frame, text="Select Model Configuration", command=self.select_model_configuration)
-        self.select_model_configuration_button.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
+        self.select_model_configuration_button.pack(padx=15, pady=(0, 12), anchor='n', expand=True, fill='both')
         
         ############################################################################################################
         
         self.select_model_name_frame = ctk.CTkFrame(self.queue_item_frame)
-        self.select_model_name_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
+        self.select_model_name_frame.pack(padx=15, pady=(12, 0), anchor='n', expand=False, fill='x')
         
         self.select_model_name_label = ctk.CTkLabel(self.select_model_name_frame, text="Model Name (Optional)", font=("Arial", 15))
-        self.select_model_name_label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+        self.select_model_name_label.pack(padx=15, pady=(7, 2), anchor='n', expand=True, fill='both')
         
         self.select_model_name_entry = ctk.CTkEntry(self.select_model_name_frame, font=("Arial", 15), textvariable=self.model_name)
-        self.select_model_name_entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
+        self.select_model_name_entry.pack(padx=15, pady=(0, 12), anchor='n', expand=True, fill='both')
         
         self.select_model_name_frame.bind("<FocusOut>", lambda e: self.handle_save_model_configuration())
         self.select_model_name_entry.bind("<FocusOut>", lambda e: self.handle_save_model_configuration())
@@ -319,18 +319,18 @@ class modelTrainUI(ctk.CTk):
         ############################################################################################################
         
         self.keep_config_frame = ctk.CTkFrame(self.queue_item_frame)
-        self.keep_config_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
+        self.keep_config_frame.pack(padx=15, pady=(12, 0), anchor='n', expand=False, fill='x')
         
         self.keep_config_checkbox = ctk.CTkCheckBox(self.keep_config_frame, text="Keep Configuration", font=("Arial", 13), variable=self.keep_config_var)
-        self.keep_config_checkbox.pack(padx=(20, 10), pady=(10, 10), side='left', expand=True, fill='both')
+        self.keep_config_checkbox.pack(padx=(20, 10), pady=(5, 5), side='left', expand=True, fill='both')
         
         self.keep_config_global_checkbox = ctk.CTkCheckBox(self.keep_config_frame, text="Keep Configuration Globally", font=("Arial", 13), variable=self.keep_config_var_global, command=lambda: self.handle_save_model_configuration(True))
-        self.keep_config_global_checkbox.pack(padx=(10, 20), pady=(10, 10), side='right', expand=False, fill='both')
+        self.keep_config_global_checkbox.pack(padx=(10, 20), pady=(5, 5), side='right', expand=False, fill='both')
         
         ############################################################################################################
         
         self.add_to_queue_button = ctk.CTkButton(self.queue_item_frame, text="Add to Queue", command=self.add_to_queue)
-        self.add_to_queue_button.pack(padx=15, pady=(20, 15), anchor='n', expand=True, fill='both')
+        self.add_to_queue_button.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
         
         ############################################################################################################
         
