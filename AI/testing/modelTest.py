@@ -360,18 +360,19 @@ class DataProcessing:
             controller_value = self.controller_data[i]
             counters = self.counter_data[i]
             
-            model_input_lidar = np.expand_dims(lidar_array, axis=0)
-            
-            new_lidar_data = []
-            for data_point in model_input_lidar:
-                angles, distances, intensities = zip(*data_point)
-                new_data_point = [angles, distances]
-                new_lidar_data.append(new_data_point)
-
             # Convert to NumPy array and reshape
-            new_lidar_data = np.array(new_lidar_data)
-            new_lidar_data = np.transpose(new_lidar_data, (0, 2, 1))  # Transpose to shape (None, 279, 2)
+            angles = lidar_array[:, 0]
+            distances = lidar_array[:, 1]
+            
+            normalized_angles = angles / 360
+            normalized_distances = distances / 5000
+            
+            new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+            
             new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
+            new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
+            
+            # print("New LiDAR Data: ", new_lidar_data.shape)
 
             model_input_image = np.expand_dims(image_array, axis=0)
             model_input_counters = np.expand_dims(counters, axis=0)
