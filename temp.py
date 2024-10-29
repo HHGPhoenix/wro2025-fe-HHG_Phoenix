@@ -1,61 +1,59 @@
 import tkinter as tk
-from tkinter import filedialog, scrolledtext, messagebox
-import importlib.util
-import os
+import threading
+import tensorflow as tf
 
-class PythonFileLoaderApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Python File Loader")
+# Global flag to control training stop
+stop_training = False
 
-        # Scrolled text widget for code input
-        self.text_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=15)
-        self.text_area.pack(padx=10, pady=10)
+# Callback to stop training
+class StopTrainingCallback(tf.keras.callbacks.Callback):
+    def on_batch_end(self, batch, logs=None):
+        if stop_training:
+            self.model.stop_training = True
+            print("Training stopped by user.")
 
-        # Button to select Python file
-        self.select_file_button = tk.Button(root, text="Select Python File", command=self.load_python_file)
-        self.select_file_button.pack(pady=5)
+# Dummy TensorFlow model for demonstration
+def create_model():
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Dense(10, activation='relu', input_shape=(5,)),
+        tf.keras.layers.Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mse')
+    return model
 
-        # Button to run the code
-        self.run_button = tk.Button(root, text="Run Code", command=self.run_code)
-        self.run_button.pack(pady=5)
+# Function to start the training
+def train_model():
+    global stop_training
+    stop_training = False  # Reset the stop flag
+    model = create_model()
+    
+    # Dummy data for training
+    data = tf.random.normal((100, 5))
+    labels = tf.random.normal((100, 1))
 
-        # Label to display the output
-        self.output_label = tk.Label(root, text="", wraplength=500, justify="left", anchor="w")
-        self.output_label.pack(pady=10)
+    # Start training with the callback to stop when requested
+    model.fit(data, labels, epochs=1000, callbacks=[StopTrainingCallback()])
+    
+    print("Training completed.")
 
-        # Variable to hold the loaded module
-        self.loaded_module = None
+# Start training in a separate thread
+def start_training():
+    training_thread = threading.Thread(target=train_model)
+    training_thread.start()
 
-    def load_python_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Python Files", "*.py")])
-        if file_path:
-            try:
-                module_name = os.path.splitext(os.path.basename(file_path))[0]
-                spec = importlib.util.spec_from_file_location(module_name, file_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                self.loaded_module = module
-                messagebox.showinfo("Success", f"Module {module_name} loaded successfully.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to load module: {str(e)}")
-                self.loaded_module = None
+# Stop training by setting the flag
+def stop_training_func():
+    global stop_training
+    stop_training = True
 
-    def run_code(self):
-        if not self.loaded_module:
-            messagebox.showwarning("Warning", "No module loaded.")
-            return
+# Tkinter UI setup
+root = tk.Tk()
+root.title("TensorFlow Training Control")
 
-        code = self.text_area.get("1.0", tk.END)
-        try:
-            exec_locals = {}
-            exec(code, globals(), exec_locals)
-            output = exec_locals.get('output', 'No output variable defined.')
-            self.output_label.config(text=str(output))
-        except Exception as e:
-            self.output_label.config(text=f"Error: {str(e)}")
+start_button = tk.Button(root, text="Start Training", command=start_training)
+start_button.pack(pady=10)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = PythonFileLoaderApp(root)
-    root.mainloop()
+stop_button = tk.Button(root, text="Stop Training", command=stop_training_func)
+stop_button.pack(pady=10)
+
+root.mainloop()

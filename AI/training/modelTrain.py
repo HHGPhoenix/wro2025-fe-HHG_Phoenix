@@ -1,3 +1,4 @@
+print("Importing nessesary modules...")
 import customtkinter as ctk
 from CTkListbox import *
 import tkinter as tk
@@ -26,13 +27,16 @@ from pygments import lex
 from pygments.lexers.python import PythonLexer
 from pygments.styles import get_style_by_name
 import platform
+import chime
+print("Done.")
+
+############################################################################################################
 
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
 
 DEBUG = True
 
 TRAIN_VAL_SPLIT_RANDOM_STATE = 42
-
 
 ############################################################################################################
 
@@ -41,7 +45,7 @@ class modelTrainUI(ctk.CTk):
         super().__init__()
         self.title("Model Training")
         self.geometry("+50+50")
-        self.minsize(height=950, width=1500)
+        self.minsize(height=1050, width=1500)
         
         self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
@@ -92,6 +96,8 @@ class modelTrainUI(ctk.CTk):
         
         self.protocol("WM_DELETE_WINDOW", self.close)
         signal.signal(signal.SIGINT, self.close)
+        
+        chime.theme("big-sur")
         
         self.data_visualizer = VisualizeData()
         
@@ -261,8 +267,18 @@ class modelTrainUI(ctk.CTk):
         self.queue_item_frame = ctk.CTkFrame(self.configuration_frame)
         self.queue_item_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
         
+        ############################################################################################################
+        
+        settings_image = Image.open(r"AI/assets/settings.png")
+        settings_image = ctk.CTkImage(settings_image, settings_image, (25, 25))
+        
+        self.settings_button = ctk.CTkButton(self.queue_item_frame, image=settings_image, command=self.open_settings, text="Settings", width=25, height=25, corner_radius=5,  bg_color='transparent')
+        self.settings_button.pack(padx=15, pady=(5, 0), anchor='n', expand=True, fill='x', side=tk.TOP) 
+        
+        ############################################################################################################
+        
         self.select_training_data_frame = ctk.CTkFrame(self.queue_item_frame)
-        self.select_training_data_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
+        self.select_training_data_frame.pack(padx=15, pady=(10, 0), anchor='n', expand=False, fill='x')
         
         self.selected_training_data_path_label = ctk.CTkLabel(self.select_training_data_frame, text="Selected Training Data: \nNone", font=("Arial", 15))
         self.selected_training_data_path_label.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
@@ -350,24 +366,35 @@ class modelTrainUI(ctk.CTk):
         
         ############################################################################################################
         
-        start_image = Image.open(r"AI/assets/play_icon.png")
-        start_image = ctk.CTkImage(start_image, start_image, (35, 35))
+        self.start_queue_button_frame = ctk.CTkFrame(self.configuration_frame)
+        self.start_queue_button_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
         
-        self.start_queue_button = ctk.CTkButton(self.configuration_frame, text="Start Queue", image=start_image, command=self.start_queue, width=30, height=20, corner_radius=5)
-        self.start_queue_button.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+        self.start_queue_button_frame.grid_rowconfigure(0, weight=1)
+        self.start_queue_button_frame.grid_columnconfigure(0, weight=4)
+        self.start_queue_button_frame.grid_columnconfigure(1, weight=1)
+        self.start_queue_button_frame.grid_columnconfigure(2, weight=1)
+        
+        start_queue_image = Image.open(r"AI/assets/play_icon.png")
+        start_queue_image = ctk.CTkImage(start_queue_image, start_queue_image, (35, 35))
+        
+        self.start_queue_button = ctk.CTkButton(self.start_queue_button_frame, text="Start Queue", image=start_queue_image, command=self.start_queue, width=30, height=20, corner_radius=5)
+        self.start_queue_button.grid(row=0, column=0, padx=5, pady=(5, 5), sticky='we')
+        
+        skip_queue_image = Image.open(r"AI/assets/skip_next.png")
+        skip_queue_image = ctk.CTkImage(skip_queue_image, skip_queue_image, (35, 35))
+        
+        self.skip_queue_item_button = ctk.CTkButton(self.start_queue_button_frame, text="", image=skip_queue_image, command=self.skip_queue_item, width=30, height=20, corner_radius=5)
+        self.skip_queue_item_button.grid(row=0, column=1, padx=0, pady=(5, 5), sticky='we')
+        self.skip_queue_item_button.configure(state=tk.DISABLED)
+        
+        stop_queue_image = Image.open(r"AI/assets/stop_icon.png")
+        stop_queue_image = ctk.CTkImage(stop_queue_image, stop_queue_image, (35, 35))
+        
+        self.stop_queue_button = ctk.CTkButton(self.start_queue_button_frame, text="", image=stop_queue_image, command=self.stop_queue, width=30, height=20, corner_radius=5)
+        self.stop_queue_button.grid(row=0, column=2, padx=5, pady=(5, 5), sticky='we')
+        self.stop_queue_button.configure(state=tk.DISABLED)
         
         ############################################################################################################
-        
-        settings_image = Image.open(r"AI/assets/settings.png")
-        settings_image = ctk.CTkImage(settings_image, settings_image, (25, 25))
-        
-        self.settings_button = ctk.CTkButton(self, image=settings_image, command=self.open_settings, text="", width=25, height=25, corner_radius=5,  bg_color='transparent')
-        
-        # Place the button at the top right corner
-        self.update_idletasks()  # Ensure the widget sizes are updated
-        parent_width = self.winfo_width()
-        button_width = self.settings_button.winfo_reqwidth()
-        self.settings_button.place(x=parent_width - button_width - 10, y=10)
         
         self.credit_frame = ctk.CTkFrame(self.configuration_frame)
         self.credit_frame.pack(padx=15, pady=(15, 15), anchor='s', expand=False, fill='x', side='bottom')
@@ -630,14 +657,15 @@ class modelTrainUI(ctk.CTk):
             # self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
             # self.data_processor.load_model_configuration(self.selected_model_configuration_path)
             
-            # self.data_processor = deepcopy(self.data_processor)
-            
+            # self.data_processor.
             pass        
         
         self.handle_save_model_configuration()
         
         self.queue_listbox.insert(tk.END, name)
-
+        
+        ############################################################################################################
+        
     def start_queue(self):
         if self.data_processor.data_loading is True:
             messagebox.showerror("Error", "Data is still loading. Please wait.")
@@ -645,8 +673,6 @@ class modelTrainUI(ctk.CTk):
         self.queue_thread = threading.Thread(target=self.process_queue, daemon=True)
         self.queue_thread.start()
         
-        # how would i kill this thread if i wanted to stop the queue?
-        # self.queue_thread.join()
         
     def process_queue(self):
         queue = self.queue
@@ -690,7 +716,15 @@ class modelTrainUI(ctk.CTk):
             self.toggle_button_state(self.queue_clear_button, False)
             self.toggle_button_state(self.queue_delete_button, False)
             self.toggle_button_state(self.queue_details_button, False)
+            
+            self.toggle_button_state(self.skip_queue_item_button, True)
+            self.toggle_button_state(self.stop_queue_button, True)
+            
         except tk.TclError:
+            
+            if DEBUG:
+                print("TclError occurred, handled by except block")
+            
             try:
                 self.update()
                 time.sleep(0.2)
@@ -698,6 +732,7 @@ class modelTrainUI(ctk.CTk):
                 self.toggle_button_state(self.queue_clear_button, False)
                 self.toggle_button_state(self.queue_delete_button, False)
                 self.toggle_button_state(self.queue_details_button, False)
+                
             except tk.TclError:
                 messagebox.showerror("Error", "Weird error occurred. Please restart the application.")
                 return
@@ -712,6 +747,17 @@ class modelTrainUI(ctk.CTk):
         self.toggle_button_state(self.queue_clear_button, True)
         self.toggle_button_state(self.queue_delete_button, True)
         self.toggle_button_state(self.queue_details_button, True)
+        
+        self.toggle_button_state(self.skip_queue_item_button, False)
+        self.toggle_button_state(self.stop_queue_button, False)
+        
+    def stop_queue(self):
+        pass
+    
+    def skip_queue_item(self):
+        pass
+    
+    ############################################################################################################
     
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
@@ -752,9 +798,10 @@ class modelTrainUI(ctk.CTk):
         self.focus_window(self.settings_window)
         
     def on_resize(self, event):
-        parent_width = self.winfo_width()
-        button_width = self.settings_button.winfo_reqwidth()
-        self.settings_button.place(x=parent_width - button_width - 10, y=10)
+        pass
+        # parent_width = self.winfo_width()
+        # button_width = self.settings_button.winfo_reqwidth()
+        # self.settings_button.place(x=parent_width - button_width - 10, y=10)
         
     def save_settings(self, exit=False):
         settings = self.settings
@@ -851,6 +898,8 @@ class DataProcessor:
         self.model_train_thread = None
         self.data_loading = False
         
+        self.stop_training = False
+        
         self.model_file_content = None
         self.model_function = None
         
@@ -915,14 +964,18 @@ class DataProcessor:
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         checkpoint_filename = f"best_model_{self.model_name}.h5"
+        
         model_checkpoint = ModelCheckpoint(checkpoint_filename, monitor='val_loss', save_best_only=True)
+        
         data_callback = TrainingDataCallback(self.modelTrainUI, self.data_visualizer, self, epochs_graphed=self.epochs_graphed)
+        
+        stop_training_callback = StopTrainingCallback(self)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
             validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
             epochs=epochs,
-            callbacks=[early_stopping, model_checkpoint, data_callback],
+            callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
             batch_size=batch_size
         )
         
@@ -940,6 +993,8 @@ class DataProcessor:
         self.load_training_data_thread.start()
 
     def load_training_data(self, folder_path):
+        if self.data_loading:
+            return
         if not folder_path:
             messagebox.showerror("Error", "No data folder selected")
             self.data_loading_completed()
@@ -1054,7 +1109,9 @@ class DataProcessor:
         
         self.data_loading_completed()
 
-        messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
+        # messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
+        print("Data loaded successfully")
+        chime.success()
     
     def data_loading_started(self):
         self.data_loading = True
@@ -1107,6 +1164,12 @@ class DataProcessor:
             messagebox.showerror("Error", f"Syntax error in the model configuration content! Check the console for more information.")
             print(f"Syntax error in the model configuration content: {e}")
             return
+        
+class StopTrainingCallback(Callback):
+    def on_batch_end(self, batch, logs=None):
+        if self.stop_training:
+            self.model.stop_training = True
+            print("Training stopped by user.")
 
 class TrainingDataCallback(Callback):
     def __init__(self, model_train_ui, data_visualizer, data_processor, epochs_graphed=50):
