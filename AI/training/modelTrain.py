@@ -782,7 +782,7 @@ class modelTrainUI(ctk.CTk):
         
         self.current_queue_item.stop_training = True
         
-        self.
+        # self.
     
     def stop_queue(self):
         self.stop_training = True
