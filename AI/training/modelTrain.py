@@ -304,13 +304,13 @@ class modelTrainUI(ctk.CTk):
         settings_image = ctk.CTkImage(settings_image, settings_image, (25, 25))
         
         self.in_config_settings_button = ctk.CTkButton(self.in_config_settings_frame, image=settings_image, command=self.open_settings, text="Settings", width=25, height=25, corner_radius=5,  bg_color='transparent')
-        self.in_config_settings_button.grid(row=0, column=0, padx=(5, 5), pady=(5, 5), sticky='we')
+        self.in_config_settings_button.grid(row=0, column=0, padx=(5, 2), pady=(5, 5), sticky='we')
         
         open_directory_image = Image.open(r"AI/assets/folder_open.png")
         open_directory_image = ctk.CTkImage(open_directory_image, open_directory_image, (25, 25))
         
         self.select_output_directory_button = ctk.CTkButton(self.in_config_settings_frame, text="Select Output Directory", command=self.select_output_directory, corner_radius=5, image=open_directory_image, width=25, height=25, bg_color='transparent')
-        self.select_output_directory_button.grid(row=0, column=1, padx=(5, 5), pady=(5, 5), sticky='we')
+        self.select_output_directory_button.grid(row=0, column=1, padx=(2, 5), pady=(5, 5), sticky='we')
         self.select_output_directory_button.configure(fg_color='#0c5743')
         
         ############################################################################################################
@@ -838,6 +838,13 @@ class modelTrainUI(ctk.CTk):
         self.toggle_button_state(self.skip_queue_item_button, False)
         self.toggle_button_state(self.stop_queue_button, False)
         
+        #fix listbox having double the items after training
+        self.queue_listbox.delete(0, tk.END)
+        
+        for item in self.queue:
+            self.queue_listbox.insert(tk.END, item.custom_model_name)
+            
+        
     def skip_queue_item(self):
         if self.current_queue_item is None:
             return
@@ -938,6 +945,15 @@ class modelTrainUI(ctk.CTk):
         
         if not self.queue:
             return
+        
+        if DEBUG:
+            try:
+                print("Selected index", selected_index)
+                #print the listbox content
+                for i in range(self.queue_listbox.size()):
+                    print(self.queue_listbox.get(i))
+            except Exception as e:
+                print(e)
         
         index = selected_index
         self.queue.pop(index)
