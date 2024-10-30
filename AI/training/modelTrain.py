@@ -191,7 +191,8 @@ class modelTrainUI(ctk.CTk):
             "model_name": self.model_name.get(),
             "save_as_h5": self.save_as_h5.get(),
             "save_as_tflite": self.save_as_tflite.get(),
-            "save_with_model_config": self.save_with_model_config.get()
+            "save_with_model_config": self.save_with_model_config.get(),
+            "model_dir": self.model_dir
         }
         
         with open(self.configuration_path_global, "w") as f:
@@ -211,6 +212,7 @@ class modelTrainUI(ctk.CTk):
                 self.save_as_h5.set(file_content.get("save_as_h5"))
                 self.save_as_tflite.set(file_content.get("save_as_tflite"))
                 self.save_with_model_config.set(file_content.get("save_with_model_config"))
+                self.model_dir = file_content.get("model_dir")
         except:
             answer = messagebox.askyesno("Error", "The necessary files are not found. Do you want to delete the configuration file (yes) or exit (no) ?")
             if answer:
@@ -243,6 +245,10 @@ class modelTrainUI(ctk.CTk):
             self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
         if self.selected_model_configuration_path:
             self.data_processor.load_model_configuration(self.selected_model_configuration_path)
+            
+        if self.model_dir:
+            self.select_output_directory_button.configure(fg_color="#1F6AA5")
+            self.select_output_directory_button.configure(text=f"{os.path.basename(self.model_dir)}")
 
     def handle_save_model_configuration(self, advanced=False):
         if self.keep_config_var_global.get():
@@ -907,6 +913,8 @@ class modelTrainUI(ctk.CTk):
         self.select_output_directory_button.configure(text=f"{os.path.basename(path)}")
         self.select_output_directory_button.configure(fg_color="#1F6AA5")
         
+        self.handle_save_model_configuration()
+        
     def save_settings(self, exit=False):
         settings = self.settings
         
@@ -1016,7 +1024,7 @@ class DataProcessor:
         self.model_file_content = None
         self.model_function = None
         
-        self.checkpoint_filename = None
+        self.model_base_filename = None
         self.model_dir = None
         
         self.selected_training_data_path = None
@@ -1086,15 +1094,12 @@ class DataProcessor:
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         
-        if self.model_dir:
-            self.checkpoint_filename = os.path.join(self.model_dir, f"best_model_{self.model_name}")
-        else:
-            self.checkpoint_filename = f"best_model_{self.model_name}"
+        
+        self.generate_checkpoint_filename()
+        
+        self.check_dir_preparedness()
             
-        if self.model_dir and not os.path.exists(self.model_dir):
-            os.makedirs(self.model_dir)
-            
-        self.h5_model_path = f"{self.checkpoint_filename}.h5"
+        self.h5_model_path = f"{self.model_base_filename}.h5"
         
         model_checkpoint = ModelCheckpoint(self.h5_model_path, monitor='val_loss', save_best_only=True)
         
@@ -1114,20 +1119,54 @@ class DataProcessor:
         
         if self.save_a_tflite_model:
             print(f"Converting model {self.model_name} to tflite")
-            self.tflite_model_path = f"{self.checkpoint_filename}.tflite"
+            self.tflite_model_path = f"{self.model_base_filename}.tflite"
             
-            self.convert_to_tflite_model(f"{self.checkpoint_filename}.h5", self.tflite_model_path)
+            self.convert_to_tflite_model(f"{self.model_base_filename}.h5", self.tflite_model_path)
         
         if not self.save_a_h5_model:
             os.remove(self.h5_model_path)
             
         if self.save_with_model_config:
-            model_config_path = f"{self.checkpoint_filename}_config.py"
+            model_config_path = f"{self.model_base_filename}_config.py"
             
             with open(model_config_path, "w") as f:
                 f.write(self.model_file_content)
         
         print(f"Model {self.model_name} trained successfully")
+        
+    def check_dir_preparedness(self):
+        while self.model_base_path and os.path.exists(self.model_base_path):
+            if os.path.exists(f"{self.model_base_filename}.h5") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py"):
+                answer = messagebox.askyesno("Warning", "The model directory already exists in the main folder. The contents are going to be replaced, otherwise a reselection of the main folder is needed")
+            else:
+                answer = True
+                
+            if answer:
+                if os.path.exists(f"{self.model_base_filename}.h5"):
+                    os.remove(f"{self.model_base_filename}.h5")
+                if os.path.exists(f"{self.model_base_filename}.tflite"):
+                    os.remove(f"{self.model_base_filename}.tflite")
+                if os.path.exists(f"{self.model_base_filename}_config.py"):
+                    os.remove(f"{self.model_base_filename}_config.py")
+                break
+            else:
+                new_dir = None
+                while not new_dir:
+                    new_dir = filedialog.askdirectory()
+                if new_dir and new_dir != "":
+                    self.model_dir = new_dir
+                    self.generate_checkpoint_filename()
+        
+        if self.model_base_path and not os.path.exists(self.model_base_path):
+            os.makedirs(self.model_base_path)
+            
+    def generate_checkpoint_filename(self):
+        if self.model_dir:
+            self.model_base_path = os.path.join(self.model_dir, f"best_model_{self.model_name}")
+            self.model_base_filename = os.path.join(self.model_base_path, f"best_model_{self.model_name}")
+        else:
+            self.model_base_path = f"best_model_{self.model_name}"
+            self.model_base_filename = os.path.join(self.model_base_path, f"best_model_{self.model_name}")
         
     def convert_to_tflite_model(self, model_path, output_path):
         model = tf.keras.models.load_model(model_path)
