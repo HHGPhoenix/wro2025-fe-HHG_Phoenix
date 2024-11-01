@@ -44,7 +44,7 @@ class AIController:
         self.logger = None
         self.mode = None
         self.servo = None
-        self.counters = None
+        self.counters = [0, 0]
         self.stop_with_interrupt = False
         self.interpolated_lidar_data = None
         self.simplified_image = None

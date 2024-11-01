@@ -13,14 +13,18 @@ def main_loop_opening_race(self):
         try:
             # run the model
             if len(self.interpolated_lidar_data) == 0 or self.frame_list[1] is None or self.counters is None:
+                print(f"Waiting for data: {len(self.interpolated_lidar_data)}, {self.counters}")
                 time.sleep(0.1)
                 continue
+            
+            if IO_list[1] is not None:
+                self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
             
             simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
 
             lidar_data = []
             for angle, distance, _ in self.interpolated_lidar_data:
-                lidar_data.append([angle / 360, distance / 4000])
+                lidar_data.append([angle / 360, distance / 5000])
             lidar_data = np.array(lidar_data)
             
             # Ensure lidar data has the correct features (angle and distance) and shape
@@ -37,7 +41,7 @@ def main_loop_opening_race(self):
             
             IO_list[0] = inputs
             
-            motor_speed = 0.15
+            motor_speed = 0.30
             self.motor_controller.send_speed(motor_speed)
         
         except KeyboardInterrupt:
