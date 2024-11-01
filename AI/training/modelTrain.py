@@ -34,7 +34,7 @@ print("Done.")
 
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
 
-DEBUG = True
+DEBUG = False
 
 TRAIN_VAL_SPLIT_RANDOM_STATE = 42
 
@@ -95,6 +95,11 @@ class modelTrainUI(ctk.CTk):
             "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default),
             "data_shift": (self.data_shift, self.data_shift_default),
         }
+        
+        self.load_training_data_lock = threading.Lock()
+        self.reload_training_data_lock = threading.Lock()
+        self.reload_training_data_waiting = False
+        self.last_data_shift = None
         
         self.configuration_path_global = "model_preset_configuration.json"
         
@@ -700,6 +705,7 @@ class modelTrainUI(ctk.CTk):
         batch_size = int(self.batch_size.get())
         patience = int(self.patience.get())
         epochs_graphed = int(self.epochs_graphed.get())
+        data_shift = int(self.data_shift.get())
         
         save_a_h5_model = self.save_as_h5.get()
         save_a_tflite_model = self.save_as_tflite.get()
@@ -710,7 +716,7 @@ class modelTrainUI(ctk.CTk):
         self.data_processor.pass_training_options(self.data_visualizer, 
                                                   model_name_entry_content, 
                                                   epochs, batch_size, patience, 
-                                                  epochs_graphed, name, model_dir, 
+                                                  epochs_graphed, data_shift, name, model_dir, 
                                                   save_a_h5_model, 
                                                   save_a_tflite_model, 
                                                   save_with_model_config)
@@ -836,13 +842,26 @@ class modelTrainUI(ctk.CTk):
         
         messagebox.showinfo("Success", "Queue processed successfully")
         
-        self.toggle_button_state(self.start_queue_button, True)
-        self.toggle_button_state(self.queue_clear_button, True)
-        self.toggle_button_state(self.queue_delete_button, True)
-        self.toggle_button_state(self.queue_details_button, True)
-        
-        self.toggle_button_state(self.skip_queue_item_button, False)
-        self.toggle_button_state(self.stop_queue_button, False)
+        while True:
+            try:
+                self.update()
+                self.update_idletasks()
+            
+                time.sleep(0.1)
+                
+                self.toggle_button_state(self.start_queue_button, True)
+                self.toggle_button_state(self.queue_clear_button, True)
+                self.toggle_button_state(self.queue_delete_button, True)
+                self.toggle_button_state(self.queue_details_button, True)
+                
+                self.toggle_button_state(self.skip_queue_item_button, False)
+                self.toggle_button_state(self.stop_queue_button, False)
+                
+                break
+                
+            except tk.TclError:
+                self.update()
+                pass
         
         #fix listbox having double the items after training
         self.queue_listbox.delete(0, tk.END)
@@ -896,7 +915,7 @@ class modelTrainUI(ctk.CTk):
             entry.bind("<Return>", lambda e: self.save_settings())
         
         # Bind the settings window to save settings on focus out and on close
-        self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
+        # self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
         self.settings_window.protocol("WM_DELETE_WINDOW", lambda: self.save_settings(True))
         
         # self.update()
@@ -917,6 +936,9 @@ class modelTrainUI(ctk.CTk):
         
     def save_settings(self, exit=False):
         settings = self.settings
+        data_shift_changed = False
+        if DEBUG:
+            print("Saving settings")
         
         for key, (value, default) in settings.items():
             try:
@@ -927,6 +949,18 @@ class modelTrainUI(ctk.CTk):
                     int_value = int(numeric_value)
                     if int_value <= 0:
                         int_value = default
+                
+                if key == 'data_shift':
+                    if DEBUG:
+                        print(f"settings[key][0].get(): {settings[key][0].get()} int_value: {int_value}, default: {default}, settings[key][0].get() != int_value: {int(settings[key][0].get()) != int_value}")
+                    
+                    if self.last_data_shift == None:
+                        self.last_data_shift = int_value
+                    
+                    if int(settings[key][0].get()) != self.last_data_shift:
+                        self.last_data_shift = int_value
+                        data_shift_changed = True
+                    
                 settings[key][0].set(int_value)
             except ValueError:
                 settings[key][0].set(default)
@@ -941,8 +975,38 @@ class modelTrainUI(ctk.CTk):
                 file_content[key] = int(value.get())
             json.dump(file_content, f)
         
+        if data_shift_changed:
+            self.reload_training_data_wrapper()
+        
         if exit:
             self.settings_window.destroy()
+        
+    def reload_training_data_wrapper(self):
+        if DEBUG:
+            print("Reloading training data")
+        
+        with self.reload_training_data_lock:
+            if self.reload_training_data_waiting == True:
+                if DEBUG:
+                    print("Already waiting for data to reload")
+                return
+            
+            self.reload_training_data_waiting = True
+        
+        self.reload_training_data_thread = threading.Thread(target=self.reload_training_data, daemon=True)
+        self.reload_training_data_thread.start()
+            
+    def reload_training_data(self):
+        # print("Starting while loop")
+        while self.data_processor.data_loading is True:
+            self.update()
+            time.sleep(0.1)
+        # print("Data loaded")
+        
+        with self.reload_training_data_lock:
+            self.reload_training_data_waiting = False
+        
+        self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
     
     def delete_queue_item(self):
         selected_index = self.queue_listbox.curselection()
@@ -1015,6 +1079,7 @@ class DataProcessor:
         self.epochs = None
         self.batch_size = None
         self.patience = None
+        self.data_shift = int(self.modelTrainUI.data_shift.get())
         self.model = None
         self.model_train_thread = None
         self.data_loading = False
@@ -1030,13 +1095,14 @@ class DataProcessor:
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
         self.batch_size = batch_size
         self.patience = patience
         self.epochs_graphed = epochs_graphed
+        self.data_shift = data_shift
         self.custom_model_name = custom_model_name
         
         if self.model_name == "":
@@ -1176,13 +1242,15 @@ class DataProcessor:
             f.write(tflite_model)
         
     def load_training_data_wrapper(self, folder_path):
-        if self.data_loading:
-            return
-        
-        if DEBUG:
-            print("Starting data loading thread")
-        
-        self.data_loading_started()
+        with self.modelTrainUI.load_training_data_lock:
+            if self.data_loading:
+                return
+            
+            if DEBUG:
+                print("Starting data loading thread")
+            
+            self.data_loading_started()
+            
         self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path,), daemon=True)
         self.load_training_data_thread.start()
 
@@ -1280,7 +1348,8 @@ class DataProcessor:
         # while True:
         #     pass
 
-        data_shift = int(self.modelTrainUI.data_shift.get())
+        # data_shift = int(self.modelTrainUI.data_shift.get())
+        data_shift = int(self.data_shift)
         if data_shift != 0:
             controller_data = controller_data[data_shift:]
             lidar_data = lidar_data[:-data_shift]
@@ -1299,11 +1368,13 @@ class DataProcessor:
         
         self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
         
-        self.data_loading_completed()
+        with self.modelTrainUI.load_training_data_lock:
+            self.data_loading_completed()
 
         # messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
         print("Data loaded successfully")
-        chime.success()
+        if self.modelTrainUI.reload_training_data_waiting == False:
+            chime.success()
     
     def data_loading_started(self):
         self.data_loading = True
@@ -1480,7 +1551,14 @@ class TrainingDataCallback(Callback):
         
         plots_path = os.path.join(self.data_processor.model_base_path, f"plots_{self.data_processor.model_name}.png")
         
-        self.data_visualizer.create_plots_after_training(self.full_loss_values, self.full_val_loss_values, self.full_mae_values, self.full_val_mae_values, plots_path, self.model_train_ui.lowest_val_mae_epoch_label.cget("text"), self.data_processor.batch_size)
+        self.data_visualizer.create_plots_after_training(self.full_loss_values, 
+                                                         self.full_val_loss_values, 
+                                                         self.full_mae_values, 
+                                                         self.full_val_mae_values, 
+                                                         plots_path, 
+                                                         self.model_train_ui.lowest_val_mae_epoch_label.cget("text"), 
+                                                         self.data_processor.batch_size,
+                                                            self.data_processor.data_shift)
 
 class VisualizeData:
     def create_loss_plot(self, tk_frame):
@@ -1571,7 +1649,7 @@ class VisualizeData:
         
     ############################################################################################################
     
-    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path, epoch, batch_size):
+    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path, epoch, batch_size, shift):
         # Create a figure with two subplots
         fig, (loss_ax, mae_ax) = plt.subplots(2, 1, figsize=(10, 8), facecolor='#222222')
         
@@ -1586,7 +1664,7 @@ class VisualizeData:
         loss_ax.tick_params(axis='y', colors='white')
         for spine in loss_ax.spines.values():
             spine.set_edgecolor('white')
-        loss_ax.set_title(f'Loss Plot (Epoch: {epoch}, Batch Size: {batch_size})', color='white')
+        loss_ax.set_title(f'Loss Plot (Epoch: {epoch}, Batch Size: {batch_size}, Shift: {shift})', color='white')
         
         # Customize the MAE plot
         mae_ax.plot(val_mae_values, label='Validation MAE', color='red')
@@ -1599,10 +1677,10 @@ class VisualizeData:
         mae_ax.tick_params(axis='y', colors='white')
         for spine in mae_ax.spines.values():
             spine.set_edgecolor('white')
-        mae_ax.set_title(f'MAE Plot (Epoch: {epoch}, Batch Size: {batch_size})', color='white')
+        mae_ax.set_title(f'MAE Plot (Epoch: {epoch}, Batch Size: {batch_size}, Shift: {shift})', color='white')
         
         # Add text annotation at the bottom
-        fig.text(0.5, 0.01, f'Last Epoch: {epoch} - Batch Size: {batch_size}', ha='center', fontsize=14, color='white')
+        fig.text(0.5, 0.01, f'Last Epoch: {epoch} - Batch Size: {batch_size} - Shift: {shift}', ha='center', fontsize=14, color='white')
         
         # Adjust layout
         plt.tight_layout(rect=[0, 0.03, 1, 1])
