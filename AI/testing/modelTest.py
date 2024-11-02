@@ -13,6 +13,9 @@ from PIL import Image, ImageTk
 import signal
 print("\rImported libraries")
 
+NO_PIC = False  # Define the constant
+
+
 ############################################################################################################
 
 class ModelTestUI(ctk.CTk):
@@ -344,6 +347,7 @@ class DataProcessing:
         print("Starting processing thread")
         self.processing_thread.start()
         
+    
     def process_data(self):
         self.processing = True
         for i in range(self.lidar_data.shape[0]):
@@ -361,6 +365,10 @@ class DataProcessing:
             controller_value = self.controller_data[i]
             counters = self.counter_data[i]
             
+            # Replace image_array with zeros if NO_PIC is True
+            if NO_PIC:
+                image_array = np.zeros_like(image_array)
+            
             # Convert to NumPy array and reshape
             angles = lidar_array[:, 0]
             distances = lidar_array[:, 1]
@@ -374,7 +382,7 @@ class DataProcessing:
             new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
             
             # print("New LiDAR Data: ", new_lidar_data.shape)
-
+    
             model_input_image = np.expand_dims(image_array, axis=0)
             model_input_counters = np.expand_dims(counters, axis=0)
             model_input = [new_lidar_data, model_input_image, model_input_counters]
@@ -393,7 +401,7 @@ class DataProcessing:
             
             print("Model Output: ", model_output)
             model_stop_time = time.time()
-
+    
             self.data_visualizer.update_polar_plot_lidar(lidar_array)
             self.data_visualizer.update_image_plot(image_array)
             
@@ -405,7 +413,7 @@ class DataProcessing:
             if len(self.controller_values) > 50:
                 self.controller_values.pop(0)
                 self.model_values.pop(0)
-
+    
             self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
             self.modelTestUI.counter_2.configure(text=str(round(float(counters[1]), 2)))
             
