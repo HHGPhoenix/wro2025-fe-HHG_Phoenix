@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import signal
 
 class LiDARCameraVisualizer:
     def __init__(self):
@@ -19,44 +20,51 @@ class LiDARCameraVisualizer:
         self.marked_areas = []  # Changed from marked_frames to marked_areas
         self.playing = False
 
-        ctk.set_appearance_mode("System")
-        ctk.set_default_color_theme("blue")
+        # ctk.set_appearance_mode("System")
+        # ctk.set_default_color_theme("blue")
 
         self.root = ctk.CTk()
         self.root.title("LiDAR and Camera Data Visualizer")
         
         self.root.minsize(1500, 600)
+        self.root.geometry("1600x600")
 
         self.main_frame = ctk.CTkFrame(self.root)
         self.main_frame.pack(fill="both", expand=True)
 
         self.control_frame = ctk.CTkFrame(self.main_frame)
-        self.control_frame.pack(side="left", fill="y", padx=10, pady=10)
+        self.control_frame.pack(side="right", fill="y", padx=10, pady=10)
 
         self.vis_frame = ctk.CTkFrame(self.main_frame)
-        self.vis_frame.pack(side="right", fill="both", expand=True)
+        self.vis_frame.pack(side="left", fill="both", expand=True)
 
         # Create a frame to hold the plots side by side
         self.plot_frame = ctk.CTkFrame(self.vis_frame)
         self.plot_frame.pack(side="top", fill="both", expand=True)
+        
+        self.plot_frame.grid_rowconfigure(0, weight=1)
+        self.plot_frame.grid_columnconfigure(0, weight=1)
+        self.plot_frame.grid_columnconfigure(1, weight=1)
+        
 
-        self.lidar_frame = ctk.CTkFrame(self.plot_frame)
-        self.lidar_frame.pack(side="left", fill="both", expand=True)
+        self.lidar_frame = ctk.CTkFrame(self.plot_frame, border_color="red", border_width=0)
+        self.lidar_frame.grid(row=0, column=0, sticky="nsew")
 
-        self.camera_frame = ctk.CTkFrame(self.plot_frame)
-        self.camera_frame.pack(side="left", fill="both", expand=True)
+        self.camera_frame = ctk.CTkFrame(self.plot_frame, border_color="red", border_width=0)
+        self.camera_frame.grid(row=0, column=1, sticky="nsew")
 
         # Timeline Frame
         self.timeline_frame = ctk.CTkFrame(self.vis_frame)
         self.timeline_frame.pack(side="bottom", fill="x")
-        self.timeline_canvas = ctk.CTkCanvas(self.timeline_frame, height=50)
+        self.timeline_canvas = ctk.CTkCanvas(self.timeline_frame, height=50,bg="#8b8f94")
         self.timeline_canvas.pack(fill="x")
 
         self.load_button = ctk.CTkButton(self.control_frame, text="Load .npz File", command=self.load_file)
         self.load_button.pack(pady=10)
 
-        self.frame_slider = ctk.CTkSlider(self.control_frame, from_=0, to=0, command=self.on_slider_move)
+        self.frame_slider = ctk.CTkSlider(self.control_frame, from_=0, to=1, command=self.on_slider_move)
         self.frame_slider.pack(fill="x", padx=10)
+        self.frame_slider.set(0)
 
         self.play_button = ctk.CTkButton(self.control_frame, text="Play", command=self.play_frames)
         self.play_button.pack(pady=10)
@@ -76,19 +84,49 @@ class LiDARCameraVisualizer:
         self.save_button = ctk.CTkButton(self.control_frame, text="Save Edited Data", command=self.save_file)
         self.save_button.pack(pady=10)
 
-        self.lidar_fig = Figure(figsize=(5, 4))
+
+        self.lidar_fig = Figure(figsize=(5, 4), facecolor='black', edgecolor='black')
+        self.lidar_fig.patch.set_facecolor('#222222')
+        
         self.lidar_ax = self.lidar_fig.add_subplot(111, polar=True)
+        self.lidar_ax.set_facecolor('#222222')
+        self.lidar_ax.tick_params(axis='x', colors='white')
+        self.lidar_ax.tick_params(axis='y', colors='white')
+        
+        for spine in self.lidar_ax.spines.values():
+            spine.set_edgecolor('white')
+            
         self.lidar_canvas = FigureCanvasTkAgg(self.lidar_fig, master=self.lidar_frame)
         self.lidar_canvas.draw()
         self.lidar_canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        self.camera_fig = Figure(figsize=(5, 4))
+        self.lidar_canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.lidar_canvas.get_tk_widget().configure(bg='#222222', highlightthickness=0, bd=0)
+        
+
+        self.camera_fig = Figure(figsize=(5, 4), facecolor='black', edgecolor='black')
+        self.camera_fig.patch.set_facecolor('#222222')
+        
         self.camera_ax = self.camera_fig.add_subplot(111)
+        self.camera_ax.set_facecolor('#222222')
+        self.camera_ax.tick_params(axis='x', colors='white')
+        self.camera_ax.tick_params(axis='y', colors='white')
+        
+        for spine in self.camera_ax.spines.values():
+            spine.set_edgecolor('white')
+        
         self.camera_canvas = FigureCanvasTkAgg(self.camera_fig, master=self.camera_frame)
         self.camera_canvas.draw()
         self.camera_canvas.get_tk_widget().pack(fill="both", expand=True)
+        
+        self.camera_canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.camera_canvas.get_tk_widget().configure(bg='#222222', highlightthickness=0, bd=0)
+
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        signal.signal(signal.SIGINT, self.on_closing)
+        
         self.root.mainloop()
 
     def on_slider_move(self, frame):
@@ -151,7 +189,7 @@ class LiDARCameraVisualizer:
     def display_camera(self, image):
         self.camera_ax.clear()
         self.camera_ax.imshow(image, cmap="gray")
-        self.camera_ax.set_title(f"Camera Frame {self.current_frame}")
+        self.camera_ax.set_title(f"Camera Frame {self.current_frame}", color='white')
         self.camera_ax.axis("off")
         self.camera_canvas.draw()
 
@@ -244,12 +282,13 @@ class LiDARCameraVisualizer:
     def play_frames(self):
         if not self.playing:
             self.playing = True
-            threading.Thread(target=self._play_frames, daemon=True).start()
+            # threading.Thread(target=self._play_frames, daemon=True).start()
+            threading.Thread(target=self._play_frames, daemon=False).start()
 
     def pause_frames(self):
         self.playing = False
 
-    def on_closing(self):
+    def on_closing(self, *args):
         self.playing = False
         self.root.destroy()
 
