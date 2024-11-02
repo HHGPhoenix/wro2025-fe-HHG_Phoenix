@@ -47,6 +47,9 @@ class modelTrainUI(ctk.CTk):
         self.geometry("+50+50")
         self.minsize(height=1050, width=1500)
         
+        # set to always dark mode
+        ctk.set_appearance_mode("dark")
+        
         self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
         self.selected_model_configuration_path = None
