@@ -36,7 +36,7 @@ global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
 
 DEBUG = False
 
-TRAIN_VAL_SPLIT_RANDOM_STATE = 42
+TRAIN_VAL_SPLIT_RANDOM_STATE = 40
 
 ############################################################################################################
 
@@ -79,9 +79,9 @@ class modelTrainUI(ctk.CTk):
         self.save_with_model_config = tk.BooleanVar(value=True)
         
         # SETTINGS
-        self.epochs_default = 10
+        self.epochs_default = 50
         self.batch_size_default = 32
-        self.patience_default = 5
+        self.patience_default = 20
         self.epochs_graphed_default = 50
         self.data_shift_default = 0
         
@@ -865,6 +865,12 @@ class modelTrainUI(ctk.CTk):
             except tk.TclError:
                 self.update()
                 pass
+            
+        self.update_idletasks()
+        self.update()
+        time.sleep(2)
+        self.update_idletasks()
+        self.update()
         
         #fix listbox having double the items after training
         self.queue_listbox.delete(0, tk.END)
