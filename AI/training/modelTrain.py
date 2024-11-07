@@ -36,7 +36,9 @@ global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
 
 DEBUG = False
 
+
 TRAIN_VAL_SPLIT_RANDOM_STATE = 40
+
 
 ############################################################################################################
 
@@ -142,9 +144,9 @@ class modelTrainUI(ctk.CTk):
         os._exit(0)
         
     def import_lazy_imports(self):
-        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split
+        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau
         import tensorflow as tf
-        from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint # type: ignore
+        from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau # type: ignore
         import numpy as np
         from sklearn.model_selection import train_test_split
         
@@ -1182,12 +1184,13 @@ class DataProcessor:
         
         stop_training_callback = StopTrainingCallback(self)
         
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
             validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
             epochs=epochs,
-            callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
+            callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback, reduce_lr],
             batch_size=batch_size
         )
         
