@@ -9,6 +9,7 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 from RPIs.Devices.LIDAR.LIDAR import Lidar
 from RPIs.Devices.I2C.I2Chandler import I2Chandler
+from RPIs.Devices.Buzzer.Buzzer import Buzzer
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
 # from RPIs.Devices.Dummy.I2C.I2Chandler import I2Chandler
 
@@ -77,15 +78,16 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.lidar, self.data_transferer = self.initialize_components()
+        self.lidar, self.data_transferer, self.buzzer = self.initialize_components()
 
         self.initialized = True
-
         self.communicationestablisher.establish_communication()
         
         self.logger.info("DataManager initialized.")
         
         self.client.send_message(f"MODE#{self.mode}")
+        
+        self.buzzer.buzz_success()
         
     def start_comm(self):
         logger_obj = Logger()
@@ -120,8 +122,10 @@ class DataManager:
         else:
             self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], self.shared_info_list, 5000), daemon=True)
         self.webServerProcess.start()
+        
+        buzzer = Buzzer()
 
-        return lidar, data_transferer
+        return lidar, data_transferer, buzzer
     
 ###########################################################################
     
@@ -160,7 +164,8 @@ class DataManager:
         finally:
             self.client.send_message('STOP')
             self.lidar.stop_sensor()
-            self.i2c_handler.stop_threads()         
+            self.i2c_handler.stop_threads()     
+            self.buzzer.stop()    
             
 ###########################################################################
 
