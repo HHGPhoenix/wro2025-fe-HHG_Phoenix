@@ -162,7 +162,7 @@ class AIController:
     
     def get_cam_frames(self, frame_array, video_stream_base="http://192.168.1.3:5000/cam/", video_stream_endpoints=["raw_video_stream", "simplified_video_stream", "object_video_stream"], retry_delay=1):
         # Ensure frame_array is initialized correctly
-        if len(frame_array) != len(video_stream_endpoints):
+        if len(frame_array) < len(video_stream_endpoints):
             raise ValueError("frame_array must be initialized with the same length as video_stream_endpoints")
         
         # while not self.running:
@@ -193,8 +193,11 @@ class AIController:
         while True:
             response = requests.get(endpoint)
             counters = response.json()
-            frame_array[3] = counters[0]
-            frame_array[4] = counters[1]
+            if counters:
+                frame_array[3] = counters["green_counter"]
+                frame_array[4] = counters["red_counter"]
+            else:
+                print("Failed to get counters from endpoint")
     
 ###########################################################################
 
