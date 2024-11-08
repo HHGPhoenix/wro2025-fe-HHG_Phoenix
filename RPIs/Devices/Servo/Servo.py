@@ -1,4 +1,4 @@
-from rpi_hardware_pwm import HardwarePWM
+from rpi_hardware_pwm import HardwarePWM #type: ignore
 
 class Servo:
     def __init__(self, pin, minPulse=500, maxPulse=2500, minAngle=0, middleAngle=90, maxAngle=180):
