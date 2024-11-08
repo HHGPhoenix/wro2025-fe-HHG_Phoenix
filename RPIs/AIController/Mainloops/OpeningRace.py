@@ -12,7 +12,7 @@ def main_loop_opening_race(self):
     while self.running:
         try:
             # run the model
-            if len(self.interpolated_lidar_data) == 0 or self.frame_list[1] is None or self.counters is None:
+            if len(self.interpolated_lidar_data) == 0 or self.frame_list[1] is None or self.frame_list[3] is None:
                 print(f"Waiting for data: {len(self.interpolated_lidar_data)}, {self.counters}")
                 time.sleep(0.1)
                 continue
@@ -20,7 +20,7 @@ def main_loop_opening_race(self):
             if IO_list[1] is not None:
                 self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
             
-            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
+            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
 
             lidar_data = []
             for angle, distance, _ in self.interpolated_lidar_data:
@@ -34,14 +34,14 @@ def main_loop_opening_race(self):
             simplified_frame = simplified_frame / 255.0
             simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
             
-            counters = np.expand_dims(self.counters, axis=0)
+            counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
 
             # Combine the inputs into a list
             inputs = [lidar_data, simplified_frame, counters]
             
             IO_list[0] = inputs
             
-            motor_speed = 0.30
+            motor_speed = 0.35
             self.motor_controller.send_speed(motor_speed)
         
         except KeyboardInterrupt:

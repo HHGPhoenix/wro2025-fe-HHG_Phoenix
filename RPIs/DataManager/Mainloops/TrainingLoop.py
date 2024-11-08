@@ -49,7 +49,7 @@ def main_loop_training(self):
 
             if len(self.interpolated_lidar_data) > 0:
                 lidar_data = deepcopy(self.interpolated_lidar_data[-1])
-                print(lidar_data)
+                # print(lidar_data)
                 x, y, rx, ry = ps_controller.get_analog_stick_values()
 
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
@@ -66,10 +66,10 @@ def main_loop_training(self):
                     x_values.append(x)
                     lidar_arrays.append(lidar_data)
                     
-                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((110, 213, 3))
+                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((100, 213, 3))
                     raw_frames.append(raw_frame)
 
-                    simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
+                    simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
                     simplified_frames.append(simplified_frame)
                     
                     counters.append([self.frame_list[3], self.frame_list[4]])
