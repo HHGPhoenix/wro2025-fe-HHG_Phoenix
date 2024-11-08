@@ -34,7 +34,7 @@ def main_loop_opening_race(self):
             simplified_frame = simplified_frame / 255.0
             simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
             
-            counters = np.expand_dims(self.counters, axis=0)
+            counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
 
             # Combine the inputs into a list
             inputs = [lidar_data, simplified_frame, counters]
