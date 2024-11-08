@@ -36,7 +36,9 @@ global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
 
 DEBUG = False
 
-TRAIN_VAL_SPLIT_RANDOM_STATE = 42
+
+TRAIN_VAL_SPLIT_RANDOM_STATE = 40
+
 
 ############################################################################################################
 
@@ -46,6 +48,9 @@ class modelTrainUI(ctk.CTk):
         self.title("Model Training")
         self.geometry("+50+50")
         self.minsize(height=1050, width=1500)
+        
+        # set to always dark mode
+        ctk.set_appearance_mode("dark")
         
         self.selected_training_data_path = None
         self.selected_training_data_path_basename = None
@@ -76,9 +81,9 @@ class modelTrainUI(ctk.CTk):
         self.save_with_model_config = tk.BooleanVar(value=True)
         
         # SETTINGS
-        self.epochs_default = 10
+        self.epochs_default = 50
         self.batch_size_default = 32
-        self.patience_default = 5
+        self.patience_default = 20
         self.epochs_graphed_default = 50
         self.data_shift_default = 0
         
@@ -139,9 +144,9 @@ class modelTrainUI(ctk.CTk):
         os._exit(0)
         
     def import_lazy_imports(self):
-        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split
+        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau
         import tensorflow as tf
-        from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint # type: ignore
+        from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau # type: ignore
         import numpy as np
         from sklearn.model_selection import train_test_split
         
@@ -862,6 +867,12 @@ class modelTrainUI(ctk.CTk):
             except tk.TclError:
                 self.update()
                 pass
+            
+        self.update_idletasks()
+        self.update()
+        time.sleep(2)
+        self.update_idletasks()
+        self.update()
         
         #fix listbox having double the items after training
         self.queue_listbox.delete(0, tk.END)
@@ -1173,12 +1184,13 @@ class DataProcessor:
         
         stop_training_callback = StopTrainingCallback(self)
         
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
         
         history = self.model.fit(
             [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
             validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
             epochs=epochs,
-            callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
+            callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback, reduce_lr],
             batch_size=batch_size
         )
         
@@ -1254,31 +1266,35 @@ class DataProcessor:
         self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path,), daemon=True)
         self.load_training_data_thread.start()
 
+        # Python
     def load_training_data(self, folder_path):
         if not folder_path:
             messagebox.showerror("Error", "No data folder selected")
             self.data_loading_completed()
             return
-        
-        # print(f"Loading data from {folder_path}")
-
-        lidar_data_list = []
-        image_data_list = []
-        controller_data_list = []
-        counter_data_list = []
+    
         file_count = 0
-
+    
         try:
             for root, dirs, files in os.walk(folder_path):
                 for file in files:
                     if file.startswith("run_data_"):
                         file_path = os.path.join(root, file)
                         np_arrays = np.load(file_path, allow_pickle=True)
-                        lidar_data_list.append(np_arrays['lidar_data'])
-                        image_data_list.append(np_arrays['simplified_frames'])
-                        controller_data_list.append(np_arrays['controller_data'])
-                        counter_data_list.append(np_arrays['counters'])
-                        file_count += 1
+                        if 'lidar_data' in np_arrays and 'simplified_frames' in np_arrays \
+                           and 'controller_data' in np_arrays and 'counters' in np_arrays:
+                            if file_count == 0:
+                                lidar_data = np_arrays['lidar_data'].astype(np.float32)
+                                simplified_image_data = np_arrays['simplified_frames'].astype(np.float32)
+                                controller_data = np_arrays['controller_data']
+                                counter_data = np_arrays['counters']
+                            else:
+                                lidar_data = np.concatenate((lidar_data, np_arrays['lidar_data'].astype(np.float32)), axis=0)
+                                simplified_image_data = np.concatenate((simplified_image_data, np_arrays['simplified_frames'].astype(np.float32)), axis=0)
+                                controller_data = np.concatenate((controller_data, np_arrays['controller_data']), axis=0)
+                                counter_data = np.concatenate((counter_data, np_arrays['counters']), axis=0)
+                            file_count += 1
+                        np_arrays = None
         except KeyError as e:
             messagebox.showerror("Error", f"Error loading data from {file_path}. {e}")
             self.modelTrainUI.found_training_data = False
@@ -1287,93 +1303,35 @@ class DataProcessor:
             self.modelTrainUI.selected_training_data_path_label.configure(text="Selected Training Data: \nNone")
             self.data_loading_completed()
             return
-
-        
-        np_arrays = None
-
-        if not lidar_data_list or not image_data_list or not controller_data_list or not counter_data_list:
+    
+        if file_count == 0:
             messagebox.showerror("Error", "No data files found in the selected folder")
             self.modelTrainUI.found_training_data = False
             self.data_loading_completed()
             return
         else:
             self.modelTrainUI.found_training_data = True
-
-        # Assuming lidar_data_list is already defined
-        lidar_data = np.concatenate(lidar_data_list, axis=0)
-        lidar_data_list = None
-
-        # Extract angles and distances
-        angles = lidar_data[:, :, 0]
-        distances = lidar_data[:, :, 1]
-
-        # Normalize angles and distances
-        normalized_angles = angles / 360
-        normalized_distances = distances / 5000
-
-        # Combine normalized angles and distances
-        new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
-        normalized_angles = None
-        normalized_distances = None
-
-        # If you need to keep the original shape
-        lidar_data = new_lidar_data
-        new_lidar_data = None
-        
-        simplified_image_data = np.concatenate(image_data_list, axis=0)
-        
-        image_data_list = None
-        
-        # print(f"Loaded {file_count} files")
-        # print(f"Starting resizing")
-        # start_time = time.time()
-        # resized_frames = []
-        # for frame in simplified_image_data:
-        #     if len(frame.shape) == 3:  # Ensure frame has at least 3 dimensions
-        #         resized_frame = np.concatenate
-        #         resized_frame = np.resize(frame, (128, 128, frame.shape[2]))
-        #         resized_frames.append(resized_frame)
-        # print(f"Resizing took {time.time() - start_time} seconds")
-        # print("Ferddig Resizing!!!!!!!!!!!!!!")
-        # simplified_image_data = np.array(resized_frames)
-        simplified_image_data = simplified_image_data / 255.0
-        
-        controller_data = np.concatenate(controller_data_list, axis=0)
-        counter_data = np.concatenate(counter_data_list, axis=0)
-        
-        controller_data_list = None
-        counter_data_list = None
-        
-        # print(f"Data loaded successfully. {file_count} files were loaded.")
-        # while True:
-        #     pass
-
-        # data_shift = int(self.modelTrainUI.data_shift.get())
+    
+        # Normalize and process data
+        lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
+        simplified_image_data /= 255.0
+    
         data_shift = int(self.data_shift)
         if data_shift != 0:
             controller_data = controller_data[data_shift:]
             lidar_data = lidar_data[:-data_shift]
             simplified_image_data = simplified_image_data[:-data_shift]
             counter_data = counter_data[:-data_shift]
-            
-
-        # Perform the train-validation split
+    
+        # Train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        lidar_data = None
-        
         self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        simplified_image_data = None
-        
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        
         self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        
-        with self.modelTrainUI.load_training_data_lock:
-            self.data_loading_completed()
-
-        # messagebox.showinfo("Success", f"Data loaded successfully. {file_count} files were loaded.")
+    
+        self.data_loading_completed()
         print("Data loaded successfully")
-        if self.modelTrainUI.reload_training_data_waiting == False:
+        if not self.modelTrainUI.reload_training_data_waiting:
             chime.success()
     
     def data_loading_started(self):

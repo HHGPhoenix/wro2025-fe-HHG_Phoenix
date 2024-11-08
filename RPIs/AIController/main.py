@@ -4,6 +4,7 @@ import cv2
 import multiprocessing as mp
 import os
 import signal
+import requests
 import psutil
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
@@ -44,7 +45,6 @@ class AIController:
         self.logger = None
         self.mode = None
         self.servo = None
-        self.counters = [0, 0]
         self.stop_with_interrupt = False
         self.interpolated_lidar_data = None
         self.simplified_image = None
@@ -53,7 +53,7 @@ class AIController:
         self.running = False
         
         self.mp_manager = mp.Manager()
-        self.frame_list = self.mp_manager.list([None, None, None])
+        self.frame_list = self.mp_manager.list([None, None, None, None, None])
         
         self.x = 0.5
         self.y = 0.5
@@ -96,6 +96,9 @@ class AIController:
         
         camera_frames_process = mp.Process(target=self.get_cam_frames, args=(self.frame_list,), daemon=True)
         camera_frames_process.start()
+        
+        counters_process = mp.Process(target=self.get_counters, args=(self.frame_list,), daemon=True)
+        counters_process.start()
         
         transmit_information_thread = threading.Thread(target=self.transmit_information, daemon=True)
         transmit_information_thread.start()
@@ -159,7 +162,7 @@ class AIController:
     
     def get_cam_frames(self, frame_array, video_stream_base="http://192.168.1.3:5000/cam/", video_stream_endpoints=["raw_video_stream", "simplified_video_stream", "object_video_stream"], retry_delay=1):
         # Ensure frame_array is initialized correctly
-        if len(frame_array) != len(video_stream_endpoints):
+        if len(frame_array) < len(video_stream_endpoints):
             raise ValueError("frame_array must be initialized with the same length as video_stream_endpoints")
         
         # while not self.running:
@@ -185,6 +188,16 @@ class AIController:
                     break
             # Add a break condition or sleep to avoid infinite loop
             # time.sleep(0.05)
+            
+    def get_counters(self, frame_array, endpoint="http://192.168.1.3:5000/cam/counters"):
+        while True:
+            response = requests.get(endpoint)
+            counters = response.json()
+            if counters:
+                frame_array[3] = counters["green_counter"]
+                frame_array[4] = counters["red_counter"]
+            else:
+                print("Failed to get counters from endpoint")
     
 ###########################################################################
 
