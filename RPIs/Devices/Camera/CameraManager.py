@@ -28,17 +28,20 @@ class Camera():
         self.picam.set_logging(Picamera2.ERROR)
         
         # Define the color ranges for green and red in HSV color space
-        self.lower_green = np.array([55, 50, 50])
-        self.upper_green = np.array([75, 120, 83])
+        self.lower_green = np.array([57, 30, 40])
+        self.upper_green = np.array([73, 120, 65])
 
-        self.lower_red1 = np.array([0, 120, 90])
-        self.upper_red1 = np.array([2, 225, 185])
+        # self.lower_red1 = np.array([0, 105, 80])
+        # self.upper_red1 = np.array([1, 200, 180])
+        
+        self.lower_red1 = np.array([175, 105, 80])
+        self.upper_red1 = np.array([180, 200, 180])
 
-        self.lower_red2 = np.array([175, 120, 90])
-        self.upper_red2 = np.array([180, 225, 185])
+        self.lower_red2 = np.array([175, 105, 80])
+        self.upper_red2 = np.array([180, 200, 180])
         
         self.lower_black = np.array([15, 0, 0])
-        self.upper_black = np.array([165, 85, 60])
+        self.upper_black = np.array([170, 55, 70])
 
         # Define the kernel for morphological operations
         self.kernel = np.ones((5, 5), np.uint8)
@@ -53,8 +56,7 @@ class Camera():
         """
         frame = self.picam.capture_array()
         frameraw = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        framehsv = cv2.cvtColor(frameraw, cv2.COLOR_BGR2HSV)
-        
+        framehsv = cv2.cvtColor(frameraw, cv2.COLOR_BGR2HSV)        
         return frameraw, framehsv
     
     def simplify_image(self, framehsv, black_color=[255, 255, 255], shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0]):
@@ -69,6 +71,7 @@ class Camera():
         Returns:
             np.ndarray: The simplified image with red and green areas colored with the specified shades.
         """
+        
         # Masks for green and red pixels
         mask_green = cv2.inRange(framehsv, self.lower_green, self.upper_green)
         mask_red1 = cv2.inRange(framehsv, self.lower_red1, self.upper_red1)
@@ -195,6 +198,6 @@ class Camera():
             raise ValueError(f"Unexpected number of dimensions in frame: {dimensions}")
         new_width = int(new_height * width / height)
         frame = cv2.resize(frame, (new_width, new_height))
-        frame = frame[10:, :]
+        frame = frame[20:, :]
         
         return frame

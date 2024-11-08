@@ -20,7 +20,7 @@ def main_loop_opening_race(self):
             if IO_list[1] is not None:
                 self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
             
-            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((110, 213, 3))
+            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
 
             lidar_data = []
             for angle, distance, _ in self.interpolated_lidar_data:
@@ -41,7 +41,7 @@ def main_loop_opening_race(self):
             
             IO_list[0] = inputs
             
-            motor_speed = 0.30
+            motor_speed = 0.35
             self.motor_controller.send_speed(motor_speed)
         
         except KeyboardInterrupt:

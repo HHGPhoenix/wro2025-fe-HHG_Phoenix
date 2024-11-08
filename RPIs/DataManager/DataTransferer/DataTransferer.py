@@ -49,7 +49,8 @@ class DataTransferer:
                 
                 frameraw = self.camera.compress_frame(frameraw)
                 framehsv = self.camera.compress_frame(framehsv)
-                
+                # framehsv = cv2.GaussianBlur(framehsv, (3, 3), 0)
+                # frameraw = cv2.GaussianBlur(frameraw, (3, 3), 0)
                 # print(f"frameraw: {frameraw.shape}")
                 simplified_image = self.camera.simplify_image(framehsv.copy(), shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
                 object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
@@ -139,7 +140,7 @@ class DataTransferer:
                 df_interpolated['intensity'] = df_interpolated['intensity'].interpolate(method='linear', limit_direction='both', inplace=False).fillna(method='bfill').fillna(method='ffill')
 
                 # Filter angles not within the range [140, 220]
-                df_interpolated = df_interpolated[(df_interpolated["angle"] < 140) | (df_interpolated["angle"] > 220)]
+                df_interpolated = df_interpolated[(df_interpolated["angle"] < 135) | (df_interpolated["angle"] > 237)]
 
                 # Convert to list and round values
                 df_interpolated_list = df_interpolated.values.tolist()
