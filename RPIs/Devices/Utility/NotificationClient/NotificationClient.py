@@ -1,29 +1,39 @@
 import requests
+import base64
+import time
 
 class NotificationClient:
-    def __init__(self, base_url='http://localhost:80'):
+    def __init__(self, base_url='https://localhost'):
         self.base_url = base_url
+        username = "phil"
+        password = "phil"
+        credentials = f"{username}:{password}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        self.authHeader = "Basic " + encoded_credentials
 
     def send_message(self, topic, message):
         url = f"{self.base_url}/{topic}"
-        response = requests.post(url, data=message)
+        response = requests.post(url, data=message, verify=False)
         return response
-    
+
     def send_battery(self, battery_level):
         url = f"{self.base_url}/battery"
-        battery = f"🤬 Battery Level: {battery_level} %"
+        battery = f"🤬💀 Battery Level: {battery_level} % 💀🔥"
         headers={
-        "Title": "Battery Alert",
-        "Priority": "urgent",
-        "Tags": "warning,skull"
+            "Title": "Battery Alert",
+            "Priority": "high",
+            "Authorization": self.authHeader
         }
-        response = requests.post(url, data=battery, headers=headers)
+        response = requests.post(url, data=battery, headers=headers, verify=False)
         return response
-    
+
 if __name__ == '__main__':
     ntfy = NotificationClient()
-    # # response = ntfy.send_message('test', 'Hello, World!')
-    # print(response.status_code)
-    # print(response.text)
-    
-    response = ntfy.send_battery(10)
+    for i in range(10):
+        response = ntfy.send_battery(i*10)
+        print(response.status_code)
+        print(response.text)
+        time.sleep(3)
+    response = ntfy.send_battery(100)
+    print(response.status_code)
+    print(response.text)
