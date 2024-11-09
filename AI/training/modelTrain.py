@@ -107,7 +107,8 @@ class modelTrainUI(ctk.CTk):
         self.load_training_data_lock = threading.Lock()
         self.reload_training_data_lock = threading.Lock()
         self.reload_training_data_waiting = False
-        self.last_data_shift = None
+        self.last_data_change = {"data_shift": [self.data_shift_default, self.reload_training_data_wrapper],
+                                 "split_random_state": [self.split_random_state_default, self.reload_training_data_wrapper]}
         
         self.configuration_path_global = "model_preset_configuration.json"
         
@@ -156,7 +157,7 @@ class modelTrainUI(ctk.CTk):
         self.lazy_imports_imported = True
         
     def handle_settings(self):
-        if not os.path.exists("settings.json"):
+        if not os.path.exists(".config/settingsModelTrain.json"):
             self.create_settings_file()
         else:
             self.load_settings()
@@ -164,7 +165,10 @@ class modelTrainUI(ctk.CTk):
     def create_settings_file(self):
         settings = self.settings
         
-        with open("settings.json", "w") as f:
+        if not os.path.exists(".config"):
+            os.mkdir(".config")
+        
+        with open(".config/settingsModelTrain.json", "w") as f:
             file_content = {}
             for key, (_, default, _) in settings.items():
                 file_content[key] = default
@@ -173,9 +177,9 @@ class modelTrainUI(ctk.CTk):
     def load_settings(self):
         settings = self.settings
         
-        if os.path.exists("settings.json"):
+        if os.path.exists(".config/settingsModelTrain.json"):
             try:
-                with open("settings.json", "r") as f:
+                with open(".config/settingsModelTrain.json", "r") as f:
                     file_content = json.load(f)
                     for key, (value, _, _) in settings.items():
                         if key in file_content:
@@ -183,7 +187,7 @@ class modelTrainUI(ctk.CTk):
             except (KeyError, json.decoder.JSONDecodeError):
                 delete_or_not = messagebox.askyesno("Error", "The settings file is corrupted. Do you want to delete it? Or exit!")
                 if delete_or_not:
-                    os.remove("settings.json")
+                    os.remove(".config/settingsModelTrain.json")
                     self.create_settings_file()
                     self.load_settings()
                 else:
@@ -900,57 +904,64 @@ class modelTrainUI(ctk.CTk):
     
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
-            # self.update()
-            # self.settings_window.focus_force()
             self.focus_window(self.settings_window)
             return
-        
+    
         # Define the settings parameters
         settings = self.settings
+        num_settings = len(settings)
+    
         # Create the settings window
         self.settings_window = ctk.CTkToplevel(self)
         self.settings_window.title("Settings")
-        
-        # Iterate over the settings parameters to create frames, labels, and entries
+    
+        self.individual_settings_frame = ctk.CTkFrame(self.settings_window)
+        self.individual_settings_frame.grid(padx=15, pady=(15, 0), sticky="nsew")
+    
+        # Configure grid weights for equal sizing
+        for i in range(num_settings):
+            self.individual_settings_frame.grid_columnconfigure(i, weight=1, uniform="settings")
+        self.individual_settings_frame.grid_rowconfigure(0, weight=1)
+    
+        # Iterate over the settings to create frames, labels, and entries
+        col = 0
         for key, (value, _, type) in settings.items():
+            frame = ctk.CTkFrame(self.individual_settings_frame)
+            frame.grid(row=0, column=col, padx=15, pady=15, sticky="nsew")
+            frame.grid_columnconfigure(0, weight=1)
+            frame.grid_rowconfigure(0, weight=1)
+            frame.grid_rowconfigure(1, weight=1)
+    
+            modified_key = key.replace("_", " ").title()
+    
+            label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
+            label.grid(row=0, column=0, padx=15, pady=(15, 0), sticky="nsew")
+    
             if type == "int":
-                frame = ctk.CTkFrame(self.settings_window)
-                frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
-                
-                modified_key = key.replace("_", " ").title()
-                
-                label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
-                label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-                
                 entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=value)
-                entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-                
+                entry.grid(row=1, column=0, padx=15, pady=(15, 15), sticky="nsew")
                 entry.bind("<FocusOut>", lambda e: self.save_settings())
-                # bind enter key to save settings
                 entry.bind("<Return>", lambda e: self.save_settings())
-                
             elif type == "bool":
-                frame = ctk.CTkFrame(self.settings_window)
-                frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
-                
-                modified_key = key.replace("_", " ").title()
-                
-                label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
-                label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-                
-                switch = ctk.CTkSwitch(frame, text="", variable=value, font=("Arial", 15))
-                switch.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-                
+                switch = ctk.CTkSwitch(frame, text="", variable=value, font=("Arial", 15), command=self.save_settings)
+                switch.grid(row=1, column=0, padx=15, pady=(15, 15), sticky="nsew")
                 switch.bind("<FocusOut>", lambda e: self.save_settings())
-                # bind enter key to save settings
                 switch.bind("<Return>", lambda e: self.save_settings())
-        
-        # Bind the settings window to save settings on focus out and on close
-        # self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
+    
+            col += 1
+    
+        # Save settings on window close
         self.settings_window.protocol("WM_DELETE_WINDOW", lambda: self.save_settings(True))
-        
-        # self.update()
-        # self.settings_window.focus_force()
+    
+        self.settings_save_button = ctk.CTkButton(
+            self.settings_window,
+            text="Save",
+            command=lambda: self.save_settings(True),
+            height=40,
+            font=("Arial", 15)
+        )
+        self.settings_save_button.grid(row=1, column=0, columnspan=num_settings, padx=15, pady=15, sticky="nsew")
+    
         self.focus_window(self.settings_window)
         
     def select_output_directory(self):
@@ -982,17 +993,6 @@ class modelTrainUI(ctk.CTk):
                         if int_value <= 0:
                             int_value = default
                     
-                    if key == 'data_shift':
-                        if DEBUG:
-                            print(f"settings[key][0].get(): {settings[key][0].get()} int_value: {int_value}, default: {default}, settings[key][0].get() != int_value: {int(settings[key][0].get()) != int_value}")
-                        
-                        if self.last_data_shift == None:
-                            self.last_data_shift = int_value
-                        
-                        if int(settings[key][0].get()) != self.last_data_shift:
-                            self.last_data_shift = int_value
-                            data_shift_changed = True
-                        
                     settings[key][0].set(int_value)
                 except ValueError:
                     settings[key][0].set(default)
@@ -1000,8 +1000,16 @@ class modelTrainUI(ctk.CTk):
                 except Exception as e:
                     print(f"Error setting {key} to {value}")
                     settings[key][0].set(default)
+                    
+        for changed_key, (changed_value, changed_function) in self.last_data_change.items():
+            current_value = int(settings[changed_key][0].get())
+            if DEBUG:
+                print(f"changed_key: {changed_key}, changed_value: {changed_value}, changed_function: {changed_function}; settings[changed_key][0].get(): {settings[changed_key][0].get()}, changed_value: {changed_value}")
+            if current_value != int(changed_value):
+                self.last_data_change[changed_key] = (current_value, changed_function)
+                changed_function()
             
-        with open("settings.json", "w") as f:
+        with open(".config/settingsModelTrain.json", "w") as f:
             file_content = {}
             for key, (value, default, type) in settings.items():
                 if type == "int":

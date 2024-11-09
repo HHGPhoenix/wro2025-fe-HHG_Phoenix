@@ -11,6 +11,7 @@ import platform
 import os
 from PIL import Image, ImageTk
 import signal
+import json  
 print("\rImported libraries")
 
 USE_VISUALS = False  
@@ -18,23 +19,23 @@ NO_PIC = False
 
 ############################################################################################################
 
+
 class ModelTestUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Model Test")
-        # self.geometry("1200x800")
         self.minsize(height=950, width=1500)
         self.tensorflow_imported = False
         self.thread_lazy_imports = threading.Thread(target=self.import_lazy_imports, daemon=True)
         self.thread_lazy_imports.start()
         
         self.data_processor = DataProcessing(self)
-
+    
         # Initialize vars
         self.model_path = None
         self.comparison_file = None
         self.visual_model_path = ""
-        self.visual_comparison_file = ""
+        self.visual_comparison_files = ""
         self.model_loaded = False
         self.paused = False
         self.stopped = True
@@ -47,7 +48,40 @@ class ModelTestUI(ctk.CTk):
 
         self.init_window()
 
+        self.load_settings()
+        
         self.mainloop()
+
+    def save_settings(self):
+        settings = {
+            'model_path': self.model_path,
+            'comparison_file': self.comparison_file
+        }
+        
+        if not os.path.exists('.config'):
+            os.makedirs('.config')
+        
+        with open('.config/settingsModelTest.json', 'w') as f:
+            json.dump(settings, f)
+
+    def load_settings(self):
+        if os.path.exists('.config/settingsModelTest.json'):
+            with open('.config/settingsModelTest.json', 'r') as f:
+                settings = json.load(f)
+                self.model_path = settings.get('model_path')
+                self.comparison_file = settings.get('comparison_file')
+                if self.model_path and os.path.exists(self.model_path):
+                    self.visual_model_path = os.path.basename(self.model_path)
+                    self.selected_model_label.configure(text="Selected Model: \n" + self.visual_model_path)
+                    self.data_processor.load_model_wrapper(self.model_path)
+                else:
+                    self.model_path = None
+                if self.comparison_file and os.path.exists(self.comparison_file):
+                    self.visual_comparison_files = os.path.basename(self.comparison_file)
+                    self.selected_comparison_file_label.configure(text="Selected Comparison File: \n" + self.visual_comparison_files)
+                    self.data_processor.load_comparison_file(self.comparison_file)
+                else:
+                    self.comparison_file = None
 
     def close(self, *args):
         self.stopped = True
@@ -85,12 +119,6 @@ class ModelTestUI(ctk.CTk):
         # Create a frame for the configuration section
         self.configuration_frame = ctk.CTkFrame(self, fg_color="#1b1b1b", bg_color="#1b1b1b")
         self.configuration_frame.grid(row=0, column=1, sticky='nsew')
-
-        # Configure the grid of the frames to expand
-        # self.information_frame.grid_rowconfigure(0, weight=1)
-        # self.information_frame.grid_columnconfigure(0, weight=1)
-        # self.configuration_frame.grid_rowconfigure(0, weight=1)
-        # self.configuration_frame.grid_columnconfigure(0, weight=1)
 
         self.create_configuration_section()
         
@@ -225,30 +253,32 @@ class ModelTestUI(ctk.CTk):
     def get_model_path(self):
         path = filedialog.askopenfilename()
 
-        if path == "" or path == None:
+        if path == "" or path is None:
             return
 
-        # path = r"C:/Users/DataV3/models/linear_model.h5"
         self.model_path = path
         self.visual_model_path = os.path.basename(path)
-        # print("Model Path: ", self.model_path)
         print("Visual Model Path: ", self.visual_model_path)
         self.selected_model_label.configure(text="Selected Model: \n" + self.visual_model_path)
         self.data_processor.load_model_wrapper(self.model_path)
 
+        # Save settings after selecting model
+        self.save_settings()
+
     def get_comparison_file(self):
         path = filedialog.askopenfilename()
 
-        if path == "" or path == None:
+        if path == "" or path is None:
             return
-        
-        # path = r"C:/Users/DataV3/models/linear_model.h5"
+
         self.comparison_file = path
         self.visual_comparison_files = os.path.basename(path)
-        # print("Model Path: ", self.model_path)
         print("Visual Comparison File: ", self.visual_comparison_files)
         self.selected_comparison_file_label.configure(text="Selected Comparison File: \n" + self.visual_comparison_files)
         self.data_processor.load_comparison_file(self.comparison_file)
+
+        # Save settings after selecting comparison file
+        self.save_settings()
 
     def run_comparison(self):
         if self.stopped == False:
