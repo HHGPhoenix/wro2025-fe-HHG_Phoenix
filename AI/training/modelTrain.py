@@ -35,10 +35,7 @@ print("Done.")
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
 
 DEBUG = False
-
-
-TRAIN_VAL_SPLIT_RANDOM_STATE = 40
-
+TRAIN_VAL_SPLIT_RANDOM_STATE = 42
 
 ############################################################################################################
 
@@ -86,19 +83,25 @@ class modelTrainUI(ctk.CTk):
         self.patience_default = 20
         self.epochs_graphed_default = 50
         self.data_shift_default = 0
+        self.split_random_state_default = 42
+        self.use_visual_data_default = False
         
         self.epochs = tk.StringVar(value=self.epochs_default)
         self.batch_size = tk.StringVar(value=self.batch_size_default)
         self.patience = tk.StringVar(value=self.patience_default)
         self.epochs_graphed = tk.StringVar(value=self.epochs_graphed_default)
         self.data_shift = tk.StringVar(value=self.data_shift_default)
+        self.split_random_state = tk.StringVar(value=self.split_random_state_default)
+        self.use_visual_data = tk.BooleanVar(value=self.use_visual_data_default)
         
         self.settings = {
-            "epochs": (self.epochs, self.epochs_default),
-            "batch_size": (self.batch_size, self.batch_size_default),
-            "patience": (self.patience, self.patience_default),
-            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default),
-            "data_shift": (self.data_shift, self.data_shift_default),
+            "epochs": (self.epochs, self.epochs_default, "int"),
+            "batch_size": (self.batch_size, self.batch_size_default, "int"),
+            "patience": (self.patience, self.patience_default, "int"),
+            "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default, "int"),
+            "data_shift": (self.data_shift, self.data_shift_default, "int"),
+            "split_random_state": (self.split_random_state, self.split_random_state_default, "int"),
+            "use_visual_data": (self.use_visual_data, self.use_visual_data_default, "bool")
         }
         
         self.load_training_data_lock = threading.Lock()
@@ -163,7 +166,7 @@ class modelTrainUI(ctk.CTk):
         
         with open("settings.json", "w") as f:
             file_content = {}
-            for key, (value, default) in settings.items():
+            for key, (_, default, _) in settings.items():
                 file_content[key] = default
             json.dump(file_content, f)
 
@@ -174,7 +177,7 @@ class modelTrainUI(ctk.CTk):
             try:
                 with open("settings.json", "r") as f:
                     file_content = json.load(f)
-                    for key, (value, default) in settings.items():
+                    for key, (value, _, _) in settings.items():
                         if key in file_content:
                             value.set(file_content[key])
             except (KeyError, json.decoder.JSONDecodeError):
@@ -711,6 +714,7 @@ class modelTrainUI(ctk.CTk):
         patience = int(self.patience.get())
         epochs_graphed = int(self.epochs_graphed.get())
         data_shift = int(self.data_shift.get())
+        use_visual_data = self.use_visual_data.get()
         
         save_a_h5_model = self.save_as_h5.get()
         save_a_tflite_model = self.save_as_tflite.get()
@@ -722,9 +726,8 @@ class modelTrainUI(ctk.CTk):
                                                   model_name_entry_content, 
                                                   epochs, batch_size, patience, 
                                                   epochs_graphed, data_shift, name, model_dir, 
-                                                  save_a_h5_model, 
-                                                  save_a_tflite_model, 
-                                                  save_with_model_config)
+                                                  save_a_h5_model, save_a_tflite_model, 
+                                                  save_with_model_config, use_visual_data)
         
         if not self.keep_config_var.get():
             self.queue.append(self.data_processor)
@@ -909,21 +912,38 @@ class modelTrainUI(ctk.CTk):
         self.settings_window.title("Settings")
         
         # Iterate over the settings parameters to create frames, labels, and entries
-        for key, (value, default) in settings.items():
-            frame = ctk.CTkFrame(self.settings_window)
-            frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
-            
-            modified_key = key.replace("_", " ").title()
-            
-            label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
-            label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
-            
-            entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=value)
-            entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
-            
-            entry.bind("<FocusOut>", lambda e: self.save_settings())
-            # bind enter key to save settings
-            entry.bind("<Return>", lambda e: self.save_settings())
+        for key, (value, _, type) in settings.items():
+            if type == "int":
+                frame = ctk.CTkFrame(self.settings_window)
+                frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
+                
+                modified_key = key.replace("_", " ").title()
+                
+                label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
+                label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+                
+                entry = ctk.CTkEntry(frame, font=("Arial", 15), textvariable=value)
+                entry.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
+                
+                entry.bind("<FocusOut>", lambda e: self.save_settings())
+                # bind enter key to save settings
+                entry.bind("<Return>", lambda e: self.save_settings())
+                
+            elif type == "bool":
+                frame = ctk.CTkFrame(self.settings_window)
+                frame.pack(side=tk.LEFT, padx=15, pady=15, anchor='n', expand=True, fill='both')
+                
+                modified_key = key.replace("_", " ").title()
+                
+                label = ctk.CTkLabel(frame, text=modified_key, font=("Arial", 15))
+                label.pack(padx=15, pady=(15, 0), anchor='n', expand=True, fill='both')
+                
+                switch = ctk.CTkSwitch(frame, text="", variable=value, font=("Arial", 15))
+                switch.pack(padx=15, pady=(15, 15), anchor='n', expand=True, fill='both')
+                
+                switch.bind("<FocusOut>", lambda e: self.save_settings())
+                # bind enter key to save settings
+                switch.bind("<Return>", lambda e: self.save_settings())
         
         # Bind the settings window to save settings on focus out and on close
         # self.settings_window.bind("<FocusOut>", lambda e: self.save_settings())
@@ -951,39 +971,43 @@ class modelTrainUI(ctk.CTk):
         if DEBUG:
             print("Saving settings")
         
-        for key, (value, default) in settings.items():
-            try:
-                numeric_value = ''.join(filter(str.isdigit, value.get()))
-                if numeric_value == '' or numeric_value == '0' or numeric_value == None:
-                    int_value = default
-                else:
-                    int_value = int(numeric_value)
-                    if int_value <= 0:
+        for key, (value, default, type) in settings.items():
+            if type == "int":
+                try:
+                    numeric_value = ''.join(filter(str.isdigit, value.get()))
+                    if numeric_value == '' or numeric_value == '0' or numeric_value == None:
                         int_value = default
-                
-                if key == 'data_shift':
-                    if DEBUG:
-                        print(f"settings[key][0].get(): {settings[key][0].get()} int_value: {int_value}, default: {default}, settings[key][0].get() != int_value: {int(settings[key][0].get()) != int_value}")
+                    else:
+                        int_value = int(numeric_value)
+                        if int_value <= 0:
+                            int_value = default
                     
-                    if self.last_data_shift == None:
-                        self.last_data_shift = int_value
-                    
-                    if int(settings[key][0].get()) != self.last_data_shift:
-                        self.last_data_shift = int_value
-                        data_shift_changed = True
-                    
-                settings[key][0].set(int_value)
-            except ValueError:
-                settings[key][0].set(default)
-                messagebox.showerror("Error", f"Invalid value for {key}. Reverting to {default}.")
-            except Exception as e:
-                print(f"Error setting {key} to {value}")
-                settings[key][0].set(default)
-        
+                    if key == 'data_shift':
+                        if DEBUG:
+                            print(f"settings[key][0].get(): {settings[key][0].get()} int_value: {int_value}, default: {default}, settings[key][0].get() != int_value: {int(settings[key][0].get()) != int_value}")
+                        
+                        if self.last_data_shift == None:
+                            self.last_data_shift = int_value
+                        
+                        if int(settings[key][0].get()) != self.last_data_shift:
+                            self.last_data_shift = int_value
+                            data_shift_changed = True
+                        
+                    settings[key][0].set(int_value)
+                except ValueError:
+                    settings[key][0].set(default)
+                    messagebox.showerror("Error", f"Invalid value for {key}. Reverting to {default}.")
+                except Exception as e:
+                    print(f"Error setting {key} to {value}")
+                    settings[key][0].set(default)
+            
         with open("settings.json", "w") as f:
             file_content = {}
-            for key, (value, default) in settings.items():
-                file_content[key] = int(value.get())
+            for key, (value, default, type) in settings.items():
+                if type == "int":
+                    file_content[key] = int(value.get())
+                else:
+                    file_content[key] = value.get()
             json.dump(file_content, f)
         
         if data_shift_changed:
@@ -1106,7 +1130,7 @@ class DataProcessor:
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
@@ -1126,6 +1150,7 @@ class DataProcessor:
         self.save_a_h5_model = save_a_h5_model
         self.save_a_tflite_model = save_a_tflite_model
         self.save_with_model_config = save_with_model_config
+        self.use_visual_data = use_visual_data
 
     def start_training(self):
         if not self.modelTrainUI.lazy_imports_imported:
@@ -1162,20 +1187,26 @@ class DataProcessor:
             print(f"Validation Controller data shape: {self.controller_val.shape}")
             print(f"Validation Frame data shape: {self.image_val.shape}")
             print(f"Validation Counter data shape: {self.counter_val.shape}")
-        
-        self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                         frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
-                                         counter_input_shape=(self.counter_train.shape[1], ))
+            
+        try:
+            if self.use_visual_data:
+                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
+                                                frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
+                                                counter_input_shape=(self.counter_train.shape[1], ))
+            else:
+                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1))
+        except TypeError as e:
+            messagebox.showerror("Model Function Error", f"Error while initializing model functions: {e}")
+            return
 
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         
-        
         self.generate_checkpoint_filename()
         
         self.check_dir_preparedness()
-            
+        
         self.h5_model_path = f"{self.model_base_filename}.h5"
         
         model_checkpoint = ModelCheckpoint(self.h5_model_path, monitor='val_loss', save_best_only=True)
@@ -1184,15 +1215,24 @@ class DataProcessor:
         
         stop_training_callback = StopTrainingCallback(self)
         
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
+        # reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
         
-        history = self.model.fit(
-            [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
-            validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
-            epochs=epochs,
-            callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback, reduce_lr],
-            batch_size=batch_size
-        )
+        if self.use_visual_data:
+            history = self.model.fit(
+                [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
+                validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
+                epochs=epochs,
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
+                batch_size=batch_size
+            )
+        else:
+            history = self.model.fit(
+                self.lidar_train, self.controller_train,
+                validation_data=(self.lidar_val, self.controller_val),
+                epochs=epochs,
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
+                batch_size=batch_size
+            )
         
         
         if self.save_a_tflite_model:
