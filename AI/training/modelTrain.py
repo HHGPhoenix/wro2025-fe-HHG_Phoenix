@@ -259,7 +259,7 @@ class modelTrainUI(ctk.CTk):
             self.select_model_configuration_label.configure(text=f"Model Configuration File: \n{self.selected_model_configuration_path_basename}")
         
         if self.selected_training_data_path:
-            self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+            self.data_processor.load_training_data_wrapper(self.selected_training_data_path, self.data_shift.get(), self.split_random_state.get())
         if self.selected_model_configuration_path:
             self.data_processor.load_model_configuration(self.selected_model_configuration_path)
             
@@ -644,7 +644,7 @@ class modelTrainUI(ctk.CTk):
         
         self.found_training_data = None
         
-        self.data_processor.load_training_data_wrapper(path)
+        self.data_processor.load_training_data_wrapper(path, self.data_shift.get(), self.split_random_state.get())
         
         while self.found_training_data is None:
             self.update()
@@ -1049,7 +1049,7 @@ class modelTrainUI(ctk.CTk):
         with self.reload_training_data_lock:
             self.reload_training_data_waiting = False
         
-        self.data_processor.load_training_data_wrapper(self.selected_training_data_path)
+        self.data_processor.load_training_data_wrapper(self.selected_training_data_path, self.data_shift.get(), self.split_random_state.get())
     
     def delete_queue_item(self):
         selected_index = self.queue_listbox.curselection()
@@ -1123,6 +1123,8 @@ class DataProcessor:
         self.batch_size = None
         self.patience = None
         self.data_shift = int(self.modelTrainUI.data_shift.get())
+        self.split_random_state = int(self.modelTrainUI.split_random_state.get())
+        
         self.model = None
         self.model_train_thread = None
         self.data_loading = False
@@ -1301,7 +1303,7 @@ class DataProcessor:
         with open(output_path, 'wb') as f:
             f.write(tflite_model)
         
-    def load_training_data_wrapper(self, folder_path):
+    def load_training_data_wrapper(self, folder_path, data_shift, split_random_state):
         with self.modelTrainUI.load_training_data_lock:
             if self.data_loading:
                 return
@@ -1311,15 +1313,21 @@ class DataProcessor:
             
             self.data_loading_started()
             
-        self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path,), daemon=True)
+        self.load_training_data_thread = threading.Thread(target=self.load_training_data, args=(folder_path, data_shift, split_random_state), daemon=True)
         self.load_training_data_thread.start()
 
         # Python
-    def load_training_data(self, folder_path):
-        if not folder_path:
+    def load_training_data(self, folder_path, data_shift, split_random_state):
+        if not folder_path or folder_path == "" or not os.path.exists(folder_path):
             messagebox.showerror("Error", "No data folder selected")
             self.data_loading_completed()
             return
+        if not data_shift or data_shift == "" or not split_random_state or split_random_state == "":
+            messagebox.showerror("Error", "Data shift or split random state not set")
+            self.data_loading_completed()
+            return
+        self.data_shift = int(data_shift)
+        self.split_random_state = int(split_random_state)
     
         file_count = 0
     
@@ -1372,10 +1380,10 @@ class DataProcessor:
             counter_data = counter_data[:-data_shift]
     
         # Train-validation split
-        self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
-        self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=TRAIN_VAL_SPLIT_RANDOM_STATE)
+        self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=self.split_random_state)
+        self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=self.split_random_state)
+        self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=self.split_random_state)
+        self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=self.split_random_state)
     
         self.data_loading_completed()
         print("Data loaded successfully")
