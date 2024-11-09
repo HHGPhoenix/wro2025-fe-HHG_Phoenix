@@ -10,6 +10,7 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 from RPIs.Devices.LIDAR.LIDAR import Lidar
 from RPIs.Devices.I2C.I2Chandler import I2Chandler
 from RPIs.Devices.Buzzer.Buzzer import Buzzer
+from RPIs.Devices.Utility.NotificationClient.NotificationClient import NotificationClient
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
 # from RPIs.Devices.Dummy.I2C.I2Chandler import I2Chandler
 
@@ -78,7 +79,7 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.lidar, self.data_transferer, self.buzzer = self.initialize_components()
+        self.lidar, self.data_transferer, self.buzzer, self.notification_client = self.initialize_components()
 
         self.initialized = True
         self.communicationestablisher.establish_communication()
@@ -124,8 +125,9 @@ class DataManager:
         self.webServerProcess.start()
         
         buzzer = Buzzer()
+        notification_client = NotificationClient()
 
-        return lidar, data_transferer, buzzer
+        return lidar, data_transferer, buzzer, notification_client
     
 ###########################################################################
     

@@ -1,9 +1,13 @@
 import requests
 import base64
 import time
+import warnings
+from urllib3.exceptions import InsecureRequestWarning
+
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 class NotificationClient:
-    def __init__(self, base_url='https://localhost'):
+    def __init__(self, base_url='https://192.168.178.28'):
         self.base_url = base_url
         username = "phil"
         password = "phil"
@@ -18,7 +22,7 @@ class NotificationClient:
 
     def send_battery(self, battery_level):
         url = f"{self.base_url}/battery"
-        battery = f"🤬💀 Battery Level: {battery_level} % 💀🔥"
+        battery = f"Battery Level: {battery_level}V"#"🤬💀 Battery Level: {battery_level}V 💀🔥"
         headers={
             "Title": "Battery Alert",
             "Priority": "high",

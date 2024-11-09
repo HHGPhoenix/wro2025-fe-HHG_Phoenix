@@ -12,12 +12,14 @@ class Buzzer:
         self.buzz_thread = threading.Thread(target=self._buzz_thread, args=(duration, frequency)).start()
     
     def _buzz_thread(self, duration, frequency):
-        print("Buzzing at frequency: " + str(frequency) + " for duration: " + str(duration))
-        self.pwm.change_frequency(frequency)
-        self.pwm.start(50)
-        print("Buzzing...")
-        time.sleep(duration)
-        self.pwm.stop()
+        try:
+            # print("Buzzing at frequency: " + str(frequency) + " for duration: " + str(duration))
+            self.pwm.change_frequency(frequency)
+            self.pwm.start(50)
+            # print("Buzzing...")
+            time.sleep(duration)
+        finally:
+            self.pwm.stop()
         
     ##################################################
     
@@ -40,9 +42,9 @@ class Buzzer:
         threading.Thread(target=self._buzz_battery_low_thread).start()
         
     def _buzz_battery_low_thread(self):
-        self._buzz_thread(0.6, 450)
+        self._buzz_thread(0.6, 600)
         time.sleep(0.15)
-        self._buzz_thread(0.6, 450)
+        self._buzz_thread(0.6, 600)
         
     def stop(self):
         self.pwm.stop()
