@@ -29,7 +29,7 @@ class Camera():
         
         # Define the color ranges for green and red in HSV color space
         self.lower_green = np.array([57, 30, 40])
-        self.upper_green = np.array([73, 120, 65])
+        self.upper_green = np.array([73, 120, 105])
 
         # self.lower_red1 = np.array([0, 105, 80])
         # self.upper_red1 = np.array([1, 200, 180])
