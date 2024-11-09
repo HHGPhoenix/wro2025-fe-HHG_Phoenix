@@ -13,8 +13,8 @@ from PIL import Image, ImageTk
 import signal
 print("\rImported libraries")
 
-NO_PIC = False  # Define the constant
-
+USE_VISUALS = False  
+NO_PIC = False
 
 ############################################################################################################
 
@@ -381,21 +381,27 @@ class DataProcessing:
             new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
             new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
             
-            # print("New LiDAR Data: ", new_lidar_data.shape)
-    
-            model_input_image = np.expand_dims(image_array, axis=0)
-            model_input_counters = np.expand_dims(counters, axis=0)
-            model_input = [new_lidar_data, model_input_image, model_input_counters]
+            # Ensure new_lidar_data matches the expected input shape
+            input_details = self.model.get_input_details()
+            expected_shape = input_details[0]['shape']
+            new_lidar_data = np.resize(new_lidar_data, expected_shape)
+            
+            if USE_VISUALS:
+                model_input_image = np.expand_dims(image_array, axis=0)
+                model_input_counters = np.expand_dims(counters, axis=0)
+                model_input = [new_lidar_data, model_input_image, model_input_counters]
+            else:
+                model_input = [new_lidar_data]
             
             model_start_time = time.time()
             
             if self.model_type == "h5":
                 model_output = self.model.predict(model_input)[0][0]
             elif self.model_type == "tflite":
-                self.model.set_tensor(self.model.get_input_details()[0]['index'], model_input[1].astype(np.float32))
-                self.model.set_tensor(self.model.get_input_details()[1]['index'], model_input[0].astype(np.float32))
-                self.model.set_tensor(self.model.get_input_details()[2]['index'], model_input[2].astype(np.float32))
-                
+                self.model.set_tensor(self.model.get_input_details()[0]['index'], model_input[0].astype(np.float32))
+                if USE_VISUALS:
+                    self.model.set_tensor(self.model.get_input_details()[1]['index'], model_input[1].astype(np.float32))
+                    self.model.set_tensor(self.model.get_input_details()[2]['index'], model_input[2].astype(np.float32))
                 self.model.invoke()
                 model_output = self.model.get_tensor(self.model.get_output_details()[0]['index'])[0][0]
             
@@ -403,7 +409,8 @@ class DataProcessing:
             model_stop_time = time.time()
     
             self.data_visualizer.update_polar_plot_lidar(lidar_array)
-            self.data_visualizer.update_image_plot(image_array)
+            if USE_VISUALS:
+                self.data_visualizer.update_image_plot(image_array)
             
             self.controller_values.append(controller_value)
             self.model_values.append(model_output)
@@ -413,9 +420,10 @@ class DataProcessing:
             if len(self.controller_values) > 50:
                 self.controller_values.pop(0)
                 self.model_values.pop(0)
-    
-            self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
-            self.modelTestUI.counter_2.configure(text=str(round(float(counters[1]), 2)))
+            
+            if USE_VISUALS:
+                self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
+                self.modelTestUI.counter_2.configure(text=str(round(float(counters[1]), 2)))
             
             elapsed_time = time.time() - start_time
             sleep_time = max(0, interval - elapsed_time)
