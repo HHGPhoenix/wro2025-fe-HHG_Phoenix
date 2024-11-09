@@ -3,6 +3,9 @@ import numpy as np
 import tensorflow as tf
 import multiprocessing as mp
 
+global USE_VISUAL_DATA
+USE_VISUAL_DATA = False
+
 def main_loop_opening_race(self):
     self.logger.info("Starting main loop for opening race...")
 
@@ -17,10 +20,17 @@ def main_loop_opening_race(self):
                 time.sleep(0.1)
                 continue
             
-            if IO_list[1] is not None:
-                self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
+            while IO_list[0] is None:
+                time.sleep(0.01)
             
-            simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
+            self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
+                
+            if USE_VISUAL_DATA:
+                simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
+                simplified_frame = simplified_frame / 255.0
+                simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
+                
+                counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
 
             lidar_data = []
             for angle, distance, _ in self.interpolated_lidar_data:
@@ -31,14 +41,13 @@ def main_loop_opening_race(self):
             lidar_data = np.expand_dims(lidar_data, axis=-1)  # Adding the last dimension
             lidar_data = np.expand_dims(lidar_data, axis=0)  # Adding the batch dimension
             
-            simplified_frame = simplified_frame / 255.0
-            simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
-            
-            counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
-
             # Combine the inputs into a list
-            inputs = [lidar_data, simplified_frame, counters]
+            if USE_VISUAL_DATA:
+                inputs = [lidar_data, simplified_frame, counters]
+            else:
+                inputs = [lidar_data]
             
+            IO_list[1] = None
             IO_list[0] = inputs
             
             motor_speed = 0.35
