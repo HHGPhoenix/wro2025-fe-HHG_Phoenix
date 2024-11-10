@@ -35,8 +35,8 @@ print("Done.")
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
 DEBUG = True
-USE_FEATURE_SELECTION = True
-NUM_FEATURES = 50
+# USE_FEATURE_SELECTION = True
+# NUM_FEATURES = 50
 
 ############################################################################################################
 
@@ -78,6 +78,7 @@ class modelTrainUI(ctk.CTk):
         self.save_as_tflite = tk.BooleanVar(value=False)
         self.save_with_model_config = tk.BooleanVar(value=True)
         
+        
         # SETTINGS
         self.epochs_default = 50
         self.batch_size_default = 32
@@ -86,6 +87,8 @@ class modelTrainUI(ctk.CTk):
         self.data_shift_default = 0
         self.split_random_state_default = 42
         self.use_visual_data_default = False
+        self.use_feature_selection_default = False
+        self.num_features_default = 50
         
         self.epochs = tk.StringVar(value=self.epochs_default)
         self.batch_size = tk.StringVar(value=self.batch_size_default)
@@ -94,6 +97,8 @@ class modelTrainUI(ctk.CTk):
         self.data_shift = tk.StringVar(value=self.data_shift_default)
         self.split_random_state = tk.StringVar(value=self.split_random_state_default)
         self.use_visual_data = tk.BooleanVar(value=self.use_visual_data_default)
+        self.use_feature_selection = tk.BooleanVar(value=self.use_feature_selection_default)
+        self.num_features = tk.StringVar(value=self.num_features_default)
         
         self.settings = {
             "epochs": (self.epochs, self.epochs_default, "int"),
@@ -102,7 +107,9 @@ class modelTrainUI(ctk.CTk):
             "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default, "int"),
             "data_shift": (self.data_shift, self.data_shift_default, "int"),
             "split_random_state": (self.split_random_state, self.split_random_state_default, "int"),
-            "use_visual_data": (self.use_visual_data, self.use_visual_data_default, "bool")
+            "use_visual_data": (self.use_visual_data, self.use_visual_data_default, "bool"),
+            "use_feature_selection": (self.use_feature_selection, self.use_feature_selection_default, "bool"),
+            "num_features": (self.num_features, self.num_features_default, "int")
         }
         
         self.load_training_data_lock = threading.Lock()
@@ -721,6 +728,8 @@ class modelTrainUI(ctk.CTk):
         epochs_graphed = int(self.epochs_graphed.get())
         data_shift = int(self.data_shift.get())
         use_visual_data = self.use_visual_data.get()
+        use_feature_selection = self.use_feature_selection.get()
+        feature_selection_num_features = int(self.num_features.get())
         
         save_a_h5_model = self.save_as_h5.get()
         save_a_tflite_model = self.save_as_tflite.get()
@@ -729,11 +738,12 @@ class modelTrainUI(ctk.CTk):
         model_dir = self.model_dir
         
         self.data_processor.pass_training_options(self.data_visualizer, 
-                                                  model_name_entry_content, 
-                                                  epochs, batch_size, patience, 
-                                                  epochs_graphed, data_shift, name, model_dir, 
-                                                  save_a_h5_model, save_a_tflite_model, 
-                                                  save_with_model_config, use_visual_data)
+                                                    model_name_entry_content, 
+                                                    epochs, batch_size, patience, 
+                                                    epochs_graphed, data_shift, name, model_dir, 
+                                                    save_a_h5_model, save_a_tflite_model, 
+                                                    save_with_model_config, use_visual_data,
+                                                    use_feature_selection, feature_selection_num_features)
         
         if not self.keep_config_var.get():
             self.queue.append(self.data_processor)
@@ -1142,7 +1152,7 @@ class DataProcessor:
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data, use_feature_selection, feature_selection_num_features):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
@@ -1163,6 +1173,8 @@ class DataProcessor:
         self.save_a_tflite_model = save_a_tflite_model
         self.save_with_model_config = save_with_model_config
         self.use_visual_data = use_visual_data
+        self.use_feature_selection = use_feature_selection
+        self.num_features = feature_selection_num_features
 
     def start_training(self):
         if not self.modelTrainUI.lazy_imports_imported:
@@ -1214,8 +1226,8 @@ class DataProcessor:
             
             print(f"Training LIDAR data shape: {lidar_train_flat.shape}")
             
-            if USE_FEATURE_SELECTION:
-                k = min(NUM_FEATURES, lidar_train_flat.shape[1])
+            if self.use_feature_selection:
+                k = min(self.num_features, lidar_train_flat.shape[1])
                 selector = SelectKBest(score_func=f_classif, k=k)
                 
                 self.lidar_train_selected = selector.fit_transform(lidar_train_flat, self.controller_train)
