@@ -32,10 +32,11 @@ print("Done.")
 
 ############################################################################################################
 
-global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
+global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
-DEBUG = False
-TRAIN_VAL_SPLIT_RANDOM_STATE = 42
+DEBUG = True
+USE_FEATURE_SELECTION = True
+NUM_FEATURES = 100
 
 ############################################################################################################
 
@@ -148,11 +149,12 @@ class modelTrainUI(ctk.CTk):
         os._exit(0)
         
     def import_lazy_imports(self):
-        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau
+        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau, SelectKBest, f_regression
         import tensorflow as tf
         from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau # type: ignore
         import numpy as np
         from sklearn.model_selection import train_test_split
+        from sklearn.feature_selection import SelectKBest, f_regression
         
         self.lazy_imports_imported = True
         
@@ -1198,13 +1200,41 @@ class DataProcessor:
             print(f"Validation Frame data shape: {self.image_val.shape}")
             print(f"Validation Counter data shape: {self.counter_val.shape}")
             
+        self.generate_checkpoint_filename()
+            
         try:
+            
+            lidar_train_flat = self.lidar_train[:, :, :1]
+            lidar_val_flat = self.lidar_val[:, :, :1]
+            
+            if USE_FEATURE_SELECTION:
+                
+                k = min(NUM_FEATURES, lidar_train_flat.shape[1])
+                selector = SelectKBest(score_func=f_regression, k=k)
+                
+                self.lidar_train_selected = selector.fit_transform(lidar_train_flat, self.controller_train)
+                self.lidar_val_selected = selector.transform(lidar_val_flat)
+                
+                # Save selected feature indices
+                feature_indices = selector.get_support(indices=True)
+                print(f"Selected features: {feature_indices}, path: {self.model_base_filename}_features.txt")
+                with open(f"{self.model_base_filename}_features.txt", "w") as f:
+                    for idx in feature_indices:
+                        f.write(f"{idx}\n")
+
+                
+            lidar_input_shape = (self.lidar_train_selected.shape[1],)
+            
+            
+            # Initialize the model
             if self.use_visual_data:
-                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                                frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
-                                                counter_input_shape=(self.counter_train.shape[1], ))
+                self.model = self.model_function(
+                    lidar_input_shape=lidar_input_shape,
+                    frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
+                    counter_input_shape=(self.counter_train.shape[1],)
+                )
             else:
-                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1))
+                self.model = self.model_function(lidar_input_shape=lidar_input_shape)
         except TypeError as e:
             messagebox.showerror("Model Function Error", f"Error while initializing model functions: {e}")
             return
@@ -1212,8 +1242,6 @@ class DataProcessor:
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
-        
-        self.generate_checkpoint_filename()
         
         self.check_dir_preparedness()
         
@@ -1229,18 +1257,18 @@ class DataProcessor:
         
         if self.use_visual_data:
             history = self.model.fit(
-                [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
-                validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
+                [self.lidar_train_selected, self.image_train, self.counter_train], self.controller_train,
+                validation_data=([self.lidar_val_selected, self.image_val, self.counter_val], self.controller_val),
                 epochs=epochs,
-                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size
             )
         else:
             history = self.model.fit(
-                self.lidar_train, self.controller_train,
-                validation_data=(self.lidar_val, self.controller_val),
+                self.lidar_train_selected, self.controller_train,
+                validation_data=(self.lidar_val_selected, self.controller_val),
                 epochs=epochs,
-                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size
             )
         
