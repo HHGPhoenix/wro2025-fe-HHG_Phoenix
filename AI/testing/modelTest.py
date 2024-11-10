@@ -162,7 +162,7 @@ class ModelTestUI(ctk.CTk):
         self.frame_rate_label = ctk.CTkLabel(self.frame_rate_label_frame, text=f"Frame Rate: {self.frame_rate.get()} FPS", font=("Arial", 15), fg_color='transparent', bg_color='transparent', padx=10, pady=5)
         self.frame_rate_label.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
 
-        self.frame_rate_slider = ctk.CTkSlider(self.slider_frame, from_=1, to=30, variable=self.frame_rate, command=self.set_frame_rate)
+        self.frame_rate_slider = ctk.CTkSlider(self.slider_frame, from_=1, to=50, variable=self.frame_rate, command=self.set_frame_rate)
         self.frame_rate_slider.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
 
         ############################################################################################
@@ -284,7 +284,7 @@ class ModelTestUI(ctk.CTk):
         if self.stopped == False:
             return
         
-        if self.data_processor.model is None:
+        if self.data_processor.model_loaded == False and self.data_processor.model_loading == False:
             messagebox.showerror("Error", "No model selected")
             return
         
@@ -379,87 +379,103 @@ class DataProcessing:
         
     
     def process_data(self):
+        while self.model_loaded == False:
+            time.sleep(0.1)
         self.processing = True
+    
+        # Calculate interval outside the loop
+        interval = 1 / self.modelTestUI.frame_rate.get()
+    
+        # Determine base_model_path and load selected_feature_indexes
+        if self.model_type == "tflite":
+            base_model_path = self.modelTestUI.model_path.strip(".tflite")
+        else:
+            base_model_path = self.modelTestUI.model_path.strip(".h5")
+        with open(f"{base_model_path}_features.txt", "r") as f:
+            selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
+    
+        # For tflite model, retrieve input/output details and expected shape
+        if self.model_type == "tflite":
+            input_details = self.model.get_input_details()
+            output_details = self.model.get_output_details()
+            expected_shape = input_details[0]['shape']
+            input_indices = [detail['index'] for detail in input_details]
+            output_index = output_details[0]['index']
+    
         for i in range(self.lidar_data.shape[0]):
             start_time = time.time()
-            interval = 1 / self.modelTestUI.frame_rate.get()
-            
+    
             while self.modelTestUI.paused:
                 time.sleep(0.1)
-                
+    
             if self.modelTestUI.stopped:
                 break
-            
+    
             lidar_array = self.lidar_data[i]
+            angles = lidar_array[:, 0]
+            distances = lidar_array[:, 1]
+            normalized_angles = angles / 360
+            normalized_distances = distances / 5000
+            new_lidar_array = np.stack((normalized_angles, normalized_distances), axis=-1)
+            new_lidar_array = new_lidar_array[:, 1:]
+            new_lidar_array = new_lidar_array.reshape(-1)
+            new_lidar_array = new_lidar_array[selected_feature_indexes]
+    
             image_array = self.simplified_image_data[i]
             controller_value = self.controller_data[i]
             counters = self.counter_data[i]
-            
-            # Replace image_array with zeros if NO_PIC is True
+    
             if NO_PIC:
                 image_array = np.zeros_like(image_array)
-            
-            # Convert to NumPy array and reshape
-            angles = lidar_array[:, 0]
-            distances = lidar_array[:, 1]
-            
-            normalized_angles = angles / 360
-            normalized_distances = distances / 5000
-            
-            new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
-            
-            new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
-            new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
-            
-            # Ensure new_lidar_data matches the expected input shape
+    
             if self.model_type == "tflite":
-                input_details = self.model.get_input_details()
-                expected_shape = input_details[0]['shape']
-                new_lidar_data = np.resize(new_lidar_data, expected_shape)
-            
+                new_lidar_array = np.resize(new_lidar_array, expected_shape)
+    
             if USE_VISUALS:
                 model_input_image = np.expand_dims(image_array, axis=0)
                 model_input_counters = np.expand_dims(counters, axis=0)
-                model_input = [new_lidar_data, model_input_image, model_input_counters]
+                model_input = [new_lidar_array, model_input_image, model_input_counters]
             else:
-                model_input = [new_lidar_data]
-            
+                model_input = [new_lidar_array]
+    
             model_start_time = time.time()
-            
+    
             if self.model_type == "h5":
                 model_output = self.model.predict(model_input)[0][0]
             elif self.model_type == "tflite":
-                self.model.set_tensor(self.model.get_input_details()[0]['index'], model_input[0].astype(np.float32))
+                self.model.set_tensor(input_indices[0], model_input[0].astype(np.float32))
                 if USE_VISUALS:
-                    self.model.set_tensor(self.model.get_input_details()[1]['index'], model_input[1].astype(np.float32))
-                    self.model.set_tensor(self.model.get_input_details()[2]['index'], model_input[2].astype(np.float32))
+                    self.model.set_tensor(input_indices[1], model_input[1].astype(np.float32))
+                    self.model.set_tensor(input_indices[2], model_input[2].astype(np.float32))
                 self.model.invoke()
-                model_output = self.model.get_tensor(self.model.get_output_details()[0]['index'])[0][0]
-            
+                model_output = self.model.get_tensor(output_index)[0][0]
+    
             print("Model Output: ", model_output)
             model_stop_time = time.time()
     
             self.data_visualizer.update_polar_plot_lidar(lidar_array)
             if USE_VISUALS:
                 self.data_visualizer.update_image_plot(image_array)
-            
+    
             self.controller_values.append(controller_value)
             self.model_values.append(model_output)
             self.data_visualizer.update_model_comparison_plot(self.model_values, self.controller_values)
-            self.data_visualizer.update_text_output(controller_value, model_output, model_stop_time - model_start_time)
-            
+            self.data_visualizer.update_text_output(
+                controller_value, model_output, model_stop_time - model_start_time
+            )
+    
             if len(self.controller_values) > 50:
                 self.controller_values.pop(0)
                 self.model_values.pop(0)
-            
+    
             if USE_VISUALS:
                 self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
                 self.modelTestUI.counter_2.configure(text=str(round(float(counters[1]), 2)))
-            
+    
             elapsed_time = time.time() - start_time
             sleep_time = max(0, interval - elapsed_time)
             time.sleep(sleep_time)
-            
+    
         self.processing = False
             
     def load_comparison_file(self, comparison_file_path):
@@ -478,6 +494,8 @@ class DataProcessing:
         self.load_model_thread.start()
 
     def load_model(self, model_path):
+        self.model_loaded = False
+        self.model_loading = True
         while not self.modelTestUI.tensorflow_imported:
             time.sleep(0.1)
         
@@ -494,6 +512,7 @@ class DataProcessing:
             return
 
         self.model_loaded = True
+        self.model_loading = False
         
 ############################################################################################################
         

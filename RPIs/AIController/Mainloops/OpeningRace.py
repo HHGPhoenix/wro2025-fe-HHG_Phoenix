@@ -13,6 +13,9 @@ def main_loop_opening_race(self):
     model_process = mp.Process(target=run_model, args=(IO_list,))
     model_process.start()
     
+    with open("RPIs/AIController/model_features.txt", "r") as f:
+        selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
+    
     while self.running:
         try:
             if not self.interpolated_lidar_data or self.frame_list[1] is None or self.frame_list[3] is None:
@@ -31,14 +34,20 @@ def main_loop_opening_race(self):
                 counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
 
             lidar_data = np.array([[angle / 360, distance / 5000] for angle, distance, _ in self.interpolated_lidar_data])
-            lidar_data = np.expand_dims(np.expand_dims(lidar_data, axis=-1), axis=0)
+            # lidar_data = np.expand_dims(np.expand_dims(lidar_data, axis=-1), axis=0)
             
-            inputs = [lidar_data, simplified_frame, counters] if USE_VISUAL_DATA else lidar_data
+            lidar_data = lidar_data[:, 1:]
+            new_lidar_array = lidar_data.reshape(-1)
+            new_lidar_array = new_lidar_array[selected_feature_indexes]
+            new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
+            
+            
+            inputs = [new_lidar_array, simplified_frame, counters] if USE_VISUAL_DATA else new_lidar_array
             
             IO_list[1] = None
             IO_list[0] = inputs
             
-            self.motor_controller.send_speed(0.25)
+            self.motor_controller.send_speed(0.35)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0)
