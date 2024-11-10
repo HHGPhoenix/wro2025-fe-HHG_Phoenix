@@ -34,7 +34,7 @@ print("Done.")
 
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
-DEBUG = True
+DEBUG = False
 # USE_FEATURE_SELECTION = True
 # NUM_FEATURES = 50
 
@@ -1223,8 +1223,8 @@ class DataProcessor:
             # Reshape to 2D
             lidar_train_flat = self.lidar_train.reshape(self.lidar_train.shape[0], -1)
             lidar_val_flat = self.lidar_val.reshape(self.lidar_val.shape[0], -1)
-            
-            print(f"Training LIDAR data shape: {lidar_train_flat.shape}")
+            if DEBUG:
+                print(f"Training LIDAR data shape: {lidar_train_flat.shape}")
             
             if self.use_feature_selection:
                 k = min(self.num_features, lidar_train_flat.shape[1])
@@ -1235,7 +1235,8 @@ class DataProcessor:
                 
                 # Save selected feature indices
                 feature_indices = selector.get_support(indices=True)
-                print(f"Selected features: {feature_indices}, path: {self.model_base_filename}_features.txt")
+                if DEBUG:
+                    print(f"Selected features: {feature_indices}, path: {self.model_base_filename}_features.txt")
                 with open(f"{self.model_base_filename}_features.txt", "w") as f:
                     for idx in feature_indices:
                         f.write(f"{idx}\n")
@@ -1343,6 +1344,12 @@ class DataProcessor:
     def convert_to_tflite_model(self, model_path, output_path):
         model = tf.keras.models.load_model(model_path)
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        # Set the converter settings to handle TensorList ops
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
+        converter._experimental_lower_tensor_list_ops = False
+        
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        
         tflite_model = converter.convert()
         with open(output_path, 'wb') as f:
             f.write(tflite_model)
