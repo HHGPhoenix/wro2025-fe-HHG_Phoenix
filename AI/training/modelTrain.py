@@ -36,7 +36,7 @@ global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
 DEBUG = True
 USE_FEATURE_SELECTION = True
-NUM_FEATURES = 100
+NUM_FEATURES = 50
 
 ############################################################################################################
 
@@ -149,12 +149,12 @@ class modelTrainUI(ctk.CTk):
         os._exit(0)
         
     def import_lazy_imports(self):
-        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau, SelectKBest, f_regression
+        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau, SelectKBest, f_regression, f_classif
         import tensorflow as tf
         from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau # type: ignore
         import numpy as np
         from sklearn.model_selection import train_test_split
-        from sklearn.feature_selection import SelectKBest, f_regression
+        from sklearn.feature_selection import SelectKBest, f_regression, f_classif
         
         self.lazy_imports_imported = True
         
@@ -1201,16 +1201,22 @@ class DataProcessor:
             print(f"Validation Counter data shape: {self.counter_val.shape}")
             
         self.generate_checkpoint_filename()
+        self.check_dir_preparedness()
             
         try:
+            # Remove the second entry in the last dimension
+            self.lidar_train = self.lidar_train[:, :, 1:]
+            self.lidar_val = self.lidar_val[:, :, 1:]
             
-            lidar_train_flat = self.lidar_train[:, :, :1]
-            lidar_val_flat = self.lidar_val[:, :, :1]
+            # Reshape to 2D
+            lidar_train_flat = self.lidar_train.reshape(self.lidar_train.shape[0], -1)
+            lidar_val_flat = self.lidar_val.reshape(self.lidar_val.shape[0], -1)
+            
+            print(f"Training LIDAR data shape: {lidar_train_flat.shape}")
             
             if USE_FEATURE_SELECTION:
-                
                 k = min(NUM_FEATURES, lidar_train_flat.shape[1])
-                selector = SelectKBest(score_func=f_regression, k=k)
+                selector = SelectKBest(score_func=f_classif, k=k)
                 
                 self.lidar_train_selected = selector.fit_transform(lidar_train_flat, self.controller_train)
                 self.lidar_val_selected = selector.transform(lidar_val_flat)
@@ -1221,10 +1227,8 @@ class DataProcessor:
                 with open(f"{self.model_base_filename}_features.txt", "w") as f:
                     for idx in feature_indices:
                         f.write(f"{idx}\n")
-
-                
-            lidar_input_shape = (self.lidar_train_selected.shape[1],)
             
+            lidar_input_shape = (self.lidar_train_selected.shape[1],)
             
             # Initialize the model
             if self.use_visual_data:
@@ -1242,8 +1246,6 @@ class DataProcessor:
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
-        
-        self.check_dir_preparedness()
         
         self.h5_model_path = f"{self.model_base_filename}.h5"
         
@@ -1292,7 +1294,7 @@ class DataProcessor:
         
     def check_dir_preparedness(self):
         while self.model_base_path and os.path.exists(self.model_base_path):
-            if os.path.exists(f"{self.model_base_filename}.h5") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py"):
+            if os.path.exists(f"{self.model_base_filename}.h5") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py") or os.path.exists(f"{self.model_base_filename}_features.txt"):
                 answer = messagebox.askyesno("Warning", "The model directory already exists in the main folder. The contents are going to be replaced, otherwise a reselection of the main folder is needed")
             else:
                 answer = True
@@ -1304,6 +1306,8 @@ class DataProcessor:
                     os.remove(f"{self.model_base_filename}.tflite")
                 if os.path.exists(f"{self.model_base_filename}_config.py"):
                     os.remove(f"{self.model_base_filename}_config.py")
+                if os.path.exists(f"{self.model_base_filename}_features.txt"):
+                    os.remove(f"{self.model_base_filename}_features.txt")
                 break
             else:
                 new_dir = None
