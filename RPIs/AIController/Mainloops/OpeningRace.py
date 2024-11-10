@@ -10,81 +10,60 @@ def main_loop_opening_race(self):
     self.logger.info("Starting main loop for opening race...")
 
     IO_list = self.mp_manager.list([None, [[0.5]]])
-    mp.Process(target=run_model, args=(IO_list,)).start()
+    model_process = mp.Process(target=run_model, args=(IO_list,))
+    model_process.start()
     
     while self.running:
         try:
-            # run the model
-            if len(self.interpolated_lidar_data) == 0 or self.frame_list[1] is None or self.frame_list[3] is None:
+            if not self.interpolated_lidar_data or self.frame_list[1] is None or self.frame_list[3] is None:
                 print(f"Waiting for data: {len(self.interpolated_lidar_data)}, {self.counters}")
-                time.sleep(0.1)
+                time.sleep(0.05)  # Reduced sleep interval
                 continue
             
             while IO_list[1] is None:
-                time.sleep(0.01)
+                time.sleep(0.005)  # Reduced sleep interval
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
                 
             if USE_VISUAL_DATA:
-                simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
-                simplified_frame = simplified_frame / 255.0
-                simplified_frame = np.expand_dims(simplified_frame, axis=0)  # Adding the batch dimension
-                
+                simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3)) / 255.0
+                simplified_frame = np.expand_dims(simplified_frame, axis=0)
                 counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
 
-            lidar_data = []
-            for angle, distance, _ in self.interpolated_lidar_data:
-                lidar_data.append([angle / 360, distance / 5000])
-            lidar_data = np.array(lidar_data)
+            lidar_data = np.array([[angle / 360, distance / 5000] for angle, distance, _ in self.interpolated_lidar_data])
+            lidar_data = np.expand_dims(np.expand_dims(lidar_data, axis=-1), axis=0)
             
-            # Ensure lidar data has the correct features (angle and distance) and shape
-            lidar_data = np.expand_dims(lidar_data, axis=-1)  # Adding the last dimension
-            lidar_data = np.expand_dims(lidar_data, axis=0)  # Adding the batch dimension
-            
-            # Combine the inputs into a list
-            if USE_VISUAL_DATA:
-                inputs = [lidar_data, simplified_frame, counters]
-            else:
-                inputs = lidar_data
+            inputs = [lidar_data, simplified_frame, counters] if USE_VISUAL_DATA else lidar_data
             
             IO_list[1] = None
             IO_list[0] = inputs
             
-            motor_speed = 0.35
-            self.motor_controller.send_speed(motor_speed)
+            self.motor_controller.send_speed(0.25)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0)
             self.running = False
 
-
 def run_model(shared_IO_list):
-    # Load the TFLite model and allocate tensors
     interpreter = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
     interpreter.allocate_tensors()
 
-    # Get input and output tensor details
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
 
     while True:
-        print("Running model")
         if shared_IO_list[0] is not None:
-            # Extract the individual inputs
             if USE_VISUAL_DATA:
                 lidar_data, simplified_frame, counters = shared_IO_list[0]
             else:
                 lidar_data = shared_IO_list[0]
             shared_IO_list[0] = None
             
-            # Convert inputs to FLOAT32
             lidar_data = lidar_data.astype(np.float32)
-            
             if USE_VISUAL_DATA:
                 simplified_frame = simplified_frame.astype(np.float32)
                 counters = counters.astype(np.float32)
             
-            # Set the input tensors
             if USE_VISUAL_DATA:
                 interpreter.set_tensor(input_details[0]['index'], simplified_frame)
                 interpreter.set_tensor(input_details[1]['index'], lidar_data)
@@ -92,15 +71,11 @@ def run_model(shared_IO_list):
             else:
                 interpreter.set_tensor(input_details[0]['index'], lidar_data)
             
-            # Measure the time taken to run the model
             start_time = time.time()
             interpreter.invoke()
             end_time = time.time()
             print(f"Time taken to run the model: {end_time - start_time} seconds")
             
-            # Get the output tensor
             output_data = interpreter.get_tensor(output_details[0]['index'])
             print(f"Result: {output_data}")
             shared_IO_list[1] = output_data
-        else:
-            time.sleep(0.1)

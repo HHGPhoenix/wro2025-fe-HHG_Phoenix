@@ -412,9 +412,10 @@ class DataProcessing:
             new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
             
             # Ensure new_lidar_data matches the expected input shape
-            input_details = self.model.get_input_details()
-            expected_shape = input_details[0]['shape']
-            new_lidar_data = np.resize(new_lidar_data, expected_shape)
+            if self.model_type == "tflite":
+                input_details = self.model.get_input_details()
+                expected_shape = input_details[0]['shape']
+                new_lidar_data = np.resize(new_lidar_data, expected_shape)
             
             if USE_VISUALS:
                 model_input_image = np.expand_dims(image_array, axis=0)
@@ -549,7 +550,7 @@ class VisualizeData:
         self.lidar_axis.clear()
     
         # Plot the data as individual points with neon green color
-        angles, distances, _ = zip(*lidar_array)
+        angles, distances = zip(*lidar_array)
         self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
     
         # Set the background color of the axes
