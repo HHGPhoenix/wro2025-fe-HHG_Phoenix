@@ -32,9 +32,9 @@ class ModelTestUI(ctk.CTk):
         self.data_processor = DataProcessing(self)
     
         # Initialize vars
-        self.model_path = None
+        self.model_paths = []
         self.comparison_file = None
-        self.visual_model_path = ""
+        self.visual_model_paths = []
         self.visual_comparison_files = ""
         self.model_loaded = False
         self.paused = False
@@ -54,7 +54,7 @@ class ModelTestUI(ctk.CTk):
 
     def save_settings(self):
         settings = {
-            'model_path': self.model_path,
+            'model_paths': self.model_paths,
             'comparison_file': self.comparison_file
         }
         
@@ -68,14 +68,19 @@ class ModelTestUI(ctk.CTk):
         if os.path.exists('.config/settingsModelTest.json'):
             with open('.config/settingsModelTest.json', 'r') as f:
                 settings = json.load(f)
-                self.model_path = settings.get('model_path')
+                self.model_paths = settings.get('model_paths', [])
                 self.comparison_file = settings.get('comparison_file')
-                if self.model_path and os.path.exists(self.model_path):
-                    self.visual_model_path = os.path.basename(self.model_path)
-                    self.selected_model_label.configure(text="Selected Model: \n" + self.visual_model_path)
-                    self.data_processor.load_model_wrapper(self.model_path)
+                if self.model_paths:
+                    valid_model_paths = []
+                    for path in self.model_paths:
+                        if os.path.exists(path):
+                            valid_model_paths.append(path)
+                    self.model_paths = valid_model_paths
+                    self.visual_model_paths = [os.path.basename(path) for path in self.model_paths]
+                    self.selected_models_label.configure(text="Selected Models:\n" + "\n".join(self.visual_model_paths))
+                    self.data_processor.load_models_wrapper(self.model_paths)
                 else:
-                    self.model_path = None
+                    self.model_paths = []
                 if self.comparison_file and os.path.exists(self.comparison_file):
                     self.visual_comparison_files = os.path.basename(self.comparison_file)
                     self.selected_comparison_file_label.configure(text="Selected Comparison File: \n" + self.visual_comparison_files)
@@ -127,15 +132,15 @@ class ModelTestUI(ctk.CTk):
 ############################################################################################################
 
     def create_configuration_section(self):
-        # Select Model Frame
+        # Select Models Frame
         self.select_model_frame = ctk.CTkFrame(self.configuration_frame)
         self.select_model_frame.pack(padx=15, pady=(15, 0), anchor='n', expand=False, fill='x')
 
-        self.select_model_button = ctk.CTkButton(self.select_model_frame, text="Select Model", font=("Arial", 15), command=self.get_model_path)
+        self.select_model_button = ctk.CTkButton(self.select_model_frame, text="Select Models", font=("Arial", 15), command=self.get_model_paths)
         self.select_model_button.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
 
-        self.selected_model_label = ctk.CTkLabel(self.select_model_frame, text="Selected Model: \nNone", font=("Arial", 15), fg_color="#6b695f", corner_radius=5, padx=10, pady=10)
-        self.selected_model_label.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
+        self.selected_models_label = ctk.CTkLabel(self.select_model_frame, text="Selected Models:\nNone", font=("Arial", 15), fg_color="#6b695f", corner_radius=5, padx=10, pady=10)
+        self.selected_models_label.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
 
         ############################################################################################
 
@@ -250,19 +255,23 @@ class ModelTestUI(ctk.CTk):
 
 ############################################################################################################
 
-    def get_model_path(self):
-        path = filedialog.askopenfilename()
+    def get_model_paths(self):
+        paths = []
+        while True:
+            new_paths = filedialog.askopenfilenames()
+            if not new_paths:
+                break
+            paths.extend(new_paths)
 
-        if path == "" or path is None:
+        if not paths:
             return
 
-        self.model_path = path
-        self.visual_model_path = os.path.basename(path)
-        print("Visual Model Path: ", self.visual_model_path)
-        self.selected_model_label.configure(text="Selected Model: \n" + self.visual_model_path)
-        self.data_processor.load_model_wrapper(self.model_path)
+        self.model_paths = paths
+        self.visual_model_paths = [os.path.basename(path) for path in paths]
+        self.selected_models_label.configure(text="Selected Models:\n" + "\n".join(self.visual_model_paths))
+        self.data_processor.load_models_wrapper(self.model_paths)
 
-        # Save settings after selecting model
+        # Save settings after selecting models
         self.save_settings()
 
     def get_comparison_file(self):
@@ -360,14 +369,16 @@ class ModelTestUI(ctk.CTk):
 ############################################################################################################
 class DataProcessing:
     def __init__(self, modelTestUI):
-        self.model = None
+        self.models = []
         self.lidar_data = None
         self.simplified_image_data = None
         self.controller_data = None
         self.counter_data = None
-        self.model_type = ""
+        self.model_types = []
+        self.expected_shapes = []
+        self.features_per_model = []  # Initialize features list
         self.controller_values = []
-        self.model_values = []
+        self.model_output_values = []
         self.modelTestUI = modelTestUI
 
         self.data_visualizer = VisualizeData(self.modelTestUI)
@@ -377,31 +388,16 @@ class DataProcessing:
         print("Starting processing thread")
         self.processing_thread.start()
         
-    
     def process_data(self):
-        while self.model_loaded == False:
+        while not self.model_loaded:
             time.sleep(0.1)
         self.processing = True
     
-        # Calculate interval outside the loop
         interval = 1 / self.modelTestUI.frame_rate.get()
     
-        # Determine base_model_path and load selected_feature_indexes
-        if self.model_type == "tflite":
-            base_model_path = self.modelTestUI.model_path.strip(".tflite")
-        else:
-            base_model_path = self.modelTestUI.model_path.strip(".h5")
-        with open(f"{base_model_path}_features.txt", "r") as f:
-            selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
-    
-        # For tflite model, retrieve input/output details and expected shape
-        if self.model_type == "tflite":
-            input_details = self.model.get_input_details()
-            output_details = self.model.get_output_details()
-            expected_shape = input_details[0]['shape']
-            input_indices = [detail['index'] for detail in input_details]
-            output_index = output_details[0]['index']
-    
+        # Initialize lists to store model outputs
+        self.model_output_values = [[] for _ in self.models]
+        
         for i in range(self.lidar_data.shape[0]):
             start_time = time.time()
     
@@ -410,16 +406,15 @@ class DataProcessing:
     
             if self.modelTestUI.stopped:
                 break
-    
+            
             lidar_array = self.lidar_data[i]
             angles = lidar_array[:, 0]
             distances = lidar_array[:, 1]
             normalized_angles = angles / 360
             normalized_distances = distances / 5000
-            new_lidar_array = np.stack((normalized_angles, normalized_distances), axis=-1)
-            new_lidar_array = new_lidar_array[:, 1:]
+            lidar_array = np.stack((normalized_angles, normalized_distances), axis=-1)
+            new_lidar_array = lidar_array[:, 1:]
             new_lidar_array = new_lidar_array.reshape(-1)
-            new_lidar_array = new_lidar_array[selected_feature_indexes]
     
             image_array = self.simplified_image_data[i]
             controller_value = self.controller_data[i]
@@ -428,29 +423,49 @@ class DataProcessing:
             if NO_PIC:
                 image_array = np.zeros_like(image_array)
     
-            if self.model_type == "tflite":
-                new_lidar_array = np.resize(new_lidar_array, expected_shape)
-    
             if USE_VISUALS:
                 model_input_image = np.expand_dims(image_array, axis=0)
                 model_input_counters = np.expand_dims(counters, axis=0)
-                model_input = [new_lidar_array, model_input_image, model_input_counters]
             else:
-                model_input = [new_lidar_array]
+                model_input_image = None
+                model_input_counters = None
     
             model_start_time = time.time()
     
-            if self.model_type == "h5":
-                model_output = self.model.predict(model_input)[0][0]
-            elif self.model_type == "tflite":
-                self.model.set_tensor(input_indices[0], model_input[0].astype(np.float32))
-                if USE_VISUALS:
-                    self.model.set_tensor(input_indices[1], model_input[1].astype(np.float32))
-                    self.model.set_tensor(input_indices[2], model_input[2].astype(np.float32))
-                self.model.invoke()
-                model_output = self.model.get_tensor(output_index)[0][0]
+            # Run each model on the same data
+            model_outputs = []
+            for idx, model in enumerate(self.models):
+                model_type = self.model_types[idx]
+                expected_shape = self.expected_shapes[idx]
+                selected_feature_indexes = self.features_per_model[idx]  # Get features for this model
+                
+                if model_type == "tflite":
+                    new_input = np.resize(new_lidar_array, expected_shape)
+                    model_input = [new_input]
+                    if USE_VISUALS:
+                        model_input.extend([model_input_image, model_input_counters])
+                else:
+                    model_input = [new_lidar_array]
+                    if USE_VISUALS:
+                        model_input.extend([image_array, counters])
     
-            print("Model Output: ", model_output)
+                if USE_VISUALS:
+                    model_input = [np.expand_dims(arr, axis=0) for arr in model_input]
+    
+                if model_type == "h5":
+                    model_output = model.predict(model_input)[0][0]
+                elif model_type == "tflite":
+                    input_details = model.get_input_details()
+                    output_details = model.get_output_details()
+                    model.set_tensor(input_details[0]['index'], model_input[0].astype(np.float32))
+                    if USE_VISUALS:
+                        model.set_tensor(input_details[1]['index'], model_input[1].astype(np.float32))
+                        model.set_tensor(input_details[2]['index'], model_input[2].astype(np.float32))
+                    model.invoke()
+                    model_output = model.get_tensor(output_details[0]['index'])[0][0]
+                model_outputs.append(model_output)
+                self.model_output_values[idx].append(model_output)
+    
             model_stop_time = time.time()
     
             self.data_visualizer.update_polar_plot_lidar(lidar_array)
@@ -458,15 +473,21 @@ class DataProcessing:
                 self.data_visualizer.update_image_plot(image_array)
     
             self.controller_values.append(controller_value)
-            self.model_values.append(model_output)
-            self.data_visualizer.update_model_comparison_plot(self.model_values, self.controller_values)
+            # Update the model comparison plot with multiple model outputs
+            self.data_visualizer.update_model_comparison_plot(
+                self.model_output_values, 
+                self.controller_values, 
+                self.modelTestUI.visual_model_paths
+            )
+            # Update text output (display the first model's output)
             self.data_visualizer.update_text_output(
-                controller_value, model_output, model_stop_time - model_start_time
+                controller_value, model_outputs[0], model_stop_time - model_start_time
             )
     
             if len(self.controller_values) > 50:
                 self.controller_values.pop(0)
-                self.model_values.pop(0)
+                for output_values in self.model_output_values:
+                    output_values.pop(0)
     
             if USE_VISUALS:
                 self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
@@ -477,7 +498,7 @@ class DataProcessing:
             time.sleep(sleep_time)
     
         self.processing = False
-            
+        
     def load_comparison_file(self, comparison_file_path):
         if comparison_file_path is None:
             messagebox.showerror("Error", "No comparison file selected")
@@ -489,36 +510,62 @@ class DataProcessing:
         self.controller_data = np_arrays['controller_data']
         self.counter_data = np_arrays['counters']
 
-    def load_model_wrapper(self, model_path):
-        self.load_model_thread = threading.Thread(target=self.load_model, args=(model_path,), daemon=True)
-        self.load_model_thread.start()
+    def load_models_wrapper(self, model_paths):
+        self.load_models_thread = threading.Thread(target=self.load_models, args=(model_paths,), daemon=True)
+        self.load_models_thread.start()
 
-    def load_model(self, model_path):
+    
+    def load_models(self, model_paths):
         self.model_loaded = False
         self.model_loading = True
+        self.models = []
+        self.model_types = []
+        self.expected_shapes = []
+        self.features_per_model = []  # Reset features list
+    
         while not self.modelTestUI.tensorflow_imported:
             time.sleep(0.1)
         
-        # could be h5 or tflite
-        if model_path.endswith(".h5"):
-            self.model = tf.keras.models.load_model(model_path)
-            self.model_type = "h5"
-        elif model_path.endswith(".tflite"):
-            self.model = tf.lite.Interpreter(model_path=model_path)
-            self.model.allocate_tensors()
-            self.model_type = "tflite"
-        else:
-            print("Model file format not supported")
-            return
-
+        for model_path in model_paths:
+            if model_path.endswith(".h5"):
+                model = tf.keras.models.load_model(model_path)
+                model_type = "h5"
+                expected_shape = model.input_shape
+            elif model_path.endswith(".tflite"):
+                model = tf.lite.Interpreter(model_path=model_path)
+                model.allocate_tensors()
+                model_type = "tflite"
+                input_details = model.get_input_details()
+                expected_shape = input_details[0]['shape']
+            else:
+                print(f"Model file format not supported: {model_path}")
+                continue
+            self.models.append(model)
+            self.model_types.append(model_type)
+            self.expected_shapes.append(expected_shape)
+    
+            # Load features for this model
+            base_model_path = os.path.splitext(model_path)[0]
+            features_path = f"{base_model_path}_features.txt"
+            if os.path.exists(features_path):
+                with open(features_path, "r") as f:
+                    selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
+                self.features_per_model.append(selected_feature_indexes)
+            else:
+                print(f"Features file not found for model: {model_path}")
+                self.features_per_model.append([])  # Handle as needed
+    
         self.model_loaded = True
         self.model_loading = False
+
         
 ############################################################################################################
         
 class VisualizeData:
     def __init__(self, modelTestUI):
         self.modelTestUI = modelTestUI
+        # Define colors for plotting
+        self.colors = ['cyan', 'magenta', 'yellow', 'green', 'red', 'blue', 'orange']
         
     def clear_all_plots(self):
         self.clear_polar_plot_lidar()
@@ -568,9 +615,19 @@ class VisualizeData:
         # Clear the axis
         self.lidar_axis.clear()
     
+        # Extract angles and distances
+        angles = lidar_array[:, 0]
+        distances = lidar_array[:, 1]
+    
+        # Normalize angles and distances
+        # normalized_angles = angles / 360
+        # normalized_distances = distances / 5000
+    
+        # Convert angles to radians for plotting
+        radian_angles = np.deg2rad(angles * 360)
+    
         # Plot the data as individual points with neon green color
-        angles, distances = zip(*lidar_array)
-        self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
+        self.lidar_axis.scatter(radian_angles, distances * 5000, color='#39FF14', s=10)
     
         # Set the background color of the axes
         self.lidar_axis.set_facecolor('#222222')
@@ -673,13 +730,18 @@ class VisualizeData:
         # Update the plot size on window resize
         self.comparison_canvas.get_tk_widget().config(width=event.width, height=event.height)
     
-    def update_model_comparison_plot(self, model_data, controller_data):
+    def update_model_comparison_plot(self, model_data_list, controller_data, model_names):
         # Clear the plot
         self.comparison_axis.clear()
     
-        # Plot the data
-        self.comparison_axis.plot(model_data, label='Model Data', color='cyan')
-        self.comparison_axis.plot(controller_data, label='Controller Data', color='magenta')
+        # Plot controller data
+        self.comparison_axis.plot(controller_data, label='Controller Data', color='red')
+    
+        # Plot each model's data with different colors
+        for idx, model_data in enumerate(model_data_list):
+            color = self.colors[idx % len(self.colors)]
+            label = model_names[idx]
+            self.comparison_axis.plot(model_data, label=label, color=color)
     
         # Set the background color of the axes
         self.comparison_axis.set_facecolor('#222222')
