@@ -453,7 +453,7 @@ class DataProcessing:
             print("Model Output: ", model_output)
             model_stop_time = time.time()
     
-            self.data_visualizer.update_polar_plot_lidar(lidar_array)
+            self.data_visualizer.update_polar_plot_lidar(lidar_array, selected_feature_indexes)
             if USE_VISUALS:
                 self.data_visualizer.update_image_plot(image_array)
     
@@ -560,7 +560,7 @@ class VisualizeData:
         # Update the plot size on window resize
         self.lidar_canvas.get_tk_widget().config(width=event.width, height=event.height)
     
-    def update_polar_plot_lidar(self, lidar_array):
+    def update_polar_plot_lidar(self, lidar_array, selected_feature_indexes):
         # Check if there are any major ticks
         if not self.lidar_axis.xaxis.majorTicks:
             self.lidar_axis.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -568,9 +568,18 @@ class VisualizeData:
         # Clear the axis
         self.lidar_axis.clear()
     
-        # Plot the data as individual points with neon green color
-        angles, distances = zip(*lidar_array)
-        self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
+        # Separate the points based on selected_feature_indexes
+        selected_points = [lidar_array[i] for i in selected_feature_indexes]
+        other_points = [lidar_array[i] for i in range(len(lidar_array)) if i not in selected_feature_indexes]
+    
+        # Plot the data as individual points
+        if other_points:
+            angles, distances = zip(*other_points)
+            self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
+        
+        if selected_points:
+            selected_angles, selected_distances = zip(*selected_points)
+            self.lidar_axis.scatter(np.deg2rad(selected_angles), selected_distances, color='red', s=10)
     
         # Set the background color of the axes
         self.lidar_axis.set_facecolor('#222222')
