@@ -34,6 +34,7 @@ class CNNModelTester(ctk.CTk):
                 config = json.load(f)
                 self.model_path = config.get('model_path', None)
                 self.directory = config.get('directory', '')
+                self.dir_base_name = os.path.basename(self.directory)
             if self.model_path and os.path.exists(self.model_path):
                 try:
                     if self.model_path.endswith('.h5'):
@@ -63,8 +64,9 @@ class CNNModelTester(ctk.CTk):
 
     def select_directory(self):
         self.directory = filedialog.askdirectory()
-        base_name = os.path.basename(self.directory)
-        self.dir_label.configure(text=f"Selected Directory: {base_name}")
+        self.dir_base_name = os.path.basename(self.directory)
+        
+        self.dir_label.configure(text=f"Selected Directory: {self.dir_base_name}")
         self.save_config()
 
     def select_model(self):
@@ -131,6 +133,8 @@ class CNNModelTester(ctk.CTk):
                 print(f"Inference time: {stop_time - start_time}")
                 predictions = [self.tflite_model.get_tensor(output['index']) for output in self.output_details]
     
+            print(f"Predictions: {predictions}")
+    
             if len(predictions) != 2:
                 print(f"Unexpected model output: {predictions}")
                 index += 1
@@ -159,7 +163,7 @@ class CNNModelTester(ctk.CTk):
             class_name = self.label_map[class_label]
     
             x1, y1, x2, y2 = bounding_boxes
-            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            x1, y1, x2, y2 = int(x1 * input_image.shape[1]), int(y1 * input_image.shape[0]), int(x2 * input_image.shape[1]), int(y2 * input_image.shape[0])
     
             # Determine rectangle color based on class name
             if class_name == 'red_block':
@@ -214,7 +218,7 @@ class CNNModelTester(ctk.CTk):
 
         self.dir_label = ctk.CTkLabel(
             self,
-            text=f"Selected Directory: {self.directory if self.directory else 'No directory selected'}"
+            text=f"Selected Directory: {self.dir_base_name if self.dir_base_name else 'No directory selected'}"
         )
         self.dir_label.grid(row=1, column=0, pady=5, padx=10, sticky="ew")
 
