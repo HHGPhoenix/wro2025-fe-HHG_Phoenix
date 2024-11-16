@@ -7,7 +7,7 @@ import cv2
 import matplotlib.pyplot as plt
 from tensorflow.keras.applications import MobileNetV2 # type: ignore
 from tensorflow.keras.models import Model, Sequential # type: ignore
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Input, Dropout, Lambda, BatchNormalization, Activation # type: ignore
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Input, Dropout, Lambda, BatchNormalization, Activation, Reshape, GlobalAveragePooling2D # type: ignore
 from tensorflow.keras.optimizers import Adam # type: ignore
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping # type: ignore
 from tensorflow.keras.regularizers import l2 # type: ignore
@@ -198,35 +198,46 @@ class BoundryBoxModel:
     
     def build_model(self, input_shape: Tuple[int, int, int], num_classes: int):
         inputs = Input(shape=input_shape)
-    
-        # Build a custom CNN
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
-        x = MaxPooling2D(pool_size=(2, 2))(x)
+        
+        # First Block
+        x = Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+        x = BatchNormalization()(x)
         x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
         x = MaxPooling2D(pool_size=(2, 2))(x)
+        
+        # Second Block
+        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
         x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
         x = MaxPooling2D(pool_size=(2, 2))(x)
-        x = Flatten()(x)
-        x = Dense(128, activation='relu')(x)
-    
+        
+        # Third Block
+        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+        x = MaxPooling2D(pool_size=(2, 2))(x)
+        
+        # Fourth Block
+        x = Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(256, (3, 3), activation='relu', padding='same')(x)
+        x = MaxPooling2D(pool_size=(2, 2))(x)
+        
+        # Global Average Pooling
+        x = GlobalAveragePooling2D()(x)
+        
+        # Additional Dense Layers
+        x = Dense(512, activation='relu')(x)
+        x = Dropout(0.5)(x)
+        x = Dense(256, activation='relu')(x)
+        x = Dropout(0.5)(x)
+        
         # Output layers
-        bbox_output = Dense(4, name='bbox_output')(x)
+        bbox_output = Dense(4, activation='linear', name='bbox_output')(x)
         class_output = Dense(num_classes, activation='softmax', name='class_output')(x)
-    
+        
         model = Model(inputs=inputs, outputs=[bbox_output, class_output])
-    
-        model.compile(
-            optimizer=Adam(),
-            loss={
-                'bbox_output': 'mean_squared_error',
-                'class_output': 'sparse_categorical_crossentropy'
-            },
-            metrics={
-                'bbox_output': 'mean_absolute_error',
-                'class_output': 'accuracy'
-            }
-        )
-    
+        
         return model
     
     def train_model(self) -> None:
@@ -245,16 +256,34 @@ class BoundryBoxModel:
     
         model = self.build_model(input_shape, num_classes)
         
-        print("Model builded")
-    
-        checkpoint = ModelCheckpoint('best_cnn_model.h5', monitor='val_bbox_output_mean_absolute_error', save_best_only=True, mode='max')
-        early_stopping = EarlyStopping(monitor='val_class_output_loss', patience=5)
-    
-        model.fit(train_images, {'bbox_output': train_bbox_labels, 'class_output': train_class_labels},
-                  epochs=100, batch_size=32,
-                  validation_data=(val_images, {'bbox_output': val_bbox_labels, 'class_output': val_class_labels}),
-                  callbacks=[checkpoint, early_stopping])
+        model.compile(
+            optimizer=Adam(),
+            loss={
+                'bbox_output': 'mean_squared_error',
+                'class_output': 'sparse_categorical_crossentropy'
+            },
+            metrics={
+                'bbox_output': 'mean_absolute_error',
+                'class_output': 'accuracy'
+            }
+        )
         
+        print("Model compiled successfully")
+        
+        checkpoint = ModelCheckpoint('best_cnn_model.h5', 
+                                     monitor='val_bbox_output_mean_absolute_error', 
+                                     save_best_only=True, 
+                                     mode='min')
+        early_stopping = EarlyStopping(monitor='val_class_output_loss', patience=5)
+        
+        model.fit(
+            train_images, 
+            {'bbox_output': train_bbox_labels, 'class_output': train_class_labels},
+            epochs=100, 
+            batch_size=32,
+            validation_data=(val_images, {'bbox_output': val_bbox_labels, 'class_output': val_class_labels}),
+            callbacks=[checkpoint, early_stopping]
+        )
         
 if __name__ == "__main__":
     data_dir = r"D:\Onedrive HHG\OneDrive - Helmholtz-Gymnasium\Dokumente\.Libery\Code\Flix,Emul Ordner\WRO2025\PrototypeV2\CNN_block_detection\16.11._more_data - unfinished"

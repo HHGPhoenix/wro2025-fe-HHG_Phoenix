@@ -24,8 +24,10 @@ class CNNModelTester(ctk.CTk):
         self.directory = ''
         self.processing = False
         self.dir_base_name = None
-        self.config_file = os.path.join(os.path.expanduser("~"), ".config", "cnnModelTest.json")
+        self.config_file = os.path.join(".config", "cnnModelTest.json")
         self.label_map = {0: "background", 1: "red_block", 2: "green_block"}
+        self.image_files = []
+        self.current_image_index = 0
         self.load_config()
         self.setup_gui()
 
@@ -42,6 +44,8 @@ class CNNModelTester(ctk.CTk):
                         self.model = tf.keras.models.load_model(self.model_path)
                     elif self.model_path.endswith('.tflite'):
                         self.load_tflite_model(self.model_path)
+                    if self.model and self.image_files:
+                        self.display_image(self.image_files[0])
                 except Exception as e:
                     print(f"Error loading model: {e}")
                     self.model = None
@@ -69,7 +73,11 @@ class CNNModelTester(ctk.CTk):
         
         self.dir_label.configure(text=f"Selected Directory: {self.dir_base_name}")
         self.save_config()
-
+        self.load_image_files()
+        
+        if self.model and self.image_files:
+            self.display_image(self.image_files[0])
+    
     def select_model(self):
         self.model_path = filedialog.askopenfilename(filetypes=[("Model Files", "*.h5 *.tflite"), ("All Files", "*.*")])
         if self.model_path:
@@ -82,17 +90,85 @@ class CNNModelTester(ctk.CTk):
                     self.load_tflite_model(self.model_path)
                     self.model = None
                 self.save_config()
+                
+                if self.image_files:
+                    self.display_image(self.image_files[0])
             except Exception as e:
                 print(f"Error loading model: {e}")
                 self.model = None
                 self.tflite_model = None
+                self.tflite_model = None
 
     def load_tflite_model(self, model_path):
         self.tflite_model = tf.lite.Interpreter(model_path=model_path)
-        # print(f"Model input shape: {self.tflite_model.get_input_details()}")
         self.tflite_model.allocate_tensors()
         self.input_details = self.tflite_model.get_input_details()
         self.output_details = self.tflite_model.get_output_details()
+
+    def load_image_files(self):
+        self.image_files = []
+        for root, dirs, files in os.walk(self.directory):
+            for f in files:
+                if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    self.image_files.append(os.path.join(root, f))
+        self.current_image_index = 0
+        if self.image_files:
+            self.display_image(self.image_files[self.current_image_index])
+
+    def display_image(self, image_path):
+        input_image = cv2.imread(image_path)
+        if input_image is None:
+            print(f"Failed to load image {image_path}")
+            return
+
+        input_image_rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+
+        if self.model or self.tflite_model:
+            input_image_norm = np.expand_dims(input_image, axis=0) / 255.0
+
+            if self.model:
+                predictions = self.model.predict(input_image_norm)
+            elif self.tflite_model:
+                self.tflite_model.set_tensor(self.input_details[0]['index'], input_image_norm.astype(np.float32))
+                self.tflite_model.invoke()
+                predictions = [self.tflite_model.get_tensor(output['index']) for output in self.output_details]
+
+            if len(predictions) == 2:
+                if self.model:
+                    bounding_boxes = predictions[0][0]
+                    class_probs = predictions[1][0]
+                elif self.tflite_model:
+                    bounding_boxes = predictions[1][0]
+                    class_probs = predictions[0][0]
+
+                class_label = np.argmax(class_probs)
+                class_name = self.label_map[class_label]
+
+                x1, y1, x2, y2 = bounding_boxes
+                x1, y1, x2, y2 = int(x1 * input_image.shape[1]), int(y1 * input_image.shape[0]), int(x2 * input_image.shape[1]), int(y2 * input_image.shape[0])
+
+                if class_name == 'red_block':
+                    color = (255, 0, 0)
+                elif class_name == 'green_block':
+                    color = (0, 255, 0)
+                else:
+                    color = (0, 0, 255)
+
+                cv2.rectangle(input_image_rgb, (x1, y1), (x2, y2), color, 2)
+
+        self.ax.clear()
+        self.ax.imshow(input_image_rgb)
+        self.canvas.draw()
+
+    def next_image(self):
+        if self.image_files:
+            self.current_image_index = (self.current_image_index + 1) % len(self.image_files)
+            self.display_image(self.image_files[self.current_image_index])
+
+    def previous_image(self):
+        if self.image_files:
+            self.current_image_index = (self.current_image_index - 1) % len(self.image_files)
+            self.display_image(self.image_files[self.current_image_index])
 
     def start_processing(self):
         print("Starting image processing")
@@ -106,16 +182,12 @@ class CNNModelTester(ctk.CTk):
         self.processing = False
 
     def process_images(self):
-        image_files = []
-        for root, dirs, files in os.walk(self.directory):
-            for f in files:
-                if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    image_files.append(os.path.join(root, f))
+        self.load_image_files()
         index = 0
-        print(f"Processing {len(image_files)} images")
-        while self.processing and index < len(image_files):
-            print(f"Processing image {index + 1}/{len(image_files)}")
-            image_path = image_files[index]
+        print(f"Processing {len(self.image_files)} images")
+        while self.processing and index < len(self.image_files):
+            print(f"Processing image {index + 1}/{len(self.image_files)}")
+            image_path = self.image_files[index]
             input_image = cv2.imread(image_path)
             if input_image is None:
                 print(f"Failed to load image {image_path}")
@@ -148,7 +220,6 @@ class CNNModelTester(ctk.CTk):
                 bounding_boxes = predictions[1][0]
                 class_probs = predictions[0][0]
     
-            # Get confidence values for red_block and green_block
             red_index = None
             green_index = None
             for idx, name in self.label_map.items():
@@ -166,41 +237,32 @@ class CNNModelTester(ctk.CTk):
             x1, y1, x2, y2 = bounding_boxes
             x1, y1, x2, y2 = int(x1 * input_image.shape[1]), int(y1 * input_image.shape[0]), int(x2 * input_image.shape[1]), int(y2 * input_image.shape[0])
     
-            # Determine rectangle color based on class name
             if class_name == 'red_block':
-                color = (0, 0, 255)  # Red in BGR
+                color = (0, 0, 255)
             elif class_name == 'green_block':
-                color = (0, 255, 0)  # Green in BGR
+                color = (0, 255, 0)
             else:
-                color = (255, 0, 0)  # Default to blue
+                color = (255, 0, 0)
     
             cv2.rectangle(input_image, (x1, y1), (x2, y2), color, 2)
     
-            # Upscale the image
-            upscale_factor = 2  # Adjust the upscale factor as needed
+            upscale_factor = 2
             input_image = cv2.resize(input_image, (0, 0), fx=upscale_factor, fy=upscale_factor, interpolation=cv2.INTER_LINEAR)
     
-            # Set font and scale
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.5  # Smaller font scale
-            thickness = 1     # Thinner thickness
+            font_scale = 0.5
+            thickness = 1
     
-            # Positions for the text
-            margin = 10  # Margin from the top and sides
+            margin = 10
             line_height = int(cv2.getTextSize('Text', font, font_scale, thickness)[0][1] + 5)
-            # Position for the first line of text
             org_red = (margin, margin + line_height)
-            # Position for the second line of text
             org_green = (margin, margin + 2 * line_height)
     
-            # Write text on the image
             cv2.putText(input_image, f'Red Block Confidence: {red_confidence:.2f}', org_red, font, font_scale, (0, 0, 255), thickness, cv2.LINE_AA)
             cv2.putText(input_image, f'Green Block Confidence: {green_confidence:.2f}', org_green, font, font_scale, (0, 255, 0), thickness, cv2.LINE_AA)
     
-            # Convert image to RGB format
             input_image_rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
     
-            # Display image using matplotlib
             self.ax.clear()
             self.ax.imshow(input_image_rgb)
             self.canvas.draw()
@@ -212,7 +274,7 @@ class CNNModelTester(ctk.CTk):
         self.title("Image Processing")
         self.geometry("700x900")
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(6, weight=1)
+        self.grid_rowconfigure(7, weight=1)
 
         self.dir_button = ctk.CTkButton(self, text="Select Directory", command=self.select_directory)
         self.dir_button.grid(row=0, column=0, pady=10, padx=10, sticky="ew")
@@ -238,23 +300,22 @@ class CNNModelTester(ctk.CTk):
         self.stop_button = ctk.CTkButton(self, text="Stop", command=self.stop_processing)
         self.stop_button.grid(row=5, column=0, pady=10, padx=10, sticky="ew")
 
-        # Set up matplotlib Figure and FigureCanvasTkAgg
+        self.next_button = ctk.CTkButton(self, text="Next", command=self.next_image)
+        self.next_button.grid(row=6, column=0, pady=10, padx=10, sticky="ew")
+
+        self.previous_button = ctk.CTkButton(self, text="Previous", command=self.previous_image)
+        self.previous_button.grid(row=7, column=0, pady=10, padx=10, sticky="ew")
+
         self.figure = Figure(figsize=(5, 5), dpi=100)
-        self.figure.patch.set_facecolor('black')  # Set figure background color to black
+        self.figure.patch.set_facecolor('black')
         self.ax = self.figure.add_subplot(111)
-        self.ax.set_facecolor('black')  # Set axes background color to black
-        self.ax.axis('off')  # Hide axes lines and ticks
-        
-        # Load and display the default image
-        image = plt.imread(r'AI/assets/hd-bars.jpg')
-        self.ax.imshow(image, aspect='auto')
-        self.ax.set_position([0, 0, 1, 1])  # Remove any margins
+        self.ax.set_facecolor('black')
+        self.ax.axis('off')
         
         self.canvas = FigureCanvasTkAgg(self.figure, master=self)
-        self.canvas.get_tk_widget().grid(row=6, column=0, pady=0, padx=0, sticky="nsew")
+        self.canvas.get_tk_widget().grid(row=8, column=0, pady=0, padx=0, sticky="nsew")
         
-        # Configure the grid to allow the canvas to fill all available space
-        self.grid_rowconfigure(6, weight=1)
+        self.grid_rowconfigure(8, weight=1)
         self.grid_columnconfigure(0, weight=1)
         
         self.mainloop()
