@@ -19,8 +19,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 class BoundryBoxModel:
     def __init__(self, data_dir: str) -> None:
         self.data_dir = data_dir
-        self.label_map = {"red_block": 0, "green_block": 1}
-        self.label_counter = 0
+                # Update the label_map to include 'background' class
+        self.label_map = {"background": 0, "red_block": 1, "green_block": 2}
+        self.label_counter = 3  # Start counting from 3 if new classes are added later
         
     def display_random_data_point(self, images: np.ndarray, bbox_labels: np.ndarray, class_labels: np.ndarray) -> None:
         # Invert label_map to get class labels from integers
@@ -75,13 +76,16 @@ class BoundryBoxModel:
         image_counter = 0
     
         for root, _, files in os.walk(self.data_dir):
-            frame_files = [f for f in files if f.startswith('frame_') and f.endswith('.png')]
+            frame_files = [f for f in files if f.endswith('.png')]
             for frame_file in frame_files:
                 json_file = frame_file.replace('.png', '.json')
                 json_path = os.path.join(root, json_file)
                 png_path = os.path.join(root, frame_file)
     
-                if os.path.exists(json_path) and os.path.exists(png_path):
+                image = cv2.imread(png_path)
+                image_array = np.array(image)
+    
+                if os.path.exists(json_path):
                     with open(json_path, 'r') as f:
                         label_data = json.load(f)
     
@@ -101,64 +105,83 @@ class BoundryBoxModel:
                         x1, y1 = point1
                         x2, y2 = point2
     
-                    image = cv2.imread(png_path)
-                    image_array = np.array(image)
+                        height, width, _ = image_array.shape
     
-                    height, width, _ = image_array.shape
+                        # Normalize bounding box coordinates
+                        x1_norm, y1_norm = x1 / width, y1 / height
+                        x2_norm, y2_norm = x2 / width, y2 / height
     
-                    # Normalize bounding box coordinates
-                    x1_norm, y1_norm = x1 / width, y1 / height
-                    x2_norm, y2_norm = x2 / width, y2 / height
+                        # Original image
+                        images.append(image_array)
+                        bbox_labels.append([x1_norm, y1_norm, x2_norm, y2_norm])
+                        class_labels.append(class_label_int)
+                        image_counter += 1
     
-                    # Original image
+                        # Original image
+                        images.append(image_array)
+                        bbox_labels.append([x1_norm, y1_norm, x2_norm, y2_norm])
+                        class_labels.append(class_label_int)
+                        image_counter += 1
+        
+                        # Horizontal flip
+                        h_flip_image = cv2.flip(image_array, 1)
+                        h_flip_bbox = [1 - x2_norm, y1_norm, 1 - x1_norm, y2_norm]
+                        images.append(h_flip_image)
+                        bbox_labels.append(h_flip_bbox)
+                        class_labels.append(class_label_int)
+                        image_counter += 1
+        
+                        # Adjust brightness and saturation for horizontal flip
+                        for brightness in [0.8, 1.2]:
+                            for saturation in [0.8, 1.2]:
+                                adjusted_h_flip_image = self.adjust_brightness_saturation(h_flip_image, brightness, saturation)
+                                images.append(adjusted_h_flip_image)
+                                bbox_labels.append(h_flip_bbox)
+                                class_labels.append(class_label_int)
+                                image_counter += 1
+        
+                        # Vertical flip
+                        v_flip_image = cv2.flip(image_array, 0)
+                        v_flip_bbox = [x1_norm, 1 - y2_norm, x2_norm, 1 - y1_norm]
+                        images.append(v_flip_image)
+                        bbox_labels.append(v_flip_bbox)
+                        class_labels.append(class_label_int)
+                        image_counter += 1
+        
+                        # Adjust brightness and saturation for vertical flip
+                        for brightness in [0.8, 1.2]:
+                            for saturation in [0.8, 1.2]:
+                                adjusted_v_flip_image = self.adjust_brightness_saturation(v_flip_image, brightness, saturation)
+                                images.append(adjusted_v_flip_image)
+                                bbox_labels.append(v_flip_bbox)
+                                class_labels.append(class_label_int)
+                                image_counter += 1
+        
+                        # Adjust brightness and saturation for original image
+                        for brightness in [0.8, 1.2]:
+                            for saturation in [0.8, 1.2]:
+                                adjusted_image = self.adjust_brightness_saturation(image_array, brightness, saturation)
+                                images.append(adjusted_image)
+                                bbox_labels.append([x1_norm, y1_norm, x2_norm, y2_norm])
+                                class_labels.append(class_label_int)
+                                image_counter += 1
+    
+                    else:
+                        # If no shapes, treat as background
+                        class_label_int = self.label_map['background']
+                        images.append(image_array)
+                        bbox_labels.append([0, 0, 0, 0])  # No bounding box
+                        class_labels.append(class_label_int)
+                        image_counter += 1
+                else:
+                    # No label file, treat as background
+                    class_label_int = self.label_map['background']
                     images.append(image_array)
-                    bbox_labels.append([x1_norm, y1_norm, x2_norm, y2_norm])
+                    bbox_labels.append([0, 0, 0, 0])  # No bounding box
                     class_labels.append(class_label_int)
                     image_counter += 1
-    
-                    # Horizontal flip
-                    h_flip_image = cv2.flip(image_array, 1)
-                    h_flip_bbox = [1 - x2_norm, y1_norm, 1 - x1_norm, y2_norm]
-                    images.append(h_flip_image)
-                    bbox_labels.append(h_flip_bbox)
-                    class_labels.append(class_label_int)
-                    image_counter += 1
-    
-                    # Adjust brightness and saturation for horizontal flip
-                    for brightness in [0.8, 1.2]:
-                        for saturation in [0.8, 1.2]:
-                            adjusted_h_flip_image = self.adjust_brightness_saturation(h_flip_image, brightness, saturation)
-                            images.append(adjusted_h_flip_image)
-                            bbox_labels.append(h_flip_bbox)
-                            class_labels.append(class_label_int)
-                            image_counter += 1
-    
-                    # Vertical flip
-                    v_flip_image = cv2.flip(image_array, 0)
-                    v_flip_bbox = [x1_norm, 1 - y2_norm, x2_norm, 1 - y1_norm]
-                    images.append(v_flip_image)
-                    bbox_labels.append(v_flip_bbox)
-                    class_labels.append(class_label_int)
-                    image_counter += 1
-    
-                    # Adjust brightness and saturation for vertical flip
-                    for brightness in [0.8, 1.2]:
-                        for saturation in [0.8, 1.2]:
-                            adjusted_v_flip_image = self.adjust_brightness_saturation(v_flip_image, brightness, saturation)
-                            images.append(adjusted_v_flip_image)
-                            bbox_labels.append(v_flip_bbox)
-                            class_labels.append(class_label_int)
-                            image_counter += 1
-    
-                    # Adjust brightness and saturation for original image
-                    for brightness in [0.8, 1.2]:
-                        for saturation in [0.8, 1.2]:
-                            adjusted_image = self.adjust_brightness_saturation(image_array, brightness, saturation)
-                            images.append(adjusted_image)
-                            bbox_labels.append([x1_norm, y1_norm, x2_norm, y2_norm])
-                            class_labels.append(class_label_int)
-                            image_counter += 1
-    
+
+        # print(f"Total images processed: {image_counter}; images shape: {images[0].shape}; bbox_labels shape: {bbox_labels[0].shape}; class_labels shape: {class_labels[0].shape}")
         return images, bbox_labels, class_labels
         
     def preprocess_data(self, images: List[np.ndarray], bbox_labels: List[List[float]], class_labels: List[int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -173,10 +196,10 @@ class BoundryBoxModel:
         
         return images, bbox_labels, class_labels
     
-    def build_model(self, input_shape: Tuple[int, int, int], num_classes: int) -> tf.keras.Model:
+    def build_model(self, input_shape: Tuple[int, int, int], num_classes: int):
         inputs = Input(shape=input_shape)
     
-        # Build a custom CNN from scratch
+        # Build a custom CNN
         x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
         x = MaxPooling2D(pool_size=(2, 2))(x)
         x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
@@ -209,29 +232,31 @@ class BoundryBoxModel:
     def train_model(self) -> None:
         images, bbox_labels, class_labels = self.load_data()
         images, bbox_labels, class_labels = self.preprocess_data(images, bbox_labels, class_labels)
-        
+    
         input_shape = images.shape[1:]
         num_classes = len(self.label_map)
         print(f"Input shape: {input_shape}, Number of classes: {num_classes}")
-        
-        # Split the data together to keep them aligned
+    
+        # Split the data
         train_images, val_images, train_bbox_labels, val_bbox_labels, train_class_labels, val_class_labels = train_test_split(
-            images, bbox_labels, class_labels, test_size=0.3, random_state=42)
+            images, bbox_labels, class_labels, test_size=0.2, random_state=42)
         
+        print(f"Train images: {train_images.shape}, Val images: {val_images.shape}")
+    
         model = self.build_model(input_shape, num_classes)
         
-        # self.display_random_data_point(train_images, train_bbox_labels, train_class_labels)
-        
+        print("Model builded")
+    
         checkpoint = ModelCheckpoint('best_cnn_model.h5', monitor='val_bbox_output_mean_absolute_error', save_best_only=True, mode='max')
-        early_stopping = EarlyStopping(monitor='val_bbox_output_loss', patience=5)
-        
-        model.fit(train_images, {'bbox_output': train_bbox_labels, 'class_output': train_class_labels}, 
-                  epochs=120, batch_size=32, 
-                  validation_data=(val_images, {'bbox_output': val_bbox_labels, 'class_output': val_class_labels}), 
+        early_stopping = EarlyStopping(monitor='val_class_output_loss', patience=5)
+    
+        model.fit(train_images, {'bbox_output': train_bbox_labels, 'class_output': train_class_labels},
+                  epochs=100, batch_size=32,
+                  validation_data=(val_images, {'bbox_output': val_bbox_labels, 'class_output': val_class_labels}),
                   callbacks=[checkpoint, early_stopping])
         
         
 if __name__ == "__main__":
-    data_dir = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\CNN_block_detection\11.11._hopefully_first_good_dataset"
+    data_dir = r"D:\Onedrive HHG\OneDrive - Helmholtz-Gymnasium\Dokumente\.Libery\Code\Flix,Emul Ordner\WRO2025\PrototypeV2\CNN_block_detection\16.11._more_data - unfinished"
     model = BoundryBoxModel(data_dir)
     model.train_model()

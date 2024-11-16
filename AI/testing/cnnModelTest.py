@@ -23,8 +23,9 @@ class CNNModelTester(ctk.CTk):
         self.output_details = None
         self.directory = ''
         self.processing = False
+        self.dir_base_name = None
         self.config_file = os.path.join(os.path.expanduser("~"), ".config", "cnnModelTest.json")
-        self.label_map = {0: "red_block", 1: "green_block"}
+        self.label_map = {0: "background", 1: "red_block", 2: "green_block"}
         self.load_config()
         self.setup_gui()
 
