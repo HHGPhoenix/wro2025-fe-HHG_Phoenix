@@ -252,6 +252,11 @@ class BoundryBoxModel:
         train_images, val_images, train_bbox_labels, val_bbox_labels, train_class_labels, val_class_labels = train_test_split(
             images, bbox_labels, class_labels, test_size=0.2, random_state=42)
         
+        # Free up memory
+        del images
+        del bbox_labels
+        del class_labels
+        
         print(f"Train images: {train_images.shape}, Val images: {val_images.shape}")
     
         model = self.build_model(input_shape, num_classes)
