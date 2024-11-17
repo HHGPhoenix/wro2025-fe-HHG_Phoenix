@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.keras import backend as K
 import numpy as np
 import cv2
 import customtkinter as ctk
@@ -41,7 +42,7 @@ class CNNModelTester(ctk.CTk):
             if self.model_path and os.path.exists(self.model_path):
                 try:
                     if self.model_path.endswith('.h5'):
-                        self.model = tf.keras.models.load_model(self.model_path)
+                        self.model = tf.keras.models.load_model(self.model_path, custom_objects={'iou_loss': self.iou_loss})
                     elif self.model_path.endswith('.tflite'):
                         self.load_tflite_model(self.model_path)
                     if self.model and self.image_files:
@@ -78,13 +79,31 @@ class CNNModelTester(ctk.CTk):
         if self.model and self.image_files:
             self.display_image(self.image_files[0])
     
+    def iou_loss(y_true, y_pred):
+        # Compute Intersection over Union
+        x1 = K.maximum(y_true[..., 0], y_pred[..., 0])
+        y1 = K.maximum(y_true[..., 1], y_pred[..., 1])
+        x2 = K.minimum(y_true[..., 2], y_pred[..., 2])
+        y2 = K.minimum(y_true[..., 3], y_pred[..., 3])
+    
+        intersection = K.maximum(0.0, x2 - x1) * K.maximum(0.0, y2 - y1)
+        union = (
+            (y_true[..., 2] - y_true[..., 0]) *
+            (y_true[..., 3] - y_true[..., 1]) +
+            (y_pred[..., 2] - y_pred[..., 0]) *
+            (y_pred[..., 3] - y_pred[..., 1]) -
+            intersection
+        )
+        iou = intersection / (union + K.epsilon())
+        return 1 - iou + K.mean(K.abs(y_true - y_pred), axis=-1)  # Combine with MAE
+    
     def select_model(self):
         self.model_path = filedialog.askopenfilename(filetypes=[("Model Files", "*.h5 *.tflite"), ("All Files", "*.*")])
         if self.model_path:
             self.model_label.configure(text=f"Selected Model: {self.model_path}")
             try:
                 if self.model_path.endswith('.h5'):
-                    self.model = tf.keras.models.load_model(self.model_path)
+                    self.model = tf.keras.models.load_model(self.model_path, custom_objects={'iou_loss': self.iou_loss})
                     self.tflite_model = None
                 elif self.model_path.endswith('.tflite'):
                     self.load_tflite_model(self.model_path)
@@ -96,7 +115,6 @@ class CNNModelTester(ctk.CTk):
             except Exception as e:
                 print(f"Error loading model: {e}")
                 self.model = None
-                self.tflite_model = None
                 self.tflite_model = None
 
     def load_tflite_model(self, model_path):

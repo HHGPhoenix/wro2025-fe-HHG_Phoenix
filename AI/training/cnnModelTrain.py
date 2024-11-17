@@ -13,6 +13,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping # type: ig
 from tensorflow.keras.regularizers import l2 # type: ignore
 from tensorflow.keras.layers.experimental.preprocessing import Rescaling, RandomFlip, RandomRotation, RandomZoom, RandomContrast # type: ignore
 from sklearn.model_selection import train_test_split # type: ignore
+from tensorflow.keras import backend as K # type: ignore
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -196,48 +197,45 @@ class BoundryBoxModel:
         
         return images, bbox_labels, class_labels
     
+    def iou_loss(self, y_true, y_pred):
+        # Compute Intersection over Union
+        x1 = K.maximum(y_true[..., 0], y_pred[..., 0])
+        y1 = K.maximum(y_true[..., 1], y_pred[..., 1])
+        x2 = K.minimum(y_true[..., 2], y_pred[..., 2])
+        y2 = K.minimum(y_true[..., 3], y_pred[..., 3])
+
+        intersection = K.maximum(0.0, x2 - x1) * K.maximum(0.0, y2 - y1)
+        union = (
+            (y_true[..., 2] - y_true[..., 0]) *
+            (y_true[..., 3] - y_true[..., 1]) +
+            (y_pred[..., 2] - y_pred[..., 0]) *
+            (y_pred[..., 3] - y_pred[..., 1]) -
+            intersection
+        )
+        iou = intersection / (union + K.epsilon())
+        return 1 - iou + K.mean(K.abs(y_true - y_pred), axis=-1)  # Combine with MAE
+    
     def build_model(self, input_shape: Tuple[int, int, int], num_classes: int):
         inputs = Input(shape=input_shape)
-        
-        # First Block
-        x = Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
+
+        # Convolutional base with Batch Normalization
+        x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
         x = BatchNormalization()(x)
+        x = MaxPooling2D((2, 2))(x)
         x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
-        x = MaxPooling2D(pool_size=(2, 2))(x)
-        
-        # Second Block
+        x = BatchNormalization()(x)
+        x = MaxPooling2D((2, 2))(x)
         x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
-        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
-        x = MaxPooling2D(pool_size=(2, 2))(x)
-        
-        # Third Block
-        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
-        x = MaxPooling2D(pool_size=(2, 2))(x)
-        
-        # Fourth Block
-        x = Conv2D(256, (3, 3), activation='relu', padding='same')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(256, (3, 3), activation='relu', padding='same')(x)
-        x = MaxPooling2D(pool_size=(2, 2))(x)
-        
-        # Global Average Pooling
-        x = GlobalAveragePooling2D()(x)
-        
-        # Additional Dense Layers
-        x = Dense(512, activation='relu')(x)
-        x = Dropout(0.5)(x)
+        x = Flatten()(x)
         x = Dense(256, activation='relu')(x)
-        x = Dropout(0.5)(x)
-        
+
         # Output layers
         bbox_output = Dense(4, activation='linear', name='bbox_output')(x)
         class_output = Dense(num_classes, activation='softmax', name='class_output')(x)
-        
+
         model = Model(inputs=inputs, outputs=[bbox_output, class_output])
-        
+
         return model
     
     def train_model(self) -> None:
@@ -262,9 +260,9 @@ class BoundryBoxModel:
         model = self.build_model(input_shape, num_classes)
         
         model.compile(
-            optimizer=Adam(),
+            optimizer=Adam(learning_rate=1e-5),
             loss={
-                'bbox_output': 'mean_squared_error',
+                'bbox_output': self.iou_loss,
                 'class_output': 'sparse_categorical_crossentropy'
             },
             metrics={
@@ -276,10 +274,10 @@ class BoundryBoxModel:
         print("Model compiled successfully")
         
         checkpoint = ModelCheckpoint('best_cnn_model.h5', 
-                                     monitor='val_bbox_output_mean_absolute_error', 
-                                     save_best_only=True, 
-                                     mode='min')
-        early_stopping = EarlyStopping(monitor='val_class_output_loss', patience=5)
+                                monitor='val_bbox_output_mean_absolute_error', 
+                                save_best_only=True, 
+                                mode='min')
+        early_stopping = EarlyStopping(monitor='val_bbox_output_mean_absolute_error', patience=5)
         
         model.fit(
             train_images, 
