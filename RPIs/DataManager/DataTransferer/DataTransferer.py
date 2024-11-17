@@ -49,8 +49,6 @@ class DataTransferer:
                 
                 frameraw = self.camera.compress_frame(frameraw)
                 framehsv = self.camera.compress_frame(framehsv)
-                # framehsv = cv2.GaussianBlur(framehsv, (3, 3), 0)
-                # frameraw = cv2.GaussianBlur(frameraw, (3, 3), 0)
                 # print(f"frameraw: {frameraw.shape}")
                 simplified_image = self.camera.simplify_image(framehsv.copy(), shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
                 object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
