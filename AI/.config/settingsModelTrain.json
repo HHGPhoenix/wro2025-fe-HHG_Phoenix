@@ -1,0 +1,1 @@
+{"epochs": 50, "batch_size": 32, "patience": 20, "epochs_graphed": 50, "data_shift": 0, "split_random_state": 42, "use_visual_data": false, "use_feature_selection": false, "use_bounding_boxes": true, "num_features": 50}

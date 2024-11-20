@@ -5,6 +5,7 @@ import time
 import threading
 import pandas as pd
 from scipy.interpolate import interp1d
+import subprocess
 
 from RPIs.Devices.Camera.CameraManager import Camera
 # from RPIs.Devices.Dummy.Camera.CameraManager import Camera
@@ -18,6 +19,8 @@ class DataTransferer:
         self.interpolated_lidar_data = interpolated_lidar_data
 
         self.lidar_data_was_available = False
+        
+        self.model_subprocess = subprocess.Popen(["sudo", "python3.9", "-m", "RPIs.DataManager.DataTransferer.BlockModelRunner"], stdout=subprocess.PIPE, stdin=subprocess.PIPE, text=False) #, stderr=subprocess.PIPE)
 
     def start(self):
         self.camera_thread = threading.Thread(target=self.process_cam_frames)
@@ -32,7 +35,6 @@ class DataTransferer:
         
         print("Lidar thread started")
 
-        #stop those
 
     def stop(self):
         self.camera_thread.join()
@@ -53,14 +55,41 @@ class DataTransferer:
                 # frameraw = cv2.GaussianBlur(frameraw, (3, 3), 0)
                 # print(f"frameraw: {frameraw.shape}")
                 simplified_image = self.camera.simplify_image(framehsv.copy(), shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
-                object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
+                
+                # output, errors = self.model_subprocess.communicate(input=simplified_image.tobytes())
+                print(f"Sending image to model")
+                # self.model_subprocess.stdin.write()
+                # self.model_subprocess.stdin.flush()
+                
+                # frameraw_bytes = frameraw.tobytes()
+                
+                # header = f"{len(frameraw_bytes)}\n".encode("utf-8") 
+                
+                # self.model_subprocess.stdin.write(header)
+                self.model_subprocess.stdin.write(frameraw.tobytes())
+                self.model_subprocess.stdin.flush()
+                
+                output = None
+                while not output:
+                    # Send input to the subprocess
+                    
+                    # Read output without blocking
+                    response = self.model_subprocess.stdout.readline() # .strip()
+                    print(f"Received from subprocess: {response.decode()}")
+                    # print("Waiting for model output")
+                # errors = self.model_subprocess.stderr.readlines()
+                
+                print(f"Model output: {output}")
+                
+                
+                # object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
                 
                 # Update shared list with the new frames
                 self.frame_list[0] = frameraw.tobytes()
                 self.frame_list[1] = simplified_image.tobytes()
-                self.frame_list[2] = object_image.tobytes()
-                self.frame_list[3] = self.camera.green_counter[-1]
-                self.frame_list[4] = self.camera.red_counter[-1]
+                self.frame_list[2] = frameraw.tobytes()
+                # self.frame_list[3] = self.camera.green_counter[-1]
+                # self.frame_list[4] = self.camera.red_counter[-1]
                 
                 stop_time = time.time()
                 elapsed_time = stop_time - start_time
