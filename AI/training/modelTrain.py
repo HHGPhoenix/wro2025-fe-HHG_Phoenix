@@ -1114,10 +1114,12 @@ class DataProcessor:
         self.image_train = None
         self.controller_train = None
         self.counter_train = None
+        self.block_train = None
         self.lidar_val = None
         self.image_val = None
         self.controller_val = None
         self.counter_val = None
+        self.block_val = None
         self.model_name = ""
         self.epochs = None
         self.batch_size = None
@@ -1200,9 +1202,12 @@ class DataProcessor:
             
         try:
             if self.use_visual_data:
+                # self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
+                #                                 frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
+                #                                 counter_input_shape=(self.counter_train.shape[1], ))
                 self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                                frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
-                                                counter_input_shape=(self.counter_train.shape[1], ))
+                                                 red_blocks_input_shape=(self.block_train[0].shape[1]),
+                                                 green_blocks_input_shape=(self.block_train[1].shape[1]))
             else:
                 self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1))
         except TypeError as e:
@@ -1229,8 +1234,9 @@ class DataProcessor:
         
         if self.use_visual_data:
             history = self.model.fit(
-                [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
-                validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
+                [self.lidar_train, self.block_train[0], self.block_train[1]],
+                self.controller_train,
+                validation_data=([self.lidar_val, self.block_val[0], self.block_val[1]], self.controller_val),
                 epochs=epochs,
                 callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
                 batch_size=batch_size
@@ -1338,17 +1344,19 @@ class DataProcessor:
                         file_path = os.path.join(root, file)
                         np_arrays = np.load(file_path, allow_pickle=True)
                         if 'lidar_data' in np_arrays and 'simplified_frames' in np_arrays \
-                           and 'controller_data' in np_arrays and 'counters' in np_arrays:
+                           and 'controller_data' in np_arrays and 'counters' in np_arrays and 'block_data' in np_arrays:
                             if file_count == 0:
                                 lidar_data = np_arrays['lidar_data'].astype(np.float32)
                                 simplified_image_data = np_arrays['simplified_frames'].astype(np.float32)
                                 controller_data = np_arrays['controller_data']
                                 counter_data = np_arrays['counters']
+                                block_data = np_arrays['block_data']
                             else:
                                 lidar_data = np.concatenate((lidar_data, np_arrays['lidar_data'].astype(np.float32)), axis=0)
                                 simplified_image_data = np.concatenate((simplified_image_data, np_arrays['simplified_frames'].astype(np.float32)), axis=0)
                                 controller_data = np.concatenate((controller_data, np_arrays['controller_data']), axis=0)
                                 counter_data = np.concatenate((counter_data, np_arrays['counters']), axis=0)
+                                block_data = np.concatenate((block_data, np_arrays['block_data']), axis=1)
                             file_count += 1
                         np_arrays = None
         except KeyError as e:
@@ -1371,6 +1379,13 @@ class DataProcessor:
         # Normalize and process data
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
         simplified_image_data /= 255.0
+        
+        red_blocks = block_data[0]
+        green_blocks = block_data[1]
+        # normalize block data with image width and height
+        red_blocks = red_blocks / np.array([simplified_image_data.shape[2], simplified_image_data.shape[1], simplified_image_data.shape[2], simplified_image_data.shape[1]], dtype=np.float32)
+        green_blocks = green_blocks / np.array([simplified_image_data.shape[2], simplified_image_data.shape[1], simplified_image_data.shape[2], simplified_image_data.shape[1]], dtype=np.float32)
+        blocks = np.array([red_blocks, green_blocks])
     
         data_shift = int(self.data_shift)
         if data_shift != 0:
@@ -1378,12 +1393,17 @@ class DataProcessor:
             lidar_data = lidar_data[:-data_shift]
             simplified_image_data = simplified_image_data[:-data_shift]
             counter_data = counter_data[:-data_shift]
+            blocks = blocks[:, :-data_shift]
     
         # Train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=self.split_random_state)
         self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=self.split_random_state)
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=self.split_random_state)
         self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=self.split_random_state)
+        red_blocks_train, red_blocks_val = train_test_split(blocks[0], test_size=0.2, random_state=self.split_random_state)
+        green_blocks_train, green_blocks_val = train_test_split(blocks[1], test_size=0.2, random_state=self.split_random_state)
+        self.block_train = np.array([red_blocks_train, green_blocks_train])
+        self.block_val = np.array([red_blocks_val, green_blocks_val])
     
         self.data_loading_completed()
         print("Data loaded successfully")
