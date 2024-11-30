@@ -1,97 +1,20 @@
-import cv2
+import os
 import numpy as np
-import threading
-import time
-import uuid
-from picamera2 import Picamera2 # type: ignore
-from libcamera import controls # type: ignore
+import cv2
 
-#A class for detecting red and green blocks in the camera stream           
-class Camera():
-    def __init__(self):
-        """
-        Initialize the camera and set up the color ranges for red and green blocks.
-        """
-        # Variable initialization
-        self.freeze = False
-        self.frame = None
-        
-        self.red_counter = []
+class BlockDetector:
+    def __init__(self, lower_green, upper_green, lower_red1, upper_red1, lower_red2, upper_red2, kernel):
+        self.lower_green = lower_green
+        self.upper_green = upper_green
+        self.lower_red1 = lower_red1
+        self.upper_red1 = upper_red1
+        self.lower_red2 = lower_red2
+        self.upper_red2 = upper_red2
+        self.kernel = kernel
         self.green_counter = []
-        
-        self.picam = Picamera2()
-        # Configure and start the camera
-        config = self.picam.create_still_configuration(main={"size": (1280, 720)}, raw={"size": (1280, 720)}, controls={"FrameRate": 34})
-        self.picam.configure(config)
-        self.picam.start()
-        self.picam.set_controls({"AfMode": controls.AfModeEnum.Continuous})
-        self.picam.set_logging(Picamera2.ERROR)
-        
-        # Define the color ranges for green and red in HSV color space
-        self.lower_green = np.array([57, 30, 40])
-        self.upper_green = np.array([73, 120, 105])
-
-        # self.lower_red1 = np.array([0, 105, 80])
-        # self.upper_red1 = np.array([1, 200, 180])
-        
-        self.lower_red1 = np.array([175, 105, 80])
-        self.upper_red1 = np.array([180, 200, 180])
-
-        self.lower_red2 = np.array([175, 105, 80])
-        self.upper_red2 = np.array([180, 200, 180])
-        
-        self.lower_black = np.array([15, 0, 0])
-        self.upper_black = np.array([170, 55, 70])
-
-        # Define the kernel for morphological operations
-        self.kernel = np.ones((5, 5), np.uint8)
-        
-    def capture_array(self):
-        """
-        Capture an image from the camera and convert it to RGB and HSV color spaces.
-
-        Returns:
-            np.ndarray: The captured image in RGB color space.
-            np.ndarray: The captured image in HSV color space.
-        """
-        frame = self.picam.capture_array()
-        frameraw = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        framehsv = cv2.cvtColor(frameraw, cv2.COLOR_BGR2HSV)        
-        return frameraw, framehsv
-    
-    def simplify_image(self, framehsv, black_color=[255, 255, 255], shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0]):
-        """
-        Simplify the image by coloring red and green areas with specified shades.
-
-        Args:
-            framehsv (np.ndarray): The image in HSV color space.
-            shade_of_red (list): The RGB values of the shade of red to color the red areas.
-            shade_of_green (list): The RGB values of the shade of green to color the green areas.
-
-        Returns:
-            np.ndarray: The simplified image with red and green areas colored with the specified shades.
-        """
-        
-        # Masks for green and red pixels
-        mask_green = cv2.inRange(framehsv, self.lower_green, self.upper_green)
-        mask_red1 = cv2.inRange(framehsv, self.lower_red1, self.upper_red1)
-        mask_red2 = cv2.inRange(framehsv, self.lower_red2, self.upper_red2)
-        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-
-        mask_black = cv2.inRange(framehsv, self.lower_black, self.upper_black)
-
-        # Initialize a blank white image
-        height, width = framehsv.shape[:2]
-        simplified_image = np.ones((height, width, 3), np.uint8) * 0  # White background
-
-        # Apply specified shades to red and green areas
-        simplified_image[mask_green > 0] = shade_of_green
-        simplified_image[mask_red > 0] = shade_of_red
-
-        # Apply black color to non-red and non-green areas
-        simplified_image[mask_black > 0] = black_color  # Black color for non-red and non-green areas
-
-        return simplified_image
+        self.red_counter = []
+        self.green_block = None
+        self.red_block = None
 
     def draw_blocks(self, frameraw, framehsv, counter_frames=30):
         """
@@ -132,9 +55,9 @@ class Camera():
         for contour in contours_green:
             x, y, w, h = cv2.boundingRect(contour)
             if w > 5 and h > 10:  # Only consider boxes larger than 50x50
-                cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
-                cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
+                # cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                # cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+                # cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
                 
                 green_boxes.append((x, y, x + w, y + h))
                 
@@ -159,9 +82,9 @@ class Camera():
         for contour in contours_red:
             x, y, w, h = cv2.boundingRect(contour)
             if w > 5 and h > 10:  # Only consider boxes larger than 50x50
-                cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
-                cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
-                cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
+                # cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
+                # cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
+                # cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
                 
                 red_boxes.append((x, y, x + w, y + h))
                 
@@ -180,27 +103,30 @@ class Camera():
                 
         if len(red_boxes) > 1:
             red_boxes = self.merge_boxes(red_boxes)
-            red_boxes = red_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
+            red_boxes = sorted(red_boxes, key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
+            print(f"Red Boxes: {red_boxes}")
             if red_boxes and len(red_boxes) > 0:
                 self.red_block = red_boxes[0]
             else:
-                self.red_block = None
+                self.red_block = [0, 0, 0, 0]
         elif len(red_boxes) == 1:
             self.red_block = red_boxes[0]
         else:
-            self.red_block = None
+            self.red_block = [0, 0, 0, 0]
         
         if len(green_boxes) > 1:
             green_boxes = self.merge_boxes(green_boxes)
-            green_boxes = green_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
+            # sort by area
+            green_boxes = sorted(green_boxes, key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
+            print(f"Green Boxes: {green_boxes}")
             if green_boxes and len(green_boxes) > 0:
                 self.green_block = green_boxes[0]
             else:
-                self.green_block = None
+                self.green_block = [0, 0, 0, 0]
         elif len(green_boxes) == 1:
             self.green_block = green_boxes[0]
         else:
-            self.green_block = None
+            self.green_block = [0, 0, 0, 0]
             
         return frameraw
     
@@ -223,11 +149,14 @@ class Camera():
                 merged_boxes.append(box)
             else:
                 for i, merged_box in enumerate(merged_boxes):
-                    if self.iou(box, merged_box) > 0.5:
+                    iou_value = self.iou(box, merged_box)
+                    print(f"Box: {box}, Merged Box: {merged_box}, IoU: {iou_value}")
+                    if iou_value > 0.1:
                         merged_boxes[i] = self.merge_box(box, merged_box)
                         break
                 else:
                     merged_boxes.append(box)
+        print(f"Merged Boxes: {merged_boxes}")
         return merged_boxes
     
     def merge_box(self, box1, box2):
@@ -267,31 +196,66 @@ class Camera():
         area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
         union = area1 + area2 - intersection
         return intersection / union if union > 0 else 0
-    
-    # Compress the video frames for the webstream    
-    def compress_frame(self, frame, new_height=120):
-        """
-        Compress the frame to a specified height while maintaining the aspect ratio.
 
-        Args:
-            frame (np.ndarray): The frame to compress.
-            new_height (int, optional): The height to compress the frame to. Defaults to 480.
+def generate_block_data(folder_path, block_detector):
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.npz'):
+            file_path = os.path.join(folder_path, filename)
+            data = np.load(file_path)
+            
+            lidar_data = data['lidar_data']
+            controller_data = data['controller_data']
+            frameraw = data['raw_frames']
+            simplified_frames = data['simplified_frames']
+            counters = data['counters']
+            
+            red_blocks = []
+            green_blocks = []
+            for i, frame in enumerate(frameraw):
+                framehsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                processed_frame = block_detector.draw_blocks(frame, framehsv)
+                red_blocks.append(block_detector.red_block)
+                green_blocks.append(block_detector.green_block)
+                
+                # Show every 10th image with final box result
+                if i % 10 == 0:
+                    # Draw final red block
+                    if block_detector.red_block != [0, 0, 0, 0]:
+                        x, y, x2, y2 = block_detector.red_block
+                        cv2.rectangle(frame, (x, y), (x2, y2), (0, 0, 255), 2)
+                        cv2.putText(frame, 'Final Red Block', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+                    
+                    # Draw final green block
+                    if block_detector.green_block != [0, 0, 0, 0]:
+                        x, y, x2, y2 = block_detector.green_block
+                        cv2.rectangle(frame, (x, y), (x2, y2), (0, 255, 0), 2)
+                        cv2.putText(frame, 'Final Green Block', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                    
+                    # cv2.imshow('Frame', frame)
+                    # cv2.waitKey(0)  # Wait for a key press to proceed
 
-        Raises:
-            ValueError: If the number of dimensions in the frame is not 2 or 3.
+            filename = filename.replace('.npz', '')
+            save_path = os.path.join(folder_path, f'{filename}_modified.npz')
+            
+            np.savez(save_path, lidar_data=lidar_data, controller_data=controller_data, raw_frames=frameraw, simplified_frames=simplified_frames, counters=counters, block_data=np.array([red_blocks, green_blocks]))
 
-        Returns:
-            np.ndarray: The compressed frame.
-        """
-        dimensions = len(frame.shape)
-        if dimensions == 3:
-            height, width, _ = frame.shape
-        elif dimensions == 2:
-            height, width = frame.shape
-        else:
-            raise ValueError(f"Unexpected number of dimensions in frame: {dimensions}")
-        new_width = int(new_height * width / height)
-        frame = cv2.resize(frame, (new_width, new_height))
-        frame = frame[20:, :]
-        
-        return frame
+# Define the color ranges for green and red in HSV color space
+lower_green = np.array([57, 30, 40])
+upper_green = np.array([73, 120, 105])
+
+lower_red1 = np.array([175, 105, 80])
+upper_red1 = np.array([180, 200, 180])
+
+lower_red2 = np.array([175, 105, 80])
+upper_red2 = np.array([180, 200, 180])
+
+lower_black = np.array([15, 0, 0])
+upper_black = np.array([170, 55, 70])
+
+# Define the kernel for morphological operations
+kernel = np.ones((5, 5), np.uint8)
+
+block_detector = BlockDetector(lower_green, upper_green, lower_red1, upper_red1, lower_red2, upper_red2, kernel)
+generate_block_data(r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\03.11.24_Dataset_blocks\blocks_pos2", block_detector)
+
+cv2.destroyAllWindows()

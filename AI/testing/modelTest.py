@@ -14,7 +14,7 @@ import signal
 import json  
 print("\rImported libraries")
 
-USE_VISUALS = False  
+USE_VISUALS = True  
 NO_PIC = False
 
 ############################################################################################################
@@ -424,17 +424,38 @@ class DataProcessing:
             image_array = self.simplified_image_data[i]
             controller_value = self.controller_data[i]
             counters = self.counter_data[i]
-    
+            red_block = self.block_data[0][i]
+            green_block = self.block_data[1][i]
+            
+            # Replace image_array with zeros if NO_PIC is True
             if NO_PIC:
                 image_array = np.zeros_like(image_array)
-    
+            
+            # Convert to NumPy array and reshape
+            angles = lidar_array[:, 0]
+            distances = lidar_array[:, 1]
+            
+            normalized_angles = angles / 360
+            normalized_distances = distances / 5000
+            
+            new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+            
+            new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
+            new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
+            
+            red_block = red_block / np.array([213, 100, 213, 100])
+            green_block = green_block / np.array([213, 100, 213, 100])
+            red_block = np.expand_dims(red_block, axis=0)
+            green_block = np.expand_dims(green_block, axis=0)
+            
+            # Ensure new_lidar_data matches the expected input shape
             if self.model_type == "tflite":
-                new_lidar_array = np.resize(new_lidar_array, expected_shape)
-    
+                input_details = self.model.get_input_details()
+                expected_shape = input_details[0]['shape']
+                new_lidar_data = np.resize(new_lidar_data, expected_shape)
+            
             if USE_VISUALS:
-                model_input_image = np.expand_dims(image_array, axis=0)
-                model_input_counters = np.expand_dims(counters, axis=0)
-                model_input = [new_lidar_array, model_input_image, model_input_counters]
+                model_input = [new_lidar_data, red_block, green_block]
             else:
                 model_input = [new_lidar_array]
     
@@ -488,6 +509,7 @@ class DataProcessing:
         self.simplified_image_data = np_arrays['simplified_frames']
         self.controller_data = np_arrays['controller_data']
         self.counter_data = np_arrays['counters']
+        self.block_data = np_arrays['block_data']
 
     def load_model_wrapper(self, model_path):
         self.load_model_thread = threading.Thread(target=self.load_model, args=(model_path,), daemon=True)
