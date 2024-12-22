@@ -88,7 +88,6 @@ class modelTrainUI(ctk.CTk):
         self.split_random_state_default = 42
         self.use_visual_data_default = False
         self.use_feature_selection_default = False
-        self.use_bounding_boxes_default = False
         self.num_features_default = 50
         
         self.epochs = tk.StringVar(value=self.epochs_default)
@@ -99,7 +98,6 @@ class modelTrainUI(ctk.CTk):
         self.split_random_state = tk.StringVar(value=self.split_random_state_default)
         self.use_visual_data = tk.BooleanVar(value=self.use_visual_data_default)
         self.use_feature_selection = tk.BooleanVar(value=self.use_feature_selection_default)
-        self.use_bounding_boxes = tk.BooleanVar(value=self.use_bounding_boxes_default)
         self.num_features = tk.StringVar(value=self.num_features_default)
         
         self.settings = {
@@ -111,7 +109,6 @@ class modelTrainUI(ctk.CTk):
             "split_random_state": (self.split_random_state, self.split_random_state_default, "int"),
             "use_visual_data": (self.use_visual_data, self.use_visual_data_default, "bool"),
             "use_feature_selection": (self.use_feature_selection, self.use_feature_selection_default, "bool"),
-            "use_bounding_boxes": (self.use_bounding_boxes, self.use_bounding_boxes_default, "bool"),
             "num_features": (self.num_features, self.num_features_default, "int")
         }
         
@@ -732,7 +729,6 @@ class modelTrainUI(ctk.CTk):
         data_shift = int(self.data_shift.get())
         use_visual_data = self.use_visual_data.get()
         use_feature_selection = self.use_feature_selection.get()
-        use_bounding_boxes = self.use_bounding_boxes.get()
         feature_selection_num_features = int(self.num_features.get())
         
         save_a_h5_model = self.save_as_h5.get()
@@ -747,8 +743,7 @@ class modelTrainUI(ctk.CTk):
                                                     epochs_graphed, data_shift, name, model_dir, 
                                                     save_a_h5_model, save_a_tflite_model, 
                                                     save_with_model_config, use_visual_data,
-                                                    use_feature_selection, use_bounding_boxes,
-                                                    feature_selection_num_features)
+                                                    use_feature_selection, feature_selection_num_features)
         
         if not self.keep_config_var.get():
             self.queue.append(self.data_processor)
@@ -1141,7 +1136,6 @@ class DataProcessor:
         self.epochs = None
         self.batch_size = None
         self.patience = None
-        self.use_bounding_boxes = True
         self.data_shift = int(self.modelTrainUI.data_shift.get())
         self.split_random_state = int(self.modelTrainUI.split_random_state.get())
         
@@ -1160,7 +1154,7 @@ class DataProcessor:
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data, use_feature_selection, use_bounding_boxes, feature_selection_num_features):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data, use_feature_selection, feature_selection_num_features):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
@@ -1182,7 +1176,6 @@ class DataProcessor:
         self.save_with_model_config = save_with_model_config
         self.use_visual_data = use_visual_data
         self.use_feature_selection = use_feature_selection
-        self.use_bounding_boxes = use_bounding_boxes
         self.num_features = feature_selection_num_features
 
     def start_training(self):
@@ -1261,8 +1254,8 @@ class DataProcessor:
                 #                                 frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
                 #                                 counter_input_shape=(self.counter_train.shape[1], ))
                 self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                                 red_blocks_input_shape=(self.block_train[0].shape[1]),
-                                                 green_blocks_input_shape=(self.block_train[1].shape[1]))
+                                                 red_blocks_input_shape=(self.block_train[0].shape[1], 1),
+                                                 green_blocks_input_shape=(self.block_train[1].shape[1], 1))
             else:
                 self.model = self.model_function(lidar_input_shape=lidar_input_shape)
         except TypeError as e:
@@ -1288,14 +1281,6 @@ class DataProcessor:
                 [self.lidar_train, self.block_train[0], self.block_train[1]],
                 self.controller_train,
                 validation_data=([self.lidar_val, self.block_val[0], self.block_val[1]], self.controller_val),
-                epochs=epochs,
-                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
-                batch_size=batch_size
-            )
-        elif self.use_bounding_boxes:
-            history = self.model.fit(
-                [self.lidar_train_selected, self.green_bounding_boxes_train, self.red_bounding_boxes_train], self.controller_train,
-                validation_data=([self.lidar_val_selected, self.green_bounding_boxes_val, self.red_bounding_boxes_val], self.controller_val),
                 epochs=epochs,
                 callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size

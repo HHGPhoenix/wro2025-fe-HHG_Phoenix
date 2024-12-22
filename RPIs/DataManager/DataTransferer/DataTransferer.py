@@ -52,16 +52,20 @@ class DataTransferer:
                 # framehsv = cv2.GaussianBlur(framehsv, (3, 3), 0)
                 # frameraw = cv2.GaussianBlur(frameraw, (3, 3), 0)
                 # print(f"frameraw: {frameraw.shape}")
-                simplified_image = self.camera.simplify_image(framehsv.copy(), shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
+                # simplified_image = self.camera.simplify_image(framehsv.copy(), shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0])
                 object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
                 print(f"red_block {self.camera.red_block}, green_block {self.camera.green_block}")
                 
                 # Update shared list with the new frames
+                # self.frame_list[0] = frameraw.tobytes()
+                # self.frame_list[1] = simplified_image.tobytes()
+                # self.frame_list[2] = object_image.tobytes()
+                # self.frame_list[3] = self.camera.green_counter[-1]
+                # self.frame_list[4] = self.camera.red_counter[-1]
                 self.frame_list[0] = frameraw.tobytes()
-                self.frame_list[1] = simplified_image.tobytes()
-                self.frame_list[2] = object_image.tobytes()
-                self.frame_list[3] = self.camera.green_counter[-1]
-                self.frame_list[4] = self.camera.red_counter[-1]
+                self.frame_list[1] = object_image.tobytes()
+                self.frame_list[2] = self.camera.red_block
+                self.frame_list[3] = self.camera.green_block
                 
                 stop_time = time.time()
                 elapsed_time = stop_time - start_time

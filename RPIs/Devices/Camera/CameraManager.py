@@ -96,37 +96,38 @@ class Camera():
     def draw_blocks(self, frameraw, framehsv, counter_frames=30):
         """
         Draw rectangles around green and red blocks in the camera stream.
-
+    
         Args:
             frameraw (np.ndarray): The image in RGB color space.
             framehsv (np.ndarray): The image in HSV color space.
-
+    
         Returns:
-            np.ndarray: The image with rectangles drawn around green and red blocks.
+            tuple: The image with rectangles drawn around green and red blocks, 
+                   list of green bounding boxes, list of red bounding boxes.
         """
         # Create a mask of pixels within the green color range
         mask_green = cv2.inRange(framehsv, self.lower_green, self.upper_green)
-
+    
         # Create a mask of pixels within the red color range
         mask_red1 = cv2.inRange(framehsv, self.lower_red1, self.upper_red1)
         mask_red2 = cv2.inRange(framehsv, self.lower_red2, self.upper_red2)
         mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-
+    
         # Dilate the masks to merge nearby areas
         mask_green = cv2.dilate(mask_green, self.kernel, iterations=1)
         mask_red = cv2.dilate(mask_red, self.kernel, iterations=1)
-
+    
         # Find contours in the green mask
         contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+    
         # Find contours in the red mask
         contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         cv2.circle(frameraw, (640, 720), 10, (255, 0, 0), -1)
-
+    
         green_counter_set = False
         red_counter_set = False
-
+    
         # Process each green contour
         green_boxes = []
         for contour in contours_green:
@@ -153,7 +154,7 @@ class Camera():
                 
         if len(self.green_counter) > 10:
             self.green_counter.pop(0)
-
+    
         # Process each red contour
         red_boxes = []
         for contour in contours_red:
