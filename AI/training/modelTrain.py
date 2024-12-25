@@ -1190,7 +1190,7 @@ class DataProcessor:
                 return
         
         
-        if self.lidar_train is None or self.image_train is None or self.controller_train is None or self.counter_train is None:
+        if self.lidar_train is None or self.controller_train is None:
             messagebox.showerror("Error", "Probably No training data loaded?")
             if DEBUG:
                 print("At least one of the training data is None")
@@ -1207,12 +1207,8 @@ class DataProcessor:
         if DEBUG:
             print(f"Train LIDAR data shape: {self.lidar_train.shape}")
             print(f"Train Controller data shape: {self.controller_train.shape}")
-            print(f"Train Frame data shape: {self.image_train.shape}")
-            print(f"Train Counter data shape: {self.counter_train.shape}")
             print(f"Validation LIDAR data shape: {self.lidar_val.shape}")
             print(f"Validation Controller data shape: {self.controller_val.shape}")
-            print(f"Validation Frame data shape: {self.image_val.shape}")
-            print(f"Validation Counter data shape: {self.counter_val.shape}")
             
         self.generate_checkpoint_filename()
         self.check_dir_preparedness()
@@ -1262,7 +1258,7 @@ class DataProcessor:
             messagebox.showerror("Model Function Error", f"Error while initializing model functions: {e}")
             return
 
-        self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         
@@ -1395,20 +1391,22 @@ class DataProcessor:
                     if file.startswith("run_data_"):
                         file_path = os.path.join(root, file)
                         np_arrays = np.load(file_path, allow_pickle=True)
-                        if 'lidar_data' in np_arrays and 'simplified_frames' in np_arrays \
-                           and 'controller_data' in np_arrays and 'counters' in np_arrays and 'block_data' in np_arrays:
+                        print(np_arrays)
+                        if 'lidar_data' in np_arrays and 'controller_data' in np_arrays and 'bounding_boxes_red' in np_arrays and 'bounding_boxes_green' in np_arrays and 'raw_frames' in np_arrays:
                             if file_count == 0:
                                 lidar_data = np_arrays['lidar_data'].astype(np.float32)
-                                simplified_image_data = np_arrays['simplified_frames'].astype(np.float32)
                                 controller_data = np_arrays['controller_data']
-                                counter_data = np_arrays['counters']
-                                block_data = np_arrays['block_data']
+                                red_blocks = np_arrays['bounding_boxes_red']
+                                green_blocks = np_arrays['bounding_boxes_green']
+                                raw_frames = np_arrays['raw_frames']
+
                             else:
                                 lidar_data = np.concatenate((lidar_data, np_arrays['lidar_data'].astype(np.float32)), axis=0)
-                                simplified_image_data = np.concatenate((simplified_image_data, np_arrays['simplified_frames'].astype(np.float32)), axis=0)
                                 controller_data = np.concatenate((controller_data, np_arrays['controller_data']), axis=0)
-                                counter_data = np.concatenate((counter_data, np_arrays['counters']), axis=0)
-                                block_data = np.concatenate((block_data, np_arrays['block_data']), axis=1)
+                                red_blocks = np.concatenate((red_blocks, np_arrays['bounding_boxes_red']), axis=0)
+                                green_blocks = np.concatenate((green_blocks, np_arrays['bounding_boxes_green']), axis=0)
+                                raw_frames = np.concatenate((raw_frames, np_arrays['raw_frames']), axis=0)
+
                             file_count += 1
                         np_arrays = None
         except KeyError as e:
@@ -1430,28 +1428,21 @@ class DataProcessor:
     
         # Normalize and process data
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
-        simplified_image_data /= 255.0
-        
-        red_blocks = block_data[0]
-        green_blocks = block_data[1]
+
         # normalize block data with image width and height
-        red_blocks = red_blocks / np.array([simplified_image_data.shape[2], simplified_image_data.shape[1], simplified_image_data.shape[2], simplified_image_data.shape[1]], dtype=np.float32)
-        green_blocks = green_blocks / np.array([simplified_image_data.shape[2], simplified_image_data.shape[1], simplified_image_data.shape[2], simplified_image_data.shape[1]], dtype=np.float32)
+        red_blocks = red_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
+        green_blocks = green_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
         blocks = np.array([red_blocks, green_blocks])
     
         data_shift = int(self.data_shift)
         if data_shift != 0:
             controller_data = controller_data[data_shift:]
             lidar_data = lidar_data[:-data_shift]
-            simplified_image_data = simplified_image_data[:-data_shift]
-            counter_data = counter_data[:-data_shift]
             blocks = blocks[:, :-data_shift]
     
         # Train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=self.split_random_state)
-        self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=self.split_random_state)
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=self.split_random_state)
-        self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=self.split_random_state)
         red_blocks_train, red_blocks_val = train_test_split(blocks[0], test_size=0.2, random_state=self.split_random_state)
         green_blocks_train, green_blocks_val = train_test_split(blocks[1], test_size=0.2, random_state=self.split_random_state)
         self.block_train = np.array([red_blocks_train, green_blocks_train])
@@ -1630,7 +1621,7 @@ class TrainingDataCallback(Callback):
         self.full_val_loss_values.append(val_loss)
         self.full_mae_values.append(mae)
         self.full_val_mae_values.append(val_mae)
-
+    
     def on_train_end(self, logs=None):
         self.color_reset_timers = {}
         # self.frame_colors = {}
@@ -1644,8 +1635,7 @@ class TrainingDataCallback(Callback):
                                                          plots_path, 
                                                          self.model_train_ui.lowest_val_mae_epoch_label.cget("text"), 
                                                          self.data_processor.batch_size,
-                                                            self.data_processor.data_shift)
-
+                                                         self.data_processor.data_shift)
 class VisualizeData:
     def create_loss_plot(self, tk_frame):
         self.loss_plot_fig = plt.figure(facecolor='#222222', edgecolor='#222222')

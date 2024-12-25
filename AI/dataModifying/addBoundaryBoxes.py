@@ -93,6 +93,6 @@ for file_path in glob.glob(os.path.join(input_folder_path, '*.npz')):
     all_bounding_boxes_green = np.array(all_bounding_boxes_green, dtype=object)
 
     output_file_path = os.path.join(output_folder_path, os.path.basename(file_path))
-    np.savez(output_file_path, simplified_frames=simplified_images, lidar_data=lidar_data, 
+    np.savez(output_file_path, raw_frames=simplified_images, lidar_data=lidar_data, 
              controller_data=controller_data, counters=counters, bounding_boxes_red=all_bounding_boxes_red, 
              bounding_boxes_green=all_bounding_boxes_green)

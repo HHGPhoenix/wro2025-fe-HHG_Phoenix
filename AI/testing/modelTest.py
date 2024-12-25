@@ -187,26 +187,26 @@ class ModelTestUI(ctk.CTk):
 
         ############################################################################################
 
-        self.counter_frame = ctk.CTkFrame(self.configuration_frame)
-        self.counter_frame.pack(padx=15, pady=(15, 5), anchor='n', expand=False, fill='x')
+        # self.counter_frame = ctk.CTkFrame(self.configuration_frame)
+        # self.counter_frame.pack(padx=15, pady=(15, 5), anchor='n', expand=False, fill='x')
 
-        self.counter_frame.grid_rowconfigure(0, weight=1)
-        self.counter_frame.grid_columnconfigure(0, weight=1)
-        self.counter_frame.grid_columnconfigure(1, weight=1)
+        # self.counter_frame.grid_rowconfigure(0, weight=1)
+        # self.counter_frame.grid_columnconfigure(0, weight=1)
+        # self.counter_frame.grid_columnconfigure(1, weight=1)
 
-        self.counter_1_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="green")
-        self.counter_1_frame.grid(row=0, column=0, padx=15, pady=10, sticky='ew')
+        # self.counter_1_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="green")
+        # self.counter_1_frame.grid(row=0, column=0, padx=15, pady=10, sticky='ew')
 
-        # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
-        self.counter_1 = ctk.CTkLabel(self.counter_1_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
-        self.counter_1.pack(padx=20, pady=20, expand=True, fill='both')
+        # # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
+        # self.counter_1 = ctk.CTkLabel(self.counter_1_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
+        # self.counter_1.pack(padx=20, pady=20, expand=True, fill='both')
 
-        self.counter_2_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="red")
-        self.counter_2_frame.grid(row=0, column=1, padx=15, pady=10, sticky='ew')
+        # self.counter_2_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="red")
+        # self.counter_2_frame.grid(row=0, column=1, padx=15, pady=10, sticky='ew')
 
-        # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
-        self.counter_2 = ctk.CTkLabel(self.counter_2_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
-        self.counter_2.pack(padx=20, pady=20, expand=True, fill='both')
+        # # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
+        # self.counter_2 = ctk.CTkLabel(self.counter_2_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
+        # self.counter_2.pack(padx=20, pady=20, expand=True, fill='both')
 
         ############################################################################################
         self.credit_frame = ctk.CTkFrame(self.configuration_frame)
@@ -288,8 +288,8 @@ class ModelTestUI(ctk.CTk):
             messagebox.showerror("Error", "No model selected")
             return
         
-        if (self.data_processor.lidar_data is None or self.data_processor.simplified_image_data is None or 
-            self.data_processor.controller_data is None or self.data_processor.counter_data is None):
+        if (self.data_processor.lidar_data is None or 
+            self.data_processor.controller_data is None):
             messagebox.showerror("Error", "No comparison file selected")
             return
         
@@ -362,9 +362,7 @@ class DataProcessing:
     def __init__(self, modelTestUI):
         self.model = None
         self.lidar_data = None
-        self.simplified_image_data = None
         self.controller_data = None
-        self.counter_data = None
         self.model_type = ""
         self.controller_values = []
         self.model_values = []
@@ -421,30 +419,23 @@ class DataProcessing:
             new_lidar_array = new_lidar_array.reshape(-1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
     
-            image_array = self.simplified_image_data[i]
+            image_array = self.raw_image_data[i]
             controller_value = self.controller_data[i]
-            counters = self.counter_data[i]
-            red_block = self.block_data[0][i]
-            green_block = self.block_data[1][i]
+            red_block = self.red_block[i]
+            green_block = self.green_block[i]
             
             # Replace image_array with zeros if NO_PIC is True
             if NO_PIC:
                 image_array = np.zeros_like(image_array)
             
             # Convert to NumPy array and reshape
-            angles = lidar_array[:, 0]
-            distances = lidar_array[:, 1]
-            
-            normalized_angles = angles / 360
-            normalized_distances = distances / 5000
-            
-            new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+            new_lidar_data = lidar_array[:, :2] / np.array([360, 5000], dtype=np.float32)
             
             new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
             new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
             
-            red_block = red_block / np.array([213, 100, 213, 100])
-            green_block = green_block / np.array([213, 100, 213, 100])
+            red_block = red_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
+            green_block = green_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
             red_block = np.expand_dims(red_block, axis=0)
             green_block = np.expand_dims(green_block, axis=0)
             red_block = np.expand_dims(red_block, axis=-1)
@@ -491,10 +482,6 @@ class DataProcessing:
                 self.controller_values.pop(0)
                 self.model_values.pop(0)
     
-            if USE_VISUALS:
-                self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
-                self.modelTestUI.counter_2.configure(text=str(round(float(counters[1]), 2)))
-    
             elapsed_time = time.time() - start_time
             sleep_time = max(0, interval - elapsed_time)
             time.sleep(sleep_time)
@@ -508,10 +495,10 @@ class DataProcessing:
 
         np_arrays = np.load(comparison_file_path, allow_pickle=True)
         self.lidar_data = np_arrays['lidar_data']
-        self.simplified_image_data = np_arrays['simplified_frames']
+        self.raw_image_data = np_arrays['raw_frames']
         self.controller_data = np_arrays['controller_data']
-        self.counter_data = np_arrays['counters']
-        self.block_data = np_arrays['block_data']
+        self.red_block = np_arrays['bounding_boxes_red']
+        self.green_block = np_arrays['bounding_boxes_green']
 
     def load_model_wrapper(self, model_path):
         self.load_model_thread = threading.Thread(target=self.load_model, args=(model_path,), daemon=True)
