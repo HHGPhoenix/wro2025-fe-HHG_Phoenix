@@ -56,11 +56,11 @@ def main_loop_training(self):
 
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
-                counters_str = f"COUNTERS#{self.frame_list[3]}#{self.frame_list[4]}"
+                # counters_str = f"COUNTERS#{self.frame_list[3]}#{self.frame_list[4]}"
                 
                 self.client.send_message(lidar_data_str)
                 self.client.send_message(analog_sticks_str)
-                self.client.send_message(counters_str)
+                # self.client.send_message(counters_str)
 
                 if recording_status:
                     saved_after_recording = False
@@ -76,8 +76,8 @@ def main_loop_training(self):
                     
                     # counters.append([self.frame_list[3], self.frame_list[4]])
                     
-                    all_bounding_boxes_red.append(self.frame_list[3])
-                    all_bounding_boxes_green.append(self.frame_list[4])
+                    all_bounding_boxes_red.append(self.frame_list[3] if self.frame_list[3] is not None else (0, 0, 0, 0))
+                    all_bounding_boxes_green.append(self.frame_list[4] if self.frame_list[4] is not None else (0, 0, 0, 0))
                 
                 elif not saved_after_recording:
                     np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), bounding_boxes_red=np.array(all_bounding_boxes_red), # , counters = np.array(counters)

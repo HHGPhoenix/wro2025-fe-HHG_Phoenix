@@ -94,11 +94,8 @@ class AIController:
         
         motor_controller = MotorController()
         
-        camera_frames_process = mp.Process(target=self.get_cam_frames, args=(self.frame_list,), daemon=True)
-        camera_frames_process.start()
-        
-        counters_process = mp.Process(target=self.get_counters, args=(self.frame_list,), daemon=True)
-        counters_process.start()
+        # camera_frames_process = mp.Process(target=self.get_cam_frames, args=(self.frame_list,), daemon=True)
+        # camera_frames_process.start()
         
         transmit_information_thread = threading.Thread(target=self.transmit_information, daemon=True)
         transmit_information_thread.start()

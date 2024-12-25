@@ -7,6 +7,5 @@
     "ANALOG_STICKS": "set_analog_stick_values",
     "LIDAR_DATA": "set_lidar_data",
     "SIMPLIFIED_IMAGE": "set_simplified_image",
-    "STOP": "raise_keyboard_interrupt",
-    "COUNTERS": "set_counters"
+    "STOP": "raise_keyboard_interrupt"
 }
