@@ -82,10 +82,9 @@ class RemoteFunctions:
     def set_lidar_data(self, interpolated_lidar_data):
         self.AIController.interpolated_lidar_data = interpolated_lidar_data
         
-    def set_simplified_image(self, simplified_image):
-        self.AIController.simplified_image = simplified_image
-        
-    # def set_counters(self, green_counter, red_counter):
-    #     self.AIController.counters = np.array([green_counter / 30, red_counter / 30])
+    def set_blocks(self, red_block, green_block):
+        # print(f"red_block {red_block}, green_block {green_block}")
+        self.AIController.block_list[0] = red_block
+        self.AIController.block_list[1] = green_block
         
 ###########################################################################

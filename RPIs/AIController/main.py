@@ -47,13 +47,12 @@ class AIController:
         self.servo = None
         self.stop_with_interrupt = False
         self.interpolated_lidar_data = None
-        self.simplified_image = None
         self.servo_pin = 4
         
         self.running = False
         
         self.mp_manager = mp.Manager()
-        self.frame_list = self.mp_manager.list([None, None, None, None, None])
+        self.block_list = self.mp_manager.list([None, None])
         
         self.x = 0.5
         self.y = 0.5
@@ -93,10 +92,7 @@ class AIController:
         servo.setAngle(120)
         
         motor_controller = MotorController()
-        
-        # camera_frames_process = mp.Process(target=self.get_cam_frames, args=(self.frame_list,), daemon=True)
-        # camera_frames_process.start()
-        
+
         transmit_information_thread = threading.Thread(target=self.transmit_information, daemon=True)
         transmit_information_thread.start()
         
@@ -156,47 +152,6 @@ class AIController:
             self.servo.stop()
        
 ###########################################################################     
-    
-    def get_cam_frames(self, frame_array, video_stream_base="http://192.168.1.3:5000/cam/", video_stream_endpoints=["raw_video_stream", "simplified_video_stream", "object_video_stream"], retry_delay=1):
-        # Ensure frame_array is initialized correctly
-        if len(frame_array) < len(video_stream_endpoints):
-            raise ValueError("frame_array must be initialized with the same length as video_stream_endpoints")
-        
-        # while not self.running:
-        #     time.sleep(0.1)
-        
-        captures = []
-        for endpoint in video_stream_endpoints:
-            capture = cv2.VideoCapture(video_stream_base + endpoint)
-            while not capture.isOpened():
-                print(f"Failed to open capture for endpoint {video_stream_base + endpoint}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-                capture = cv2.VideoCapture(video_stream_base + endpoint)
-            captures.append(capture)
-        
-        while True:
-            for i, capture in enumerate(captures):
-                ret, frame = capture.read()
-                if ret:
-                    frame_array[i] = frame.tobytes()
-                else:
-                    print(f"Failed to read frame from capture {i}")
-                    time.sleep(retry_delay)
-                    break
-            # Add a break condition or sleep to avoid infinite loop
-            # time.sleep(0.05)
-            
-    def get_counters(self, frame_array, endpoint="http://192.168.1.3:5000/cam/counters"):
-        while True:
-            response = requests.get(endpoint)
-            counters = response.json()
-            if counters:
-                frame_array[3] = counters["green_counter"]
-                frame_array[4] = counters["red_counter"]
-            else:
-                print("Failed to get counters from endpoint")
-    
-###########################################################################
 
 if __name__ == "__main__":
     ai_controller = None 

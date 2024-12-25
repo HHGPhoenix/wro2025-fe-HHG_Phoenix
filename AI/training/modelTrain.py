@@ -1238,18 +1238,15 @@ class DataProcessor:
                 with open(f"{self.model_base_filename}_features.txt", "w") as f:
                     for idx in feature_indices:
                         f.write(f"{idx}\n")
-                lidar_input_shape = (self.lidar_train_selected.shape[1],)
+                lidar_input_shape = self.lidar_train_selected.shape[1]
             else:
-                lidar_input_shape = (lidar_train_flat.shape[1],)
+                lidar_input_shape = lidar_train_flat.shape[1]
                 self.lidar_train_selected = lidar_train_flat
                 self.lidar_val_selected = lidar_val_flat
             
             # Initialize the model
             if self.use_visual_data:
-                # self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                #                                 frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
-                #                                 counter_input_shape=(self.counter_train.shape[1], ))
-                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
+                self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1),
                                                  red_blocks_input_shape=(self.block_train[0].shape[1], 1),
                                                  green_blocks_input_shape=(self.block_train[1].shape[1], 1))
             else:
@@ -1274,9 +1271,9 @@ class DataProcessor:
         
         if self.use_visual_data:
             history = self.model.fit(
-                [self.lidar_train, self.block_train[0], self.block_train[1]],
+                [self.lidar_train_selected, self.block_train[0], self.block_train[1]],
                 self.controller_train,
-                validation_data=([self.lidar_val, self.block_val[0], self.block_val[1]], self.controller_val),
+                validation_data=([self.lidar_val_selected, self.block_val[0], self.block_val[1]], self.controller_val),
                 epochs=epochs,
                 callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size

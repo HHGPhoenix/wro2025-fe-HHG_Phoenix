@@ -24,6 +24,7 @@ from RPIs.DataManager.Mainloops.ObstacleRace import main_loop_obstacle_race
 import multiprocessing as mp
 import os
 import platform
+import traceback
 
 ###########################################################################
 
@@ -162,6 +163,10 @@ class DataManager:
             else:
                 self.logger.error(f'Unknown mode: {self.mode}')
                 self.running = False
+                
+        except Exception as e:
+            self.logger.error(f"Exception occurred: {e}")
+            traceback.print_exc()
         
         finally:
             self.client.send_message('STOP')
@@ -177,6 +182,9 @@ if __name__ == "__main__":
         data_manager = DataManager()
         # time.sleep(10)
         data_manager.start()
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+        traceback.print_exc()
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt")
     finally:
