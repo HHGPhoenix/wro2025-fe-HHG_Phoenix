@@ -1126,12 +1126,14 @@ class DataProcessor:
         self.image_train = None
         self.controller_train = None
         self.counter_train = None
-        self.block_train = None
+        self.green_blocks_train = None
+        self.red_blocks_train = None
         self.lidar_val = None
         self.image_val = None
         self.controller_val = None
         self.counter_val = None
-        self.block_val = None
+        self.green_blocks_val = None
+        self.red_blocks_val = None
         self.model_name = ""
         self.epochs = None
         self.batch_size = None
@@ -1247,8 +1249,8 @@ class DataProcessor:
             # Initialize the model
             if self.use_visual_data:
                 self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1),
-                                                 red_blocks_input_shape=(self.block_train[0].shape[1], 1),
-                                                 green_blocks_input_shape=(self.block_train[1].shape[1], 1))
+                                                 red_blocks_input_shape=(self.red_blocks_train.shape[1], 1),
+                                                 green_blocks_input_shape=(self.green_blocks_train.shape[1], 1))
             else:
                 self.model = self.model_function(lidar_input_shape=lidar_input_shape)
         except TypeError as e:
@@ -1271,9 +1273,9 @@ class DataProcessor:
         
         if self.use_visual_data:
             history = self.model.fit(
-                [self.lidar_train_selected, self.block_train[0], self.block_train[1]],
+                [self.lidar_train_selected, self.red_blocks_train, self.green_blocks_train],
                 self.controller_train,
-                validation_data=([self.lidar_val_selected, self.block_val[0], self.block_val[1]], self.controller_val),
+                validation_data=([self.lidar_val_selected, self.red_blocks_val, self.green_blocks_val], self.controller_val),
                 epochs=epochs,
                 callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size
@@ -1429,21 +1431,19 @@ class DataProcessor:
         # normalize block data with image width and height
         red_blocks = red_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
         green_blocks = green_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
-        blocks = np.array([red_blocks, green_blocks])
     
         data_shift = int(self.data_shift)
         if data_shift != 0:
             controller_data = controller_data[data_shift:]
             lidar_data = lidar_data[:-data_shift]
-            blocks = blocks[:, :-data_shift]
+            red_blocks = red_blocks[:-data_shift]
+            green_blocks = green_blocks[:-data_shift]
     
         # Train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=self.split_random_state)
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=self.split_random_state)
-        red_blocks_train, red_blocks_val = train_test_split(blocks[0], test_size=0.2, random_state=self.split_random_state)
-        green_blocks_train, green_blocks_val = train_test_split(blocks[1], test_size=0.2, random_state=self.split_random_state)
-        self.block_train = np.array([red_blocks_train, green_blocks_train])
-        self.block_val = np.array([red_blocks_val, green_blocks_val])
+        self.red_blocks_train, self.red_blocks_val = train_test_split(red_blocks, test_size=0.2, random_state=self.split_random_state)
+        self.green_blocks_train, self.green_blocks_val = train_test_split(green_blocks, test_size=0.2, random_state=self.split_random_state)
     
         self.data_loading_completed()
         print("Data loaded successfully")

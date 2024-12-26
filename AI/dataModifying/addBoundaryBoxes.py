@@ -3,8 +3,8 @@ import numpy as np
 import os
 import glob
 
-input_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\03.11.24_Dataset_blocks\blocks_pos2"
-output_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\03.11.24_Dataset_blocks\blocks_pos2_with_boxes"
+input_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\15.09.25_Dataset_no_blocks"
+output_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\15.09.25_Dataset_no_blocks_with_boxes"
 
 MIN_AREA = 100  # Minimum area threshold for bounding boxes
 MERGE_DISTANCE = 30  # Distance threshold to merge nearby bounding boxes
@@ -86,11 +86,14 @@ for file_path in glob.glob(os.path.join(input_folder_path, '*.npz')):
 
     for image in simplified_images:
         bounding_boxes_red, bounding_boxes_green = add_boundary_boxes(image)
-        all_bounding_boxes_red.append(bounding_boxes_red)
-        all_bounding_boxes_green.append(bounding_boxes_green)
+        # all_bounding_boxes_red.append(bounding_boxes_red)
+        # all_bounding_boxes_green.append(bounding_boxes_green)
+        all_bounding_boxes_red.append((0, 0, 0, 0))
+        all_bounding_boxes_green.append((0, 0, 0, 0))
+        
 
-    all_bounding_boxes_red = np.array(all_bounding_boxes_red, dtype=object)
-    all_bounding_boxes_green = np.array(all_bounding_boxes_green, dtype=object)
+    all_bounding_boxes_red = np.array(all_bounding_boxes_red)
+    all_bounding_boxes_green = np.array(all_bounding_boxes_green)
 
     output_file_path = os.path.join(output_folder_path, os.path.basename(file_path))
     np.savez(output_file_path, raw_frames=simplified_images, lidar_data=lidar_data, 

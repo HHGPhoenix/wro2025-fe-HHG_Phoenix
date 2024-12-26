@@ -396,7 +396,7 @@ class DataProcessing:
         if self.model_type == "tflite":
             input_details = self.model.get_input_details()
             output_details = self.model.get_output_details()
-            expected_shape = input_details[0]['shape']
+            
             input_indices = [detail['index'] for detail in input_details]
             output_index = output_details[0]['index']
     
@@ -410,13 +410,9 @@ class DataProcessing:
                 break
     
             lidar_array = self.lidar_data[i]
-            angles = lidar_array[:, 0]
-            distances = lidar_array[:, 1]
-            normalized_angles = angles / 360
-            normalized_distances = distances / 5000
-            new_lidar_array = np.stack((normalized_angles, normalized_distances), axis=-1)
+            new_lidar_array = lidar_array[:, :2] / np.array([360, 5000], dtype=np.float32)
             new_lidar_array = new_lidar_array[:, 1:]
-            new_lidar_array = new_lidar_array.reshape(-1)
+            new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
     
             image_array = self.raw_image_data[i]
@@ -428,27 +424,25 @@ class DataProcessing:
             if NO_PIC:
                 image_array = np.zeros_like(image_array)
             
-            # Convert to NumPy array and reshape
-            new_lidar_data = lidar_array[:, :2] / np.array([360, 5000], dtype=np.float32)
-            
-            new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
-            new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
+            # new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
+            new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
             
             red_block = red_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
             green_block = green_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
             red_block = np.expand_dims(red_block, axis=0)
-            green_block = np.expand_dims(green_block, axis=0)
             red_block = np.expand_dims(red_block, axis=-1)
+            
+            green_block = np.expand_dims(green_block, axis=0)
             green_block = np.expand_dims(green_block, axis=-1)
             
-            # Ensure new_lidar_data matches the expected input shape
-            if self.model_type == "tflite":
-                input_details = self.model.get_input_details()
-                expected_shape = input_details[0]['shape']
-                new_lidar_data = np.resize(new_lidar_data, expected_shape)
+            # Ensure new_lidar_array matches the expected input shape
+            # if self.model_type == "tflite":
+            #     input_details = self.model.get_input_details()
+            #     expected_shape = input_details[0]['shape']
+            #     new_lidar_array = np.resize(new_lidar_array, expected_shape)
             
             if USE_VISUALS:
-                model_input = [new_lidar_data, red_block, green_block]
+                model_input = [new_lidar_array, red_block, green_block]
             else:
                 model_input = [new_lidar_array]
     

@@ -28,14 +28,13 @@ def main_loop_obstacle_race(self):
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
                 
-            lidar_data = np.array([[angle / 360, distance / 5000] for angle, distance, _ in self.interpolated_lidar_data])
-            new_lidar_array = lidar_data.reshape(-1)
+            lidar_array = self.interpolated_lidar_data[:, :2] / np.array([360, 5000], dtype=np.float32)
+            new_lidar_array = lidar_array[:, 1:]
+            new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
             
-
-            
             new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
-            new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
+            # new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
             
             red_block = np.array(self.block_list[0])
             green_block = np.array(self.block_list[1])
@@ -61,35 +60,31 @@ def main_loop_obstacle_race(self):
             self.running = False
 
 def run_model(shared_IO_list):
-    interpreter = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
-    interpreter.allocate_tensors()
+    model = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
+    model.allocate_tensors()
 
-    input_details = interpreter.get_input_details()
+    input_details = model.get_input_details()
     print(f"Input details: {input_details}")
-    output_details = interpreter.get_output_details()
+    output_details = model.get_output_details()
 
     while True:
         if shared_IO_list[0] is not None:
             lidar_data, red_block, green_block = shared_IO_list[0]
-            lidar_data = np.array(lidar_data)
-            red_block = np.array(red_block)
-            green_block = np.array(green_block)
+            lidar_data = np.array(lidar_data, dtype=np.float32)
+            red_block = np.array(red_block, dtype=np.float32)
+            green_block = np.array(green_block, dtype=np.float32)
             shared_IO_list[0] = None
-            
-            lidar_data = lidar_data.astype(np.float32)
-            red_block = red_block.astype(np.float32)
-            green_block = green_block.astype(np.float32)
-            
+
             # Set the tensors
-            interpreter.set_tensor(input_details[0]['index'], lidar_data)
-            interpreter.set_tensor(input_details[1]['index'], red_block)
-            interpreter.set_tensor(input_details[2]['index'], green_block)
+            model.set_tensor(input_details[0]['index'], lidar_data)
+            model.set_tensor(input_details[1]['index'], red_block)
+            model.set_tensor(input_details[2]['index'], green_block)
             
             start_time = time.time()
-            interpreter.invoke()
+            model.invoke()
             end_time = time.time()
             print(f"Time taken to run the model: {end_time - start_time} seconds")
             
-            output_data = interpreter.get_tensor(output_details[0]['index'])
+            output_data = model.get_tensor(output_details[0]['index'])
             print(f"Result: {output_data}")
             shared_IO_list[1] = output_data
