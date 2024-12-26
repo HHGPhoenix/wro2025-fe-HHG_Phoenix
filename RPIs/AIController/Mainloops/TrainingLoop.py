@@ -11,7 +11,7 @@ def main_loop_training(self):
         if self.ry < 0.55 and self.ry > 0.45:
             motor_speed = 0.5
         else:
-            motor_speed = self.ry
+            motor_speed = 0.35
         
         self.motor_controller.send_speed(motor_speed)
         stop_time = time.time()
