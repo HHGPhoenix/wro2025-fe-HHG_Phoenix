@@ -14,3 +14,4 @@ model_preset_configuration.json
 .config/settingsModelTest.json
 .config/settingsModelTrain.json
 .config/cnnModelTest.json
+model_config.py

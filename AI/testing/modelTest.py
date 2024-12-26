@@ -494,6 +494,9 @@ class DataProcessing:
             return
 
         np_arrays = np.load(comparison_file_path, allow_pickle=True)
+        if 'lidar_data' not in np_arrays or 'raw_frames' not in np_arrays or 'controller_data' not in np_arrays or 'bounding_boxes_red' not in np_arrays or 'bounding_boxes_green' not in np_arrays:
+            messagebox.showerror("Error", "Invalid comparison file")
+            return
         self.lidar_data = np_arrays['lidar_data']
         self.raw_image_data = np_arrays['raw_frames']
         self.controller_data = np_arrays['controller_data']
@@ -586,11 +589,11 @@ class VisualizeData:
         # Plot the data as individual points
         if other_points:
             angles, distances, _ = zip(*other_points)
-            self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
+            self.lidar_axis.scatter(np.deg2rad([-a for a in angles]), distances, color='#39FF14', s=10)
         
         if selected_points:
             selected_angles, selected_distances, _ = zip(*selected_points)
-            self.lidar_axis.scatter(np.deg2rad(selected_angles), selected_distances, color='red', s=10)
+            self.lidar_axis.scatter(np.deg2rad([-a for a in selected_angles]), selected_distances, color='red', s=10)
     
         # Set the background color of the axes
         self.lidar_axis.set_facecolor('#222222')

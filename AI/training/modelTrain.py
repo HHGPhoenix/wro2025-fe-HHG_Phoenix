@@ -1631,6 +1631,8 @@ class TrainingDataCallback(Callback):
                                                          self.full_val_mae_values, 
                                                          plots_path, 
                                                          self.model_train_ui.lowest_val_mae_epoch_label.cget("text"), 
+                                                         self.model_train_ui.lowest_val_mae_label.cget("text"),
+                                                         self.model_train_ui.lowest_val_loss_label.cget("text"),
                                                          self.data_processor.batch_size,
                                                          self.data_processor.data_shift)
 class VisualizeData:
@@ -1722,7 +1724,7 @@ class VisualizeData:
         
     ############################################################################################################
     
-    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path, epoch, batch_size, shift):
+    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path, epoch, lowest_mae, lowest_loss, batch_size, shift):
         # Create a figure with two subplots
         fig, (loss_ax, mae_ax) = plt.subplots(2, 1, figsize=(10, 8), facecolor='#222222')
         
@@ -1737,7 +1739,7 @@ class VisualizeData:
         loss_ax.tick_params(axis='y', colors='white')
         for spine in loss_ax.spines.values():
             spine.set_edgecolor('white')
-        loss_ax.set_title(f'Loss Plot (Epoch: {epoch}, Batch Size: {batch_size}, Shift: {shift})', color='white')
+        loss_ax.set_title(f'Loss Plot', color='white')
         
         # Customize the MAE plot
         mae_ax.plot(val_mae_values, label='Validation MAE', color='red')
@@ -1750,10 +1752,10 @@ class VisualizeData:
         mae_ax.tick_params(axis='y', colors='white')
         for spine in mae_ax.spines.values():
             spine.set_edgecolor('white')
-        mae_ax.set_title(f'MAE Plot (Epoch: {epoch}, Batch Size: {batch_size}, Shift: {shift})', color='white')
+        mae_ax.set_title(f'MAE Plot', color='white')
         
         # Add text annotation at the bottom
-        fig.text(0.5, 0.01, f'Last Epoch: {epoch} - Batch Size: {batch_size} - Shift: {shift}', ha='center', fontsize=14, color='white')
+        fig.text(0.5, 0.01, f'Last Epoch: {epoch} - Batch Size: {batch_size} - Shift: {shift} - Best Validation MAE: {lowest_mae} - Best Validation Loss: {lowest_loss}', ha='center', fontsize=14, color='white')
         
         # Adjust layout
         plt.tight_layout(rect=[0, 0.03, 1, 1])
