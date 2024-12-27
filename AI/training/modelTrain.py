@@ -1431,7 +1431,21 @@ class DataProcessor:
         # normalize block data with image width and height
         red_blocks = red_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
         green_blocks = green_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
-    
+        
+        new_red_blocks = []
+        for red_block in red_blocks:
+            red_block = np.append(red_block, red_block[2] - red_block[0])
+            red_block = np.append(red_block, red_block[3] - red_block[1])
+            new_red_blocks.append(red_block)
+        red_blocks = np.array(new_red_blocks.copy())
+        
+        new_green_blocks = []
+        for green_block in green_blocks:
+            green_block = np.append(green_block, green_block[2] - green_block[0])
+            green_block = np.append(green_block, green_block[3] - green_block[1])
+            new_green_blocks.append(green_block)
+        green_blocks = np.array(new_green_blocks.copy())
+        
         data_shift = int(self.data_shift)
         if data_shift != 0:
             controller_data = controller_data[data_shift:]

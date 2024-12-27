@@ -429,17 +429,18 @@ class DataProcessing:
             
             red_block = red_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
             green_block = green_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
+            
+            red_block = np.append(red_block, red_block[2] - red_block[0])
+            red_block = np.append(red_block, red_block[3] - red_block[1])
+            
+            green_block = np.append(green_block, green_block[2] - green_block[0])
+            green_block = np.append(green_block, green_block[3] - green_block[1])
+            
             red_block = np.expand_dims(red_block, axis=0)
             red_block = np.expand_dims(red_block, axis=-1)
             
             green_block = np.expand_dims(green_block, axis=0)
             green_block = np.expand_dims(green_block, axis=-1)
-            
-            # Ensure new_lidar_array matches the expected input shape
-            # if self.model_type == "tflite":
-            #     input_details = self.model.get_input_details()
-            #     expected_shape = input_details[0]['shape']
-            #     new_lidar_array = np.resize(new_lidar_array, expected_shape)
             
             if USE_VISUALS:
                 model_input = [new_lidar_array, red_block, green_block]
