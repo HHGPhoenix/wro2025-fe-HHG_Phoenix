@@ -25,11 +25,6 @@ class I2Chandler:
         gyro_thread = threading.Thread(target=self.Gyro.start)
         gyro_thread.start()
         
-        while True:
-            print(self.Gyro.angle)
-            # print(self.ADC.voltage)
-            time.sleep(0.5)
-        
     def stop_threads(self):
         """
         Stop the I2C sensor threads.

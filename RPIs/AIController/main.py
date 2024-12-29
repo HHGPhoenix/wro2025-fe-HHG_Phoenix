@@ -48,6 +48,7 @@ class AIController:
         self.stop_with_interrupt = False
         self.interpolated_lidar_data = None
         self.servo_pin = 4
+        self.failsafe_mode = 0
         
         self.running = False
         

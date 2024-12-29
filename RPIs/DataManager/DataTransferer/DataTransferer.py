@@ -50,7 +50,7 @@ class DataTransferer:
                 frameraw = self.camera.compress_frame(frameraw)
                 framehsv = self.camera.compress_frame(framehsv)
                 object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
-                print(f"red_block {self.camera.red_block}, green_block {self.camera.green_block}")
+                # print(f"red_block {self.camera.red_block}, green_block {self.camera.green_block}")
                 
                 self.frame_list[0] = frameraw.tobytes()
                 self.frame_list[1] = object_image.tobytes()

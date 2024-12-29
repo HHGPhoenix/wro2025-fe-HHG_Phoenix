@@ -87,4 +87,7 @@ class RemoteFunctions:
         self.AIController.block_list[0] = red_block
         self.AIController.block_list[1] = green_block
         
+    def failsafe(self, mode):
+        self.AIController.failsafe_mode = mode
+        
 ###########################################################################
