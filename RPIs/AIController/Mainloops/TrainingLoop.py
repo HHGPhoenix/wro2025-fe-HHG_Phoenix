@@ -12,6 +12,10 @@ def main_loop_training(self):
             motor_speed = 0.5
         else:
             motor_speed = self.ry
+            
+        print(f"failsafe_mode: {self.failsafe_mode}")
+        if self.failsafe_mode == 1:
+            motor_speed = 0.65
         
         self.motor_controller.send_speed(motor_speed)
         stop_time = time.time()

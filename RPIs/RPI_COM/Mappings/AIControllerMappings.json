@@ -6,7 +6,7 @@
     "ALREADY_RUNNING": "handle_already_running",
     "ANALOG_STICKS": "set_analog_stick_values",
     "LIDAR_DATA": "set_lidar_data",
-    "SIMPLIFIED_IMAGE": "set_simplified_image",
     "STOP": "raise_keyboard_interrupt",
-    "COUNTERS": "set_counters"
+    "BLOCKS": "set_blocks",
+    "FAILSAFE": "failsafe"
 }

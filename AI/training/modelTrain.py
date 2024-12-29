@@ -32,10 +32,11 @@ print("Done.")
 
 ############################################################################################################
 
-global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE
+global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
 DEBUG = False
-TRAIN_VAL_SPLIT_RANDOM_STATE = 42
+# USE_FEATURE_SELECTION = True
+# NUM_FEATURES = 50
 
 ############################################################################################################
 
@@ -77,6 +78,7 @@ class modelTrainUI(ctk.CTk):
         self.save_as_tflite = tk.BooleanVar(value=False)
         self.save_with_model_config = tk.BooleanVar(value=True)
         
+        
         # SETTINGS
         self.epochs_default = 50
         self.batch_size_default = 32
@@ -85,6 +87,8 @@ class modelTrainUI(ctk.CTk):
         self.data_shift_default = 0
         self.split_random_state_default = 42
         self.use_visual_data_default = False
+        self.use_feature_selection_default = False
+        self.num_features_default = 50
         
         self.epochs = tk.StringVar(value=self.epochs_default)
         self.batch_size = tk.StringVar(value=self.batch_size_default)
@@ -93,6 +97,8 @@ class modelTrainUI(ctk.CTk):
         self.data_shift = tk.StringVar(value=self.data_shift_default)
         self.split_random_state = tk.StringVar(value=self.split_random_state_default)
         self.use_visual_data = tk.BooleanVar(value=self.use_visual_data_default)
+        self.use_feature_selection = tk.BooleanVar(value=self.use_feature_selection_default)
+        self.num_features = tk.StringVar(value=self.num_features_default)
         
         self.settings = {
             "epochs": (self.epochs, self.epochs_default, "int"),
@@ -101,7 +107,9 @@ class modelTrainUI(ctk.CTk):
             "epochs_graphed": (self.epochs_graphed, self.epochs_graphed_default, "int"),
             "data_shift": (self.data_shift, self.data_shift_default, "int"),
             "split_random_state": (self.split_random_state, self.split_random_state_default, "int"),
-            "use_visual_data": (self.use_visual_data, self.use_visual_data_default, "bool")
+            "use_visual_data": (self.use_visual_data, self.use_visual_data_default, "bool"),
+            "use_feature_selection": (self.use_feature_selection, self.use_feature_selection_default, "bool"),
+            "num_features": (self.num_features, self.num_features_default, "int")
         }
         
         self.load_training_data_lock = threading.Lock()
@@ -148,11 +156,12 @@ class modelTrainUI(ctk.CTk):
         os._exit(0)
         
     def import_lazy_imports(self):
-        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau
+        global tf, EarlyStopping, ModelCheckpoint, np, FigureCanvasTkAgg, train_test_split, ReduceLROnPlateau, SelectKBest, f_regression, f_classif
         import tensorflow as tf
         from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau # type: ignore
         import numpy as np
         from sklearn.model_selection import train_test_split
+        from sklearn.feature_selection import SelectKBest, f_regression, f_classif
         
         self.lazy_imports_imported = True
         
@@ -719,6 +728,8 @@ class modelTrainUI(ctk.CTk):
         epochs_graphed = int(self.epochs_graphed.get())
         data_shift = int(self.data_shift.get())
         use_visual_data = self.use_visual_data.get()
+        use_feature_selection = self.use_feature_selection.get()
+        feature_selection_num_features = int(self.num_features.get())
         
         save_a_h5_model = self.save_as_h5.get()
         save_a_tflite_model = self.save_as_tflite.get()
@@ -727,11 +738,12 @@ class modelTrainUI(ctk.CTk):
         model_dir = self.model_dir
         
         self.data_processor.pass_training_options(self.data_visualizer, 
-                                                  model_name_entry_content, 
-                                                  epochs, batch_size, patience, 
-                                                  epochs_graphed, data_shift, name, model_dir, 
-                                                  save_a_h5_model, save_a_tflite_model, 
-                                                  save_with_model_config, use_visual_data)
+                                                    model_name_entry_content, 
+                                                    epochs, batch_size, patience, 
+                                                    epochs_graphed, data_shift, name, model_dir, 
+                                                    save_a_h5_model, save_a_tflite_model, 
+                                                    save_with_model_config, use_visual_data,
+                                                    use_feature_selection, feature_selection_num_features)
         
         if not self.keep_config_var.get():
             self.queue.append(self.data_processor)
@@ -1114,10 +1126,14 @@ class DataProcessor:
         self.image_train = None
         self.controller_train = None
         self.counter_train = None
+        self.green_blocks_train = None
+        self.red_blocks_train = None
         self.lidar_val = None
         self.image_val = None
         self.controller_val = None
         self.counter_val = None
+        self.green_blocks_val = None
+        self.red_blocks_val = None
         self.model_name = ""
         self.epochs = None
         self.batch_size = None
@@ -1140,7 +1156,7 @@ class DataProcessor:
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data, use_feature_selection, feature_selection_num_features):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
@@ -1161,6 +1177,8 @@ class DataProcessor:
         self.save_a_tflite_model = save_a_tflite_model
         self.save_with_model_config = save_with_model_config
         self.use_visual_data = use_visual_data
+        self.use_feature_selection = use_feature_selection
+        self.num_features = feature_selection_num_features
 
     def start_training(self):
         if not self.modelTrainUI.lazy_imports_imported:
@@ -1174,7 +1192,7 @@ class DataProcessor:
                 return
         
         
-        if self.lidar_train is None or self.image_train is None or self.controller_train is None or self.counter_train is None:
+        if self.lidar_train is None or self.controller_train is None:
             messagebox.showerror("Error", "Probably No training data loaded?")
             if DEBUG:
                 print("At least one of the training data is None")
@@ -1191,31 +1209,57 @@ class DataProcessor:
         if DEBUG:
             print(f"Train LIDAR data shape: {self.lidar_train.shape}")
             print(f"Train Controller data shape: {self.controller_train.shape}")
-            print(f"Train Frame data shape: {self.image_train.shape}")
-            print(f"Train Counter data shape: {self.counter_train.shape}")
             print(f"Validation LIDAR data shape: {self.lidar_val.shape}")
             print(f"Validation Controller data shape: {self.controller_val.shape}")
-            print(f"Validation Frame data shape: {self.image_val.shape}")
-            print(f"Validation Counter data shape: {self.counter_val.shape}")
+            
+        self.generate_checkpoint_filename()
+        self.check_dir_preparedness()
             
         try:
-            if self.use_visual_data:
-                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1),
-                                                frame_input_shape=(self.image_train.shape[1], self.image_train.shape[2], self.image_train.shape[3]), 
-                                                counter_input_shape=(self.counter_train.shape[1], ))
+            # Remove the second entry in the last dimension
+            self.lidar_train = self.lidar_train[:, :, 1:]
+            self.lidar_val = self.lidar_val[:, :, 1:]
+            
+            # Reshape to 2D
+            lidar_train_flat = self.lidar_train.reshape(self.lidar_train.shape[0], -1)
+            lidar_val_flat = self.lidar_val.reshape(self.lidar_val.shape[0], -1)
+            if DEBUG:
+                print(f"Training LIDAR data shape: {lidar_train_flat.shape}")
+            
+            if self.use_feature_selection:
+                k = min(self.num_features, lidar_train_flat.shape[1])
+                selector = SelectKBest(score_func=f_classif, k=k)
+                
+                self.lidar_train_selected = selector.fit_transform(lidar_train_flat, self.controller_train)
+                self.lidar_val_selected = selector.transform(lidar_val_flat)
+                
+                # Save selected feature indices
+                feature_indices = selector.get_support(indices=True)
+                if DEBUG:
+                    print(f"Selected features: {feature_indices}, path: {self.model_base_filename}_features.txt")
+                with open(f"{self.model_base_filename}_features.txt", "w") as f:
+                    for idx in feature_indices:
+                        f.write(f"{idx}\n")
+                lidar_input_shape = self.lidar_train_selected.shape[1]
             else:
-                self.model = self.model_function(lidar_input_shape=(self.lidar_train.shape[1], self.lidar_train.shape[2], 1))
+                lidar_input_shape = lidar_train_flat.shape[1]
+                self.lidar_train_selected = lidar_train_flat
+                self.lidar_val_selected = lidar_val_flat
+            
+            # Initialize the model
+            if self.use_visual_data:
+                self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1),
+                                                 red_blocks_input_shape=(self.red_blocks_train.shape[1], 1),
+                                                 green_blocks_input_shape=(self.green_blocks_train.shape[1], 1))
+            else:
+                self.model = self.model_function(lidar_input_shape=lidar_input_shape)
         except TypeError as e:
             messagebox.showerror("Model Function Error", f"Error while initializing model functions: {e}")
             return
 
-        self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
-        
-        self.generate_checkpoint_filename()
-        
-        self.check_dir_preparedness()
         
         self.h5_model_path = f"{self.model_base_filename}.h5"
         
@@ -1229,18 +1273,19 @@ class DataProcessor:
         
         if self.use_visual_data:
             history = self.model.fit(
-                [self.lidar_train, self.image_train, self.counter_train], self.controller_train,
-                validation_data=([self.lidar_val, self.image_val, self.counter_val], self.controller_val),
+                [self.lidar_train_selected, self.red_blocks_train, self.green_blocks_train],
+                self.controller_train,
+                validation_data=([self.lidar_val_selected, self.red_blocks_val, self.green_blocks_val], self.controller_val),
                 epochs=epochs,
-                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size
             )
         else:
             history = self.model.fit(
-                self.lidar_train, self.controller_train,
-                validation_data=(self.lidar_val, self.controller_val),
+                self.lidar_train_selected, self.controller_train,
+                validation_data=(self.lidar_val_selected, self.controller_val),
                 epochs=epochs,
-                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback], # , reduce_lr
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size
             )
         
@@ -1264,7 +1309,7 @@ class DataProcessor:
         
     def check_dir_preparedness(self):
         while self.model_base_path and os.path.exists(self.model_base_path):
-            if os.path.exists(f"{self.model_base_filename}.h5") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py"):
+            if os.path.exists(f"{self.model_base_filename}.h5") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py") or os.path.exists(f"{self.model_base_filename}_features.txt"):
                 answer = messagebox.askyesno("Warning", "The model directory already exists in the main folder. The contents are going to be replaced, otherwise a reselection of the main folder is needed")
             else:
                 answer = True
@@ -1276,6 +1321,8 @@ class DataProcessor:
                     os.remove(f"{self.model_base_filename}.tflite")
                 if os.path.exists(f"{self.model_base_filename}_config.py"):
                     os.remove(f"{self.model_base_filename}_config.py")
+                if os.path.exists(f"{self.model_base_filename}_features.txt"):
+                    os.remove(f"{self.model_base_filename}_features.txt")
                 break
             else:
                 new_dir = None
@@ -1299,6 +1346,12 @@ class DataProcessor:
     def convert_to_tflite_model(self, model_path, output_path):
         model = tf.keras.models.load_model(model_path)
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        # Set the converter settings to handle TensorList ops
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
+        converter._experimental_lower_tensor_list_ops = False
+        
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        
         tflite_model = converter.convert()
         with open(output_path, 'wb') as f:
             f.write(tflite_model)
@@ -1337,18 +1390,22 @@ class DataProcessor:
                     if file.startswith("run_data_"):
                         file_path = os.path.join(root, file)
                         np_arrays = np.load(file_path, allow_pickle=True)
-                        if 'lidar_data' in np_arrays and 'simplified_frames' in np_arrays \
-                           and 'controller_data' in np_arrays and 'counters' in np_arrays:
+                        print(np_arrays)
+                        if 'lidar_data' in np_arrays and 'controller_data' in np_arrays and 'bounding_boxes_red' in np_arrays and 'bounding_boxes_green' in np_arrays and 'raw_frames' in np_arrays:
                             if file_count == 0:
                                 lidar_data = np_arrays['lidar_data'].astype(np.float32)
-                                simplified_image_data = np_arrays['simplified_frames'].astype(np.float32)
                                 controller_data = np_arrays['controller_data']
-                                counter_data = np_arrays['counters']
+                                red_blocks = np_arrays['bounding_boxes_red']
+                                green_blocks = np_arrays['bounding_boxes_green']
+                                raw_frames = np_arrays['raw_frames']
+
                             else:
                                 lidar_data = np.concatenate((lidar_data, np_arrays['lidar_data'].astype(np.float32)), axis=0)
-                                simplified_image_data = np.concatenate((simplified_image_data, np_arrays['simplified_frames'].astype(np.float32)), axis=0)
                                 controller_data = np.concatenate((controller_data, np_arrays['controller_data']), axis=0)
-                                counter_data = np.concatenate((counter_data, np_arrays['counters']), axis=0)
+                                red_blocks = np.concatenate((red_blocks, np_arrays['bounding_boxes_red']), axis=0)
+                                green_blocks = np.concatenate((green_blocks, np_arrays['bounding_boxes_green']), axis=0)
+                                raw_frames = np.concatenate((raw_frames, np_arrays['raw_frames']), axis=0)
+
                             file_count += 1
                         np_arrays = None
         except KeyError as e:
@@ -1370,20 +1427,37 @@ class DataProcessor:
     
         # Normalize and process data
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
-        simplified_image_data /= 255.0
-    
+
+        # normalize block data with image width and height
+        red_blocks = red_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
+        green_blocks = green_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
+        
+        new_red_blocks = []
+        for red_block in red_blocks:
+            red_block = np.append(red_block, red_block[2] - red_block[0])
+            red_block = np.append(red_block, red_block[3] - red_block[1])
+            new_red_blocks.append(red_block)
+        red_blocks = np.array(new_red_blocks.copy())
+        
+        new_green_blocks = []
+        for green_block in green_blocks:
+            green_block = np.append(green_block, green_block[2] - green_block[0])
+            green_block = np.append(green_block, green_block[3] - green_block[1])
+            new_green_blocks.append(green_block)
+        green_blocks = np.array(new_green_blocks.copy())
+        
         data_shift = int(self.data_shift)
         if data_shift != 0:
             controller_data = controller_data[data_shift:]
             lidar_data = lidar_data[:-data_shift]
-            simplified_image_data = simplified_image_data[:-data_shift]
-            counter_data = counter_data[:-data_shift]
+            red_blocks = red_blocks[:-data_shift]
+            green_blocks = green_blocks[:-data_shift]
     
         # Train-validation split
         self.lidar_train, self.lidar_val = train_test_split(lidar_data, test_size=0.2, random_state=self.split_random_state)
-        self.image_train, self.image_val = train_test_split(simplified_image_data, test_size=0.2, random_state=self.split_random_state)
         self.controller_train, self.controller_val = train_test_split(controller_data, test_size=0.2, random_state=self.split_random_state)
-        self.counter_train, self.counter_val = train_test_split(counter_data, test_size=0.2, random_state=self.split_random_state)
+        self.red_blocks_train, self.red_blocks_val = train_test_split(red_blocks, test_size=0.2, random_state=self.split_random_state)
+        self.green_blocks_train, self.green_blocks_val = train_test_split(green_blocks, test_size=0.2, random_state=self.split_random_state)
     
         self.data_loading_completed()
         print("Data loaded successfully")
@@ -1558,7 +1632,7 @@ class TrainingDataCallback(Callback):
         self.full_val_loss_values.append(val_loss)
         self.full_mae_values.append(mae)
         self.full_val_mae_values.append(val_mae)
-
+    
     def on_train_end(self, logs=None):
         self.color_reset_timers = {}
         # self.frame_colors = {}
@@ -1571,9 +1645,10 @@ class TrainingDataCallback(Callback):
                                                          self.full_val_mae_values, 
                                                          plots_path, 
                                                          self.model_train_ui.lowest_val_mae_epoch_label.cget("text"), 
+                                                         self.model_train_ui.lowest_val_mae_label.cget("text"),
+                                                         self.model_train_ui.lowest_val_loss_label.cget("text"),
                                                          self.data_processor.batch_size,
-                                                            self.data_processor.data_shift)
-
+                                                         self.data_processor.data_shift)
 class VisualizeData:
     def create_loss_plot(self, tk_frame):
         self.loss_plot_fig = plt.figure(facecolor='#222222', edgecolor='#222222')
@@ -1663,7 +1738,7 @@ class VisualizeData:
         
     ############################################################################################################
     
-    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path, epoch, batch_size, shift):
+    def create_plots_after_training(self, loss_values, val_loss_values, mae_values, val_mae_values, save_path, epoch, lowest_mae, lowest_loss, batch_size, shift):
         # Create a figure with two subplots
         fig, (loss_ax, mae_ax) = plt.subplots(2, 1, figsize=(10, 8), facecolor='#222222')
         
@@ -1678,7 +1753,7 @@ class VisualizeData:
         loss_ax.tick_params(axis='y', colors='white')
         for spine in loss_ax.spines.values():
             spine.set_edgecolor('white')
-        loss_ax.set_title(f'Loss Plot (Epoch: {epoch}, Batch Size: {batch_size}, Shift: {shift})', color='white')
+        loss_ax.set_title(f'Loss Plot', color='white')
         
         # Customize the MAE plot
         mae_ax.plot(val_mae_values, label='Validation MAE', color='red')
@@ -1691,10 +1766,10 @@ class VisualizeData:
         mae_ax.tick_params(axis='y', colors='white')
         for spine in mae_ax.spines.values():
             spine.set_edgecolor('white')
-        mae_ax.set_title(f'MAE Plot (Epoch: {epoch}, Batch Size: {batch_size}, Shift: {shift})', color='white')
+        mae_ax.set_title(f'MAE Plot', color='white')
         
         # Add text annotation at the bottom
-        fig.text(0.5, 0.01, f'Last Epoch: {epoch} - Batch Size: {batch_size} - Shift: {shift}', ha='center', fontsize=14, color='white')
+        fig.text(0.5, 0.01, f'Last Epoch: {epoch} - Batch Size: {batch_size} - Shift: {shift} - Best Validation MAE: {lowest_mae} - Best Validation Loss: {lowest_loss}', ha='center', fontsize=14, color='white')
         
         # Adjust layout
         plt.tight_layout(rect=[0, 0.03, 1, 1])

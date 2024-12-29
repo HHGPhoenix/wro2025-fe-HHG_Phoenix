@@ -26,8 +26,8 @@ def main_loop_training(self):
     x_values = []
     lidar_arrays = []
     raw_frames = []
-    simplified_frames = []
-    counters = []
+    all_bounding_boxes_red = []
+    all_bounding_boxes_green = []
 
     try:
         while self.running:
@@ -54,11 +54,9 @@ def main_loop_training(self):
 
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
-                counters_str = f"COUNTERS#{self.frame_list[3]}#{self.frame_list[4]}"
                 
                 self.client.send_message(lidar_data_str)
                 self.client.send_message(analog_sticks_str)
-                self.client.send_message(counters_str)
 
                 if recording_status:
                     saved_after_recording = False
@@ -68,15 +66,13 @@ def main_loop_training(self):
                     
                     raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((100, 213, 3))
                     raw_frames.append(raw_frame)
-
-                    simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3))
-                    simplified_frames.append(simplified_frame)
                     
-                    counters.append([self.frame_list[3], self.frame_list[4]])
+                    all_bounding_boxes_red.append(self.frame_list[3] if type(self.frame_list[3]) == tuple else (0, 0, 0, 0))
+                    all_bounding_boxes_green.append(self.frame_list[4] if type(self.frame_list[4]) == tuple else (0, 0, 0, 0))
                 
                 elif not saved_after_recording:
-                    np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), counters = np.array(counters),
-                             lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+                    np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), bounding_boxes_red=np.array(all_bounding_boxes_red), # , counters = np.array(counters)
+                             bounding_boxes_green=np.array(all_bounding_boxes_green), lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames)) # , simplified_frames=np.array(simplified_frames)
                     saved_after_recording = True
                     
             end_time = time.time()
@@ -91,6 +87,6 @@ def main_loop_training(self):
         pass
     
     finally:
-        np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), counters = np.array(counters),
-                 lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames), simplified_frames=np.array(simplified_frames))
+        np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), bounding_boxes_red=np.array(all_bounding_boxes_red), # , counters = np.array(counters)
+                    bounding_boxes_green=np.array(all_bounding_boxes_green), lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames)) # , simplified_frames=np.array(simplified_frames)
 

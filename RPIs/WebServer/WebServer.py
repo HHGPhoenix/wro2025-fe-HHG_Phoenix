@@ -108,20 +108,20 @@ class WebServer:
         def raw_video_stream():
             return Response(self.stream_camera(self.generate_raw_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-        @self.app.route('/cam/simplified_video_stream')
-        def simplified_video_stream():
-            return Response(self.stream_camera(self.generate_simplified_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
+        # @self.app.route('/cam/simplified_video_stream')
+        # def simplified_video_stream():
+        #     return Response(self.stream_camera(self.generate_simplified_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
         @self.app.route('/cam/object_video_stream')
         def object_video_stream():
             return Response(self.stream_camera(self.generate_object_frame), mimetype='multipart/x-mixed-replace; boundary=frame')
         
-        @self.app.route('/cam/counters')
-        def counters():
-            return jsonify({
-                "green_counter": self.shared_frames_list[3],
-                "red_counter": self.shared_frames_list[4],
-            })
+        # @self.app.route('/cam/counters')
+        # def counters():
+        #     return jsonify({
+        #         "green_counter": self.shared_frames_list[3],
+        #         "red_counter": self.shared_frames_list[4],
+        #     })
         
         @self.app.route('/lidar/data')
         def lidar_data():
@@ -199,14 +199,14 @@ class WebServer:
             frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((100, 213, 3))
             return frame
                 
-    def generate_simplified_frame(self):
-        simplified_image_bytes = self.shared_frames_list[1]
-        if simplified_image_bytes:
-            frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((100, 213, 3))
-            return frame
+    # def generate_simplified_frame(self):
+    #     simplified_image_bytes = self.shared_frames_list[1]
+    #     if simplified_image_bytes:
+    #         frame = np.frombuffer(simplified_image_bytes, dtype=np.uint8).reshape((100, 213, 3))
+    #         return frame
         
     def generate_object_frame(self):
-        object_image_bytes = self.shared_frames_list[2]
+        object_image_bytes = self.shared_frames_list[1]
         if object_image_bytes:
             frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((100, 213, 3))
             return frame

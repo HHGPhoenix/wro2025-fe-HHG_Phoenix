@@ -14,7 +14,7 @@ import signal
 import json  
 print("\rImported libraries")
 
-USE_VISUALS = False  
+USE_VISUALS = True  
 NO_PIC = False
 
 ############################################################################################################
@@ -162,7 +162,7 @@ class ModelTestUI(ctk.CTk):
         self.frame_rate_label = ctk.CTkLabel(self.frame_rate_label_frame, text=f"Frame Rate: {self.frame_rate.get()} FPS", font=("Arial", 15), fg_color='transparent', bg_color='transparent', padx=10, pady=5)
         self.frame_rate_label.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
 
-        self.frame_rate_slider = ctk.CTkSlider(self.slider_frame, from_=1, to=30, variable=self.frame_rate, command=self.set_frame_rate)
+        self.frame_rate_slider = ctk.CTkSlider(self.slider_frame, from_=1, to=50, variable=self.frame_rate, command=self.set_frame_rate)
         self.frame_rate_slider.pack(padx=15, pady=10, anchor='n', expand=True, fill='both')
 
         ############################################################################################
@@ -187,26 +187,26 @@ class ModelTestUI(ctk.CTk):
 
         ############################################################################################
 
-        self.counter_frame = ctk.CTkFrame(self.configuration_frame)
-        self.counter_frame.pack(padx=15, pady=(15, 5), anchor='n', expand=False, fill='x')
+        # self.counter_frame = ctk.CTkFrame(self.configuration_frame)
+        # self.counter_frame.pack(padx=15, pady=(15, 5), anchor='n', expand=False, fill='x')
 
-        self.counter_frame.grid_rowconfigure(0, weight=1)
-        self.counter_frame.grid_columnconfigure(0, weight=1)
-        self.counter_frame.grid_columnconfigure(1, weight=1)
+        # self.counter_frame.grid_rowconfigure(0, weight=1)
+        # self.counter_frame.grid_columnconfigure(0, weight=1)
+        # self.counter_frame.grid_columnconfigure(1, weight=1)
 
-        self.counter_1_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="green")
-        self.counter_1_frame.grid(row=0, column=0, padx=15, pady=10, sticky='ew')
+        # self.counter_1_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="green")
+        # self.counter_1_frame.grid(row=0, column=0, padx=15, pady=10, sticky='ew')
 
-        # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
-        self.counter_1 = ctk.CTkLabel(self.counter_1_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
-        self.counter_1.pack(padx=20, pady=20, expand=True, fill='both')
+        # # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
+        # self.counter_1 = ctk.CTkLabel(self.counter_1_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
+        # self.counter_1.pack(padx=20, pady=20, expand=True, fill='both')
 
-        self.counter_2_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="red")
-        self.counter_2_frame.grid(row=0, column=1, padx=15, pady=10, sticky='ew')
+        # self.counter_2_frame = ctk.CTkFrame(self.counter_frame, corner_radius=25, fg_color="red")
+        # self.counter_2_frame.grid(row=0, column=1, padx=15, pady=10, sticky='ew')
 
-        # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
-        self.counter_2 = ctk.CTkLabel(self.counter_2_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
-        self.counter_2.pack(padx=20, pady=20, expand=True, fill='both')
+        # # Removed corner_radius from CTkLabel and set fg_color as None to make it transparent
+        # self.counter_2 = ctk.CTkLabel(self.counter_2_frame, text="0", font=("Arial", 40, "bold"), fg_color='transparent', bg_color='transparent')
+        # self.counter_2.pack(padx=20, pady=20, expand=True, fill='both')
 
         ############################################################################################
         self.credit_frame = ctk.CTkFrame(self.configuration_frame)
@@ -284,12 +284,12 @@ class ModelTestUI(ctk.CTk):
         if self.stopped == False:
             return
         
-        if self.data_processor.model is None:
+        if self.data_processor.model_loaded == False and self.data_processor.model_loading == False:
             messagebox.showerror("Error", "No model selected")
             return
         
-        if (self.data_processor.lidar_data is None or self.data_processor.simplified_image_data is None or 
-            self.data_processor.controller_data is None or self.data_processor.counter_data is None):
+        if (self.data_processor.lidar_data is None or 
+            self.data_processor.controller_data is None):
             messagebox.showerror("Error", "No comparison file selected")
             return
         
@@ -362,9 +362,7 @@ class DataProcessing:
     def __init__(self, modelTestUI):
         self.model = None
         self.lidar_data = None
-        self.simplified_image_data = None
         self.controller_data = None
-        self.counter_data = None
         self.model_type = ""
         self.controller_values = []
         self.model_values = []
@@ -379,86 +377,110 @@ class DataProcessing:
         
     
     def process_data(self):
+        while self.model_loaded == False:
+            time.sleep(0.1)
         self.processing = True
+    
+        # Calculate interval outside the loop
+        interval = 1 / self.modelTestUI.frame_rate.get()
+    
+        # Determine base_model_path and load selected_feature_indexes
+        if self.model_type == "tflite":
+            base_model_path = self.modelTestUI.model_path.strip(".tflite")
+        else:
+            base_model_path = self.modelTestUI.model_path.strip(".h5")
+        with open(f"{base_model_path}_features.txt", "r") as f:
+            selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
+    
+        # For tflite model, retrieve input/output details and expected shape
+        if self.model_type == "tflite":
+            input_details = self.model.get_input_details()
+            output_details = self.model.get_output_details()
+            
+            input_indices = [detail['index'] for detail in input_details]
+            output_index = output_details[0]['index']
+    
         for i in range(self.lidar_data.shape[0]):
             start_time = time.time()
-            interval = 1 / self.modelTestUI.frame_rate.get()
-            
+    
             while self.modelTestUI.paused:
                 time.sleep(0.1)
-                
+    
             if self.modelTestUI.stopped:
                 break
-            
+    
             lidar_array = self.lidar_data[i]
-            image_array = self.simplified_image_data[i]
+            new_lidar_array = lidar_array[:, :2] / np.array([360, 5000], dtype=np.float32)
+            new_lidar_array = new_lidar_array[:, 1:]
+            new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
+            new_lidar_array = new_lidar_array[selected_feature_indexes]
+    
+            image_array = self.raw_image_data[i]
             controller_value = self.controller_data[i]
-            counters = self.counter_data[i]
+            red_block = self.red_block[i]
+            green_block = self.green_block[i]
             
             # Replace image_array with zeros if NO_PIC is True
             if NO_PIC:
                 image_array = np.zeros_like(image_array)
             
-            # Convert to NumPy array and reshape
-            angles = lidar_array[:, 0]
-            distances = lidar_array[:, 1]
+            # new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
+            new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
             
-            normalized_angles = angles / 360
-            normalized_distances = distances / 5000
+            red_block = red_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
+            green_block = green_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
             
-            new_lidar_data = np.stack((normalized_angles, normalized_distances), axis=-1)
+            red_block = np.append(red_block, red_block[2] - red_block[0])
+            red_block = np.append(red_block, red_block[3] - red_block[1])
             
-            new_lidar_data = np.expand_dims(new_lidar_data, axis=-1)  # Expand dims to shape (None, 279, 2, 1)
-            new_lidar_data = np.expand_dims(new_lidar_data, axis=0)
+            green_block = np.append(green_block, green_block[2] - green_block[0])
+            green_block = np.append(green_block, green_block[3] - green_block[1])
             
-            # Ensure new_lidar_data matches the expected input shape
-            input_details = self.model.get_input_details()
-            expected_shape = input_details[0]['shape']
-            new_lidar_data = np.resize(new_lidar_data, expected_shape)
+            red_block = np.expand_dims(red_block, axis=0)
+            red_block = np.expand_dims(red_block, axis=-1)
+            
+            green_block = np.expand_dims(green_block, axis=0)
+            green_block = np.expand_dims(green_block, axis=-1)
             
             if USE_VISUALS:
-                model_input_image = np.expand_dims(image_array, axis=0)
-                model_input_counters = np.expand_dims(counters, axis=0)
-                model_input = [new_lidar_data, model_input_image, model_input_counters]
+                model_input = [new_lidar_array, red_block, green_block]
             else:
-                model_input = [new_lidar_data]
-            
+                model_input = [new_lidar_array]
+    
             model_start_time = time.time()
-            
+    
             if self.model_type == "h5":
                 model_output = self.model.predict(model_input)[0][0]
             elif self.model_type == "tflite":
-                self.model.set_tensor(self.model.get_input_details()[0]['index'], model_input[0].astype(np.float32))
+                self.model.set_tensor(input_indices[0], model_input[0].astype(np.float32))
                 if USE_VISUALS:
-                    self.model.set_tensor(self.model.get_input_details()[1]['index'], model_input[1].astype(np.float32))
-                    self.model.set_tensor(self.model.get_input_details()[2]['index'], model_input[2].astype(np.float32))
+                    self.model.set_tensor(input_indices[1], model_input[1].astype(np.float32))
+                    self.model.set_tensor(input_indices[2], model_input[2].astype(np.float32))
                 self.model.invoke()
-                model_output = self.model.get_tensor(self.model.get_output_details()[0]['index'])[0][0]
-            
+                model_output = self.model.get_tensor(output_index)[0][0]
+    
             print("Model Output: ", model_output)
             model_stop_time = time.time()
     
-            self.data_visualizer.update_polar_plot_lidar(lidar_array)
+            self.data_visualizer.update_polar_plot_lidar(lidar_array, selected_feature_indexes)
             if USE_VISUALS:
                 self.data_visualizer.update_image_plot(image_array)
-            
+    
             self.controller_values.append(controller_value)
             self.model_values.append(model_output)
             self.data_visualizer.update_model_comparison_plot(self.model_values, self.controller_values)
-            self.data_visualizer.update_text_output(controller_value, model_output, model_stop_time - model_start_time)
-            
+            self.data_visualizer.update_text_output(
+                controller_value, model_output, model_stop_time - model_start_time
+            )
+    
             if len(self.controller_values) > 50:
                 self.controller_values.pop(0)
                 self.model_values.pop(0)
-            
-            if USE_VISUALS:
-                self.modelTestUI.counter_1.configure(text=str(round(float(counters[0]), 2)))
-                self.modelTestUI.counter_2.configure(text=str(round(float(counters[1]), 2)))
-            
+    
             elapsed_time = time.time() - start_time
             sleep_time = max(0, interval - elapsed_time)
             time.sleep(sleep_time)
-            
+    
         self.processing = False
             
     def load_comparison_file(self, comparison_file_path):
@@ -467,16 +489,22 @@ class DataProcessing:
             return
 
         np_arrays = np.load(comparison_file_path, allow_pickle=True)
+        if 'lidar_data' not in np_arrays or 'raw_frames' not in np_arrays or 'controller_data' not in np_arrays or 'bounding_boxes_red' not in np_arrays or 'bounding_boxes_green' not in np_arrays:
+            messagebox.showerror("Error", "Invalid comparison file")
+            return
         self.lidar_data = np_arrays['lidar_data']
-        self.simplified_image_data = np_arrays['simplified_frames']
+        self.raw_image_data = np_arrays['raw_frames']
         self.controller_data = np_arrays['controller_data']
-        self.counter_data = np_arrays['counters']
+        self.red_block = np_arrays['bounding_boxes_red']
+        self.green_block = np_arrays['bounding_boxes_green']
 
     def load_model_wrapper(self, model_path):
         self.load_model_thread = threading.Thread(target=self.load_model, args=(model_path,), daemon=True)
         self.load_model_thread.start()
 
     def load_model(self, model_path):
+        self.model_loaded = False
+        self.model_loading = True
         while not self.modelTestUI.tensorflow_imported:
             time.sleep(0.1)
         
@@ -493,6 +521,7 @@ class DataProcessing:
             return
 
         self.model_loaded = True
+        self.model_loading = False
         
 ############################################################################################################
         
@@ -540,7 +569,7 @@ class VisualizeData:
         # Update the plot size on window resize
         self.lidar_canvas.get_tk_widget().config(width=event.width, height=event.height)
     
-    def update_polar_plot_lidar(self, lidar_array):
+    def update_polar_plot_lidar(self, lidar_array, selected_feature_indexes):
         # Check if there are any major ticks
         if not self.lidar_axis.xaxis.majorTicks:
             self.lidar_axis.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -548,9 +577,18 @@ class VisualizeData:
         # Clear the axis
         self.lidar_axis.clear()
     
-        # Plot the data as individual points with neon green color
-        angles, distances, _ = zip(*lidar_array)
-        self.lidar_axis.scatter(np.deg2rad(angles), distances, color='#39FF14', s=10)
+        # Separate the points based on selected_feature_indexes
+        selected_points = [lidar_array[i] for i in selected_feature_indexes]
+        other_points = [lidar_array[i] for i in range(len(lidar_array)) if i not in selected_feature_indexes]
+    
+        # Plot the data as individual points
+        if other_points:
+            angles, distances, _ = zip(*other_points)
+            self.lidar_axis.scatter(np.deg2rad([-a for a in angles]), distances, color='#39FF14', s=10)
+        
+        if selected_points:
+            selected_angles, selected_distances, _ = zip(*selected_points)
+            self.lidar_axis.scatter(np.deg2rad([-a for a in selected_angles]), selected_distances, color='red', s=10)
     
         # Set the background color of the axes
         self.lidar_axis.set_facecolor('#222222')

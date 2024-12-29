@@ -4,6 +4,7 @@ from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
 from RPIs.RPI_Logging.Logger import Logger, LoggerDatamanager
 from RPIs.DataManager.DMLib import RemoteFunctions
+from RPIs.Devices.Failsafe.Failsafe import Failsafe
 
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
@@ -24,6 +25,7 @@ from RPIs.DataManager.Mainloops.ObstacleRace import main_loop_obstacle_race
 import multiprocessing as mp
 import os
 import platform
+import traceback
 
 ###########################################################################
 
@@ -62,6 +64,7 @@ class DataManager:
         self.lidar = None
         self.mode = None
         self.data_transferer = None
+        self.failsafe = None
 
         self.running = False
 
@@ -79,7 +82,7 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.lidar, self.data_transferer, self.buzzer, self.notification_client = self.initialize_components()
+        self.lidar, self.data_transferer, self.buzzer, self.notification_client, self.failsafe = self.initialize_components()
 
         self.initialized = True
         self.communicationestablisher.establish_communication()
@@ -126,8 +129,14 @@ class DataManager:
         
         buzzer = Buzzer()
         notification_client = NotificationClient()
+        
+        failsafe = Failsafe(self)
+        threading.Thread(target=target_with_nice_priority, args=(failsafe.mainloop, 0), daemon=True).start()
+        
+        i2c_handler = I2Chandler()
+        i2c_handler.start_threads()
 
-        return lidar, data_transferer, buzzer, notification_client
+        return lidar, data_transferer, buzzer, notification_client, failsafe
     
 ###########################################################################
     
@@ -162,6 +171,10 @@ class DataManager:
             else:
                 self.logger.error(f'Unknown mode: {self.mode}')
                 self.running = False
+                
+        except Exception as e:
+            self.logger.error(f"Exception occurred: {e}")
+            traceback.print_exc()
         
         finally:
             self.client.send_message('STOP')
@@ -177,6 +190,9 @@ if __name__ == "__main__":
         data_manager = DataManager()
         # time.sleep(10)
         data_manager.start()
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+        traceback.print_exc()
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt")
     finally:
