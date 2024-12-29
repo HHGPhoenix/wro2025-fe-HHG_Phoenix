@@ -53,7 +53,7 @@ class GyroSensor():
             # Update the last time for the next iteration
             self.last_time = current_time
             
-            print(f"Angle: {self.angle}")
+            # print(f"Angle: {self.angle}")
 
     def start(self):
         if not self._running:
