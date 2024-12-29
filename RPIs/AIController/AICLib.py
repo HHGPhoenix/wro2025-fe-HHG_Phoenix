@@ -90,4 +90,7 @@ class RemoteFunctions:
     def failsafe(self, mode):
         self.AIController.failsafe_mode = mode
         
+    def set_relative_angle(self, angle):
+        self.AIController.relative_angle = angle
+        
 ###########################################################################

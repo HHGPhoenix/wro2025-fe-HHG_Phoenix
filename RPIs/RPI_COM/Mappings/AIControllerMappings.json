@@ -8,5 +8,6 @@
     "LIDAR_DATA": "set_lidar_data",
     "STOP": "raise_keyboard_interrupt",
     "BLOCKS": "set_blocks",
-    "FAILSAFE": "failsafe"
+    "FAILSAFE": "failsafe",
+    "RELATIVE_ANGLE": "set_relative_angle"
 }

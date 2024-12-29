@@ -3,6 +3,7 @@ from uuid import uuid4
 import datetime
 from copy import deepcopy
 import numpy as np
+from RPIs.DataManager.Mainloops.Utils import update_angles_edges
 
 # from RPIs.Devices.Dummy.PSController.PSController import PSController
 from RPIs.Devices.PSController.PSController import PSController
@@ -31,6 +32,8 @@ def main_loop_training(self):
 
     try:
         while self.running:
+            update_angles_edges(self)
+            
             # Check for cross button press
             if ps_controller.cross == 1 and not cross_button_pressed:
                 cross_button_pressed = True

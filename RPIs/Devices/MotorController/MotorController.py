@@ -22,14 +22,17 @@ class MotorController:
         self.ser.write(("SPEED " + str(mapped_value) + "\n").encode())
 
     def process_responses(self):
-        while True:
-            if self.ser.in_waiting > 0:
-                response = self.ser.readline().decode()    
-                responses = response.split("\n")
-                for response in responses:
-                    if "V: " in response:
-                        self.voltage = self.map_voltage_value(float(response.split("V: ")[1]))
-                        # print(f"Voltage: {self.voltage}")
+        try:
+            while True:
+                if self.ser.in_waiting > 0:
+                    response = self.ser.readline().decode()    
+                    responses = response.split("\n")
+                    for response in responses:
+                        if "V: " in response:
+                            self.voltage = self.map_voltage_value(float(response.split("V: ")[1]))
+                            # print(f"Voltage: {self.voltage}")
+        finally:
+            self.ser.write(("SPEED " + str(self.map_speed_value(0.5)) + "\n").encode())
 
     def map_voltage_value(self, value):
         proportion = (value - self.low_voltage_value) / (self.high_voltage_value - self.low_voltage_value)

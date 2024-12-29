@@ -65,6 +65,10 @@ class DataManager:
         self.mode = None
         self.data_transferer = None
         self.failsafe = None
+        
+        self.rounds = 0
+        self.current_edge = 0
+        self.last_angle = 0
 
         self.running = False
 
@@ -82,7 +86,7 @@ class DataManager:
         
         self.mode = self.choose_mode()
         
-        self.lidar, self.data_transferer, self.buzzer, self.notification_client, self.failsafe = self.initialize_components()
+        self.lidar, self.data_transferer, self.buzzer, self.notification_client, self.failsafe, self.i2c_handler = self.initialize_components()
 
         self.initialized = True
         self.communicationestablisher.establish_communication()
@@ -136,7 +140,7 @@ class DataManager:
         i2c_handler = I2Chandler()
         i2c_handler.start_threads()
 
-        return lidar, data_transferer, buzzer, notification_client, failsafe
+        return lidar, data_transferer, buzzer, notification_client, failsafe, i2c_handler
     
 ###########################################################################
     
@@ -178,9 +182,9 @@ class DataManager:
         
         finally:
             self.client.send_message('STOP')
-            self.lidar.stop_sensor()
+            # self.lidar.stop_sensor()
             self.i2c_handler.stop_threads()     
-            self.buzzer.stop()    
+            self.buzzer.stop()   
             
 ###########################################################################
 
@@ -190,6 +194,7 @@ if __name__ == "__main__":
         data_manager = DataManager()
         # time.sleep(10)
         data_manager.start()
+        
     except Exception as e:
         print(f"Exception occurred: {e}")
         traceback.print_exc()
