@@ -8,11 +8,6 @@ const videoStreams = [
         url: '/cam/raw_video_stream',
     },
     {
-        label: 'Simplified Video Stream',
-        shortLabel: 'Simple',
-        url: '/cam/simplified_video_stream',
-    },
-    {
         label: 'Object Video Stream',
         shortLabel: 'Object',
         url: '/cam/object_video_stream',
