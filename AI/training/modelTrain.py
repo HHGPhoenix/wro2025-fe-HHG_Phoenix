@@ -254,6 +254,12 @@ class modelTrainUI(ctk.CTk):
             not os.path.exists(self.selected_training_data_path) or 
             not os.path.exists(self.selected_model_configuration_path)):
             
+            # print which file is missing
+            if self.selected_training_data_path is None or not os.path.exists(self.selected_training_data_path):
+                print("Training data is missing")
+            if self.selected_model_configuration_path is None or not os.path.exists(self.selected_model_configuration_path):
+                print("Model configuration is missing")
+            
             answer = messagebox.askyesno("Error", "The necessary files are not found. Do you want to delete the configuration file (yes) or exit (no) ?")
             if answer:
                 os.remove(self.configuration_path_global)
