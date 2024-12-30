@@ -28,7 +28,7 @@ def main_loop_obstacle_race(self):
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
                 
-            lidar_array = self.interpolated_lidar_data[:, :2] / np.array([360, 5000], dtype=np.float32)
+            lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)
             new_lidar_array = lidar_array[:, 1:]
             new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
@@ -42,9 +42,13 @@ def main_loop_obstacle_race(self):
             red_block = red_block / np.array([213, 100, 213, 100], dtype=np.float32)
             green_block = green_block / np.array([213, 100, 213, 100], dtype=np.float32)
             
+            red_block = np.append(red_block, red_block[2] - red_block[0])
+            red_block = np.append(red_block, red_block[3] - red_block[1])
             red_block = np.expand_dims(red_block, axis=0)
             red_block = np.expand_dims(red_block, axis=-1)
             
+            green_block = np.append(green_block, green_block[2] - green_block[0])
+            green_block = np.append(green_block, green_block[3] - green_block[1])
             green_block = np.expand_dims(green_block, axis=0)
             green_block = np.expand_dims(green_block, axis=-1)
             
@@ -53,7 +57,7 @@ def main_loop_obstacle_race(self):
             IO_list[1] = None
             IO_list[0] = inputs
             
-            self.motor_controller.send_speed(0.5)
+            self.motor_controller.send_speed(0.35)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0)
@@ -74,6 +78,8 @@ def run_model(shared_IO_list):
             red_block = np.array(red_block, dtype=np.float32)
             green_block = np.array(green_block, dtype=np.float32)
             shared_IO_list[0] = None
+            
+            print(f"red_block: {red_block.flatten()}, green_block: {green_block.flatten()}")
 
             # Set the tensors
             model.set_tensor(input_details[0]['index'], lidar_data)
