@@ -32,7 +32,7 @@ def main_loop_training(self):
 
     try:
         while self.running:
-            update_angles_edges(self)
+            # update_angles_edges(self)
             
             # Check for cross button press
             if ps_controller.cross == 1 and not cross_button_pressed:

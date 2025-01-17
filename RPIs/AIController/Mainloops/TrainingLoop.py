@@ -10,7 +10,7 @@ def main_loop_training(self):
         while self.running:
             try:
                 start_time = time.time()
-                steer_servo, control_speed = check_for_failsafe(self)
+                # steer_servo, control_speed = check_for_failsafe(self)
                 
                 if steer_servo:
                     servo_angle = self.servo.mapToServoAngle(self.x)
