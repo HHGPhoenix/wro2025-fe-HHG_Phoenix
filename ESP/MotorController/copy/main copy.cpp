@@ -11,13 +11,15 @@ volatile long encoderTicks = 0;
 int desiredSpeed = 0; // Desired speed in ticks per second
 int motorSpeed = 0;	  // Actual motor speed in PWM value
 int lastSpeed = 0;	  // Last measured speed
+int lastError = 0;
 unsigned long lastTime = 0;
 unsigned long lastTime_voltage = 0;
 
 // Adjust PD controller gains
-float Kp = 0.3;	 // Reduced Proportional gain
-float Kd = 0.25; // Reduced Derivative gain
-float Ka = 1;	 // Acceleration gain
+float Kp = 0.9;	  // Reduced Proportional gain
+float Kd = 0.025; // Reduced Derivative gain
+float Ka = 1;	  // Acceleration gain
+float Ki = 0.5;
 
 void controlMotor(int currentSpeed);
 int computeSpeed();
@@ -157,17 +159,34 @@ void controlMotor(int currentSpeed)
 	}
 
 	static int lastError = 0;
-	int error = desiredSpeed - currentSpeed;
-	int derivative = error - lastError;
-	lastError = error;
+	static double integral = 0.0;
+	static unsigned long lastTime = 0;
 
-	// PD control with acceleration component
-	int controlSignal = Kp * error + Kd * derivative + lastSpeed * Ka;
+	unsigned long now = millis();
+	double dt = (now - lastTime) / 1000.0; // Convert ms to seconds
+	lastTime = now;
+
+	int error = desiredSpeed - currentSpeed;
+
+	// Integrate over time
+	integral += error * dt;
+	// Prevent integral runaway if needed
+	integral = constrain(integral, -255 / Ki, 255 / Ki);
+
+	// Derivative
+	double derivative = 0;
+	if (dt > 0)
+	{
+		derivative = (error - lastError) / dt;
+	}
+
+	// Real PID control
+	double controlSignal = Kp * error + Ki * integral + Kd * derivative;
 
 	// Saturate control signal to -255 to 255
 	controlSignal = constrain(controlSignal, -255, 255);
 
-	motorSpeed = controlSignal;
+	motorSpeed = (int)controlSignal;
 
 	// Control motor based on motorSpeed
 	if (motorSpeed >= 0)
@@ -183,6 +202,7 @@ void controlMotor(int currentSpeed)
 		digitalWrite(IN2, HIGH);
 	}
 
+	lastError = error;
 	lastSpeed = motorSpeed;
 
 	Serial.print("Out: ");

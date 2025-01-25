@@ -135,7 +135,7 @@ class DataTransferer:
                 df_interpolated['intensity'] = df_interpolated['intensity'].interpolate(method='linear', limit_direction='both', inplace=False).fillna(method='bfill').fillna(method='ffill')
 
                 # Filter angles not within the range [140, 220]
-                df_interpolated = df_interpolated[(df_interpolated["angle"] < 135) | (df_interpolated["angle"] > 237)]
+                df_interpolated = df_interpolated[(df_interpolated["angle"] < 150) | (df_interpolated["angle"] > 237)]
 
                 # Convert to list and round values
                 df_interpolated_list = df_interpolated.values.tolist()

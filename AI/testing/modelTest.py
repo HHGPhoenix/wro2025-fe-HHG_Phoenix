@@ -414,6 +414,7 @@ class DataProcessing:
             new_lidar_array = new_lidar_array[:, 1:]
             new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
+            new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
     
             image_array = self.raw_image_data[i]
             controller_value = self.controller_data[i]
@@ -441,6 +442,8 @@ class DataProcessing:
             
             green_block = np.expand_dims(green_block, axis=0)
             green_block = np.expand_dims(green_block, axis=-1)
+            
+            print(f"red_block: {red_block}, green_block: {green_block}")
             
             if USE_VISUALS:
                 model_input = [new_lidar_array, red_block, green_block]
