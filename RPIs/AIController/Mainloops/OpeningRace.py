@@ -18,8 +18,8 @@ def main_loop_opening_race(self):
     
     while self.running:
         try:
-            if not self.interpolated_lidar_data or self.frame_list[1] is None or self.frame_list[3] is None:
-                print(f"Waiting for data: {len(self.interpolated_lidar_data)}, {self.counters}")
+            if not self.interpolated_lidar_data:
+                print(f"Waiting for data: {len(self.interpolated_lidar_data)}")
                 time.sleep(0.05)  # Reduced sleep interval
                 continue
             
@@ -27,27 +27,22 @@ def main_loop_opening_race(self):
                 time.sleep(0.005)  # Reduced sleep interval
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
-                
-            if USE_VISUAL_DATA:
-                simplified_frame = np.frombuffer(self.frame_list[1], dtype=np.uint8).reshape((100, 213, 3)) / 255.0
-                simplified_frame = np.expand_dims(simplified_frame, axis=0)
-                counters = np.expand_dims([self.frame_list[3], self.frame_list[4]], axis=0)
 
-            lidar_data = np.array([[angle / 360, distance / 5000] for angle, distance, _ in self.interpolated_lidar_data])
-            # lidar_data = np.expand_dims(np.expand_dims(lidar_data, axis=-1), axis=0)
-            
-            lidar_data = lidar_data[:, 1:]
-            new_lidar_array = lidar_data.reshape(-1)
+            lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)
+            new_lidar_array = lidar_array[:, 1:]
+            new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
-            new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
             
+            new_lidar_array = np.expand_dims(new_lidar_array, axis=0).astype(np.float32)
             
-            inputs = [new_lidar_array, simplified_frame, counters] if USE_VISUAL_DATA else new_lidar_array
+            print(f"New lidar array: {new_lidar_array.shape}")
+            
+            inputs = new_lidar_array
             
             IO_list[1] = None
             IO_list[0] = inputs
             
-            self.motor_controller.send_speed(0.25)
+            self.motor_controller.send_speed(0.75)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0)
@@ -56,29 +51,24 @@ def main_loop_opening_race(self):
 def run_model(shared_IO_list):
     interpreter = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
     interpreter.allocate_tensors()
-
+    
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
-
+    
     while True:
         if shared_IO_list[0] is not None:
-            if USE_VISUAL_DATA:
-                lidar_data, simplified_frame, counters = shared_IO_list[0]
-            else:
-                lidar_data = shared_IO_list[0]
+            lidar_data = shared_IO_list[0][0]
             shared_IO_list[0] = None
             
-            lidar_data = lidar_data.astype(np.float32)
-            if USE_VISUAL_DATA:
-                simplified_frame = simplified_frame.astype(np.float32)
-                counters = counters.astype(np.float32)
+            lidar_data = np.array(lidar_data).astype(np.float32)
             
-            if USE_VISUAL_DATA:
-                interpreter.set_tensor(input_details[0]['index'], simplified_frame)
-                interpreter.set_tensor(input_details[1]['index'], lidar_data)
-                interpreter.set_tensor(input_details[2]['index'], counters)
-            else:
-                interpreter.set_tensor(input_details[0]['index'], lidar_data)
+            print(f"Input data: {lidar_data.shape}")
+            
+            # Reshape lidar_data to match the expected input dimensions
+            expected_shape = input_details[0]['shape']
+            lidar_data = lidar_data.reshape(expected_shape)
+            
+            interpreter.set_tensor(input_details[0]['index'], lidar_data)
             
             start_time = time.time()
             interpreter.invoke()

@@ -90,7 +90,7 @@ class AIController:
         self.logger = AICU_Logger(self.client)
         
     def initialize_components(self):
-        servo = Servo(self.servo_pin, minAngle=94, middleAngle=120, maxAngle=150)
+        servo = Servo(self.servo_pin, minAngle=94, middleAngle=117, maxAngle=147)
         servo.setAngle(120)
         
         motor_controller = MotorController()
