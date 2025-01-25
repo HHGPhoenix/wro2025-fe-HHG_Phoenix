@@ -34,7 +34,7 @@ print("Done.")
 
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
-DEBUG = False
+DEBUG = True
 # USE_FEATURE_SELECTION = True
 # NUM_FEATURES = 50
 
@@ -1258,7 +1258,7 @@ class DataProcessor:
                                                  red_blocks_input_shape=(self.red_blocks_train.shape[1], 1),
                                                  green_blocks_input_shape=(self.green_blocks_train.shape[1], 1))
             else:
-                self.model = self.model_function(lidar_input_shape=lidar_input_shape)
+                self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1))
         except TypeError as e:
             messagebox.showerror("Model Function Error", f"Error while initializing model functions: {e}")
             return

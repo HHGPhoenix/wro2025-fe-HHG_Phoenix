@@ -1,13 +1,16 @@
 import serial
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import time
 
 # Open the serial port
-ser = serial.Serial('COM5', 921600)
+ser = serial.Serial('COM4', 921600)
+
+time.sleep(2)
 
 # Send START message
 # ser.write(b'START\n')
-ser.write('SPEED 300\n'.encode())
+ser.write('SPEED 150\n'.encode())
 # ser.write(b'KD1.1\n')
 # ser.write(b'KP1.6\n')
 
