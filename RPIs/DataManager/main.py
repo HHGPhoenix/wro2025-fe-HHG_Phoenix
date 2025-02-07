@@ -10,7 +10,8 @@ from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 from RPIs.Devices.LIDAR.LIDAR import Lidar
 from RPIs.Devices.I2C.I2Chandler import I2Chandler
-from RPIs.Devices.Buzzer.Buzzer import Buzzer
+from RPIs.Devices.Button.Button import Button
+from RPIs.Devices.I2C.DisplayOLED.DisplayManager import Display
 from RPIs.Devices.Utility.NotificationClient.NotificationClient import NotificationClient
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
 # from RPIs.Devices.Dummy.I2C.I2Chandler import I2Chandler
@@ -81,21 +82,17 @@ class DataManager:
         self.communicationestablisher = CommunicationEstablisher(self)
         
         self.start_comm()
-
-        self.logger.info("DataManager started.")
         
-        self.mode = self.choose_mode()
-        
-        self.lidar, self.data_transferer, self.buzzer, self.notification_client, self.failsafe, self.i2c_handler = self.initialize_components()
-
-        self.initialized = True
+        self.lidar, self.data_transferer, self.notification_client, self.failsafe, self.i2c_handler, self.display, self.button = self.initialize_components()
         self.communicationestablisher.establish_communication()
         
         self.logger.info("DataManager initialized.")
         
-        self.client.send_message(f"MODE#{self.mode}")
+        self.initialized = True
         
-        self.buzzer.buzz_success()
+        self.display.write_centered_text("Ready!", clear_display=True)
+        self.mode = self.choose_mode()
+        self.client.send_message(f"MODE#{self.mode}")
         
     def start_comm(self):
         logger_obj = Logger()
@@ -131,16 +128,20 @@ class DataManager:
             self.webServerProcess = mp.Process(target=target_with_nice_priority, args=(WebServer, 0, self.frame_list, [self.lidar_data_list, self.interpolated_lidar_data], self.shared_info_list, 5000), daemon=True)
         self.webServerProcess.start()
         
-        buzzer = Buzzer()
         notification_client = NotificationClient()
+        
+        display = Display(0)
+        display.write_centered_text("DataManager Screen", clear_display=True)
         
         failsafe = Failsafe(self)
         threading.Thread(target=target_with_nice_priority, args=(failsafe.mainloop, 0), daemon=True).start()
         
         i2c_handler = I2Chandler()
         i2c_handler.start_threads()
+        
+        button = Button(18)
 
-        return lidar, data_transferer, buzzer, notification_client, failsafe, i2c_handler
+        return lidar, data_transferer, notification_client, failsafe, i2c_handler, display, button
     
 ###########################################################################
     
@@ -184,7 +185,7 @@ class DataManager:
             self.client.send_message('STOP')
             # self.lidar.stop_sensor()
             self.i2c_handler.stop_threads()     
-            self.buzzer.stop()   
+            # self.buzzer.stop()   
             
 ###########################################################################
 
@@ -192,7 +193,7 @@ if __name__ == "__main__":
     data_manager = None
     try:
         data_manager = DataManager()
-        # time.sleep(10)
+        data_manager.button.wait_for_press()
         data_manager.start()
         
     except Exception as e:

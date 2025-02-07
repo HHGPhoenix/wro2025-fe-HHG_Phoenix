@@ -19,6 +19,7 @@ from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
 # from RPIs.Devices.Dummy.Servo.Servo import Servo
 # from RPIs.Devices.Dummy.MotorController.MotorController import MotorController
 from RPIs.Devices.Servo.Servo import Servo
+from RPIs.Devices.I2C.DisplayOLED.DisplayManager import Display
 from RPIs.Devices.MotorController.MotorController import MotorController
 
 # import tensorflow as tf
@@ -61,17 +62,16 @@ class AIController:
         self.rx = 0.5
         self.ry = 0.5
         
+        self.servo, self.motor_controller, self.display = self.initialize_components()
         self.communicationestablisher = CommunicationEstablisher(self)
-
         self.start_comm()
 
-        self.logger.info("AIController started.")
-        
-        self.servo, self.motor_controller = self.initialize_components()
-        
         self.initialized = True
-
+        self.logger.info("AIController initialized.")
+        
+        self.display.write_centered_text("Ready!", clear_display=True)
         self.communicationestablisher.establish_communication()
+        
     
     def start_comm(self):
         self.remote_functions = RemoteFunctions(self)
@@ -90,6 +90,9 @@ class AIController:
         self.logger = AICU_Logger(self.client)
         
     def initialize_components(self):
+        display = Display(1)
+        display.write_centered_text("AIController Screen", clear_display=True)
+        
         servo = Servo(self.servo_pin, minAngle=94, middleAngle=117, maxAngle=147)
         servo.setAngle(120)
         
@@ -98,7 +101,7 @@ class AIController:
         transmit_information_thread = threading.Thread(target=self.transmit_information, daemon=True)
         transmit_information_thread.start()
         
-        return servo, motor_controller
+        return servo, motor_controller, display
     
     def transmit_information(self):
         while True:

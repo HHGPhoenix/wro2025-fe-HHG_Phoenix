@@ -1,7 +1,8 @@
 import time
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
-from luma.oled.device import sh1106
+# from luma.oled.device import sh1106
+from luma.emulator.device import pygame
 from PIL import ImageFont, ImageDraw, Image
 import threading
 import psutil
@@ -9,13 +10,12 @@ import psutil
 # A class for writing to an OLED Display
 class Display:
     def __init__(self, port=0):
-        self.i2c = i2c(port=port, address=0x3C)
-        self.device = sh1106(self.i2c)
+        self.device = pygame(width=128, height=64)
         self.cpu_usage = 0
         self.memory_usage = 0
-        self.header_image = Image.new('1', (self.device.width, 20))  # Assuming header height is 12
+        self.header_image = Image.new('1', (self.device.width, 12))  # Assuming header height is 12
         self.header_draw = ImageDraw.Draw(self.header_image)
-        self.main_content_image = Image.new('1', (self.device.width, self.device.height - 20))
+        self.main_content_image = Image.new('1', (self.device.width, self.device.height - 12))
         self.main_content_draw = ImageDraw.Draw(self.main_content_image)
         self.lock = threading.Lock()  # Lock for thread-safe updates
         self.header_update_thread = threading.Thread(target=self.update_header_info)
@@ -59,7 +59,7 @@ class Display:
             
             time.sleep(0.1)
                     
-    def write_centered_text(self, text: str, clear_display=True, padding=3):
+    def write_centered_text(self, text, clear_display=True, padding=3):
         width, height = self.device.width, self.device.height
         header_height = 12  # Height of the header
         height -= header_height + padding
@@ -68,14 +68,9 @@ class Display:
         for font_size in range(40, 9, -1):
             font = ImageFont.truetype("arial.ttf", font_size)
             words = text.split()
-            current_line = words.pop(0)# "Hello!".split -> ["Hello!"] -> "Hello!"
+            current_line = words.pop(0)
             lines = [current_line]
 
-            if len(words) == 0:
-                _, text_height = ImageDraw.Draw(self.main_content_image).textbbox((0, 0), current_line, font=font)[2:4]
-                total_text_height = text_height
-                break
-                
             for word in words:
                 test_line = f"{current_line} {word}"
                 text_width, text_height = ImageDraw.Draw(self.main_content_image).textbbox((0, 0), test_line, font=font)[2:4]
@@ -85,7 +80,6 @@ class Display:
                 else:
                     current_line = word
                     lines.append(current_line)
-                
 
             total_text_height = len(lines) * text_height
             if total_text_height <= height - (2 * padding):

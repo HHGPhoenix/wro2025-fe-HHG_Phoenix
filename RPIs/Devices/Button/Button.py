@@ -1,34 +1,34 @@
-import gpiod # type: ignore
+import gpiod
+import time
+from datetime import timedelta
+from gpiod.line import Bias, Edge
 
 class Button:
     def __init__(self, pin):
-        self.state = False
         self.pin = pin
+        # Use LineSettings to configure the pin as an input with edge detection
+        settings = gpiod.LineSettings(edge_detection=Edge.BOTH, bias=Bias.PULL_UP, debounce_period=timedelta(milliseconds=10))
+        self.config = {pin: settings}
         
-        self.chip = gpiod.Chip('gpiochip4')
-        
-        self.line = self.chip.get_line(pin)
-        self.line.request(consumer='Button', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-        
+    
     def wait_for_press(self):
-        try:
+        with gpiod.request_lines(
+            "/dev/gpiochip0",
+            consumer="Button",
+            config=self.config
+        ) as request:
             while True:
-                event = self.line.event_wait(sec=float("inf"))
-                print("Waiting for button press...")
-                if event:
-                    event_data = self.line.event_read()
-                    if event_data.event_type == gpiod.LineEvent.RISING_EDGE:
-                        print("Button pressed")
-                    elif event_data.event_type == gpiod.LineEvent.FALLING_EDGE:
-                        print("Button released")
-                    
-        except KeyboardInterrupt:
-            pass
-        
-        finally:
-            self.line.release()
-            self.chip.close()
+                for event in request.read_edge_events():
+                    print(event)
+                    if event:
+                        if event.event_type == event.Type.RISING_EDGE:
+                            print("Button released")
+                        elif event.event_type == event.Type.FALLING_EDGE:
+                            print("Button pressed")
+                            return
 
-# Example usage
-button = Button(pin=4)
-button.wait_for_press()
+
+# Example usage:
+if __name__ == "__main__":
+    button = Button(pin=4)
+    button.wait_for_press()

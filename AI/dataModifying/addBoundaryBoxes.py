@@ -3,8 +3,8 @@ import numpy as np
 import os
 import glob
 
-input_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\25.12.24 blocks\old\c"
-output_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\PrototypeV2\25.12.24 blocks\new\c_with_green_boxes"
+input_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\V3\Datasets\blocks\25.01.24_blocks\pos2"
+output_folder_path = r"C:\Users\felix\OneDrive - Helmholtz-Gymnasium\Flix,Emul Ordner\WRO2025\V3\Datasets\blocks\25.01.24_blocks\pos2_with_boxes"
 
 MIN_AREA = 100  # Minimum area threshold for bounding boxes
 MERGE_DISTANCE = 30  # Distance threshold to merge nearby bounding boxes
@@ -16,14 +16,15 @@ def add_boundary_boxes(image):
     # convert image to hsv
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
-    # Define color ranges
-    lower_green = np.array([57, 30, 40])
-    upper_green = np.array([73, 120, 105])
-    lower_red1 = np.array([175, 105, 80])
-    upper_red1 = np.array([180, 200, 180])
-    lower_red2 = np.array([175, 105, 80])
-    upper_red2 = np.array([180, 200, 180])
-    
+    lower_green = np.array([54, 139, 77])
+    upper_green = np.array([59, 170, 113])
+
+    lower_red1 = np.array([0, 142, 95])
+    upper_red1 = np.array([5, 207, 112])
+
+    lower_red2 = np.array([0, 142, 95])
+    upper_red2 = np.array([5, 207, 112])
+
     # Create masks
     mask_green = cv2.inRange(image, lower_green, upper_green)
     mask_red1 = cv2.inRange(image, lower_red1, upper_red1)
