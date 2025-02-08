@@ -1,6 +1,4 @@
 from RPIs.Devices.I2C.Gyro.GyroManager import GyroSensor
-import threading
-import time
 
 class I2Chandler:
     def __init__(self):
@@ -8,22 +6,22 @@ class I2Chandler:
         Initialize the I2Chandler and all of its components.
         """
         
-        self.Gyro = GyroSensor()
+        # self.Gyro = GyroSensor()
         
     def start_threads(self):
         """
         Start the I2C sensor threads.
         """
         
-        gyro_thread = threading.Thread(target=self.Gyro.start)
-        gyro_thread.start()
+        # gyro_thread = threading.Thread(target=self.Gyro.start)
+        # gyro_thread.start()
         
     def stop_threads(self):
         """
         Stop the I2C sensor threads.
         """
         
-        self.Gyro.stop()
+        # self.Gyro.stop()
         
 if __name__ == '__main__':
     i2c_handler = I2Chandler()
