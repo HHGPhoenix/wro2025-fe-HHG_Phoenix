@@ -9,13 +9,6 @@
 #define encoderA 15
 #define encoderB 2
 
-#define MIN_X 86
-#define MAX_X 1273
-#define MIN_Y -1753
-#define MAX_Y -152
-#define MIN_Z -10302
-#define MAX_Z -10123
-
 volatile long encoderTicks = 0;
 int desiredSpeed = 0; // Desired speed in ticks per second
 int motorSpeed = 0;	  // Actual motor speed in PWM value
@@ -91,6 +84,40 @@ void setup()
 
 void loop()
 {
+
+	String command = Serial.readStringUntil('\n');
+	if (command.startsWith("SPEED "))
+	{
+		desiredSpeed = command.substring(6).toInt();
+		Serial.print("Desired Speed: ");
+		Serial.println(desiredSpeed);
+	}
+	else if (command.startsWith("RST"))
+	{
+		// encoderTicks = 0;
+		fusedPitch = 0;
+		fusedRoll = 0;
+		fusedYaw = 0;
+	}
+	else if (command.startsWith("KP "))
+	{
+		Kp = command.substring(3).toFloat();
+		// Serial.print("Kp: ");
+		// Serial.println(Kp);
+	}
+	else if (command.startsWith("KD "))
+	{
+		Kd = command.substring(3).toFloat();
+		// Serial.print("Kd: ");
+		// Serial.println(Kd);
+	}
+	else if (command.startsWith("KA "))
+	{
+		Ka = command.substring(3).toFloat();
+		// Serial.print("Ka: ");
+		// Serial.println(Ka);
+	}
+
 	unsigned long currentTime = millis();
 
 	// --- Motor Control (update every 100 ms) ---
@@ -140,9 +167,14 @@ void loop()
 		fusedYaw += gyroZ * dt;
 
 		// Print values
-		Serial.print("Raw Gyro yaw: ");
-		Serial.print(gyroZ);
-		Serial.print("Angle: ");
+		// Serial.print("Raw Gyro yaw: ");
+		// Serial.print(gyroZ);
+		Serial.print("IMU:");
+		Serial.print(" R");
+		Serial.print(fusedRoll);
+		Serial.print(" P");
+		Serial.print(fusedPitch);
+		Serial.print(" Y");
 		Serial.println(fusedYaw);
 
 		lastTime_angle = currentTime;

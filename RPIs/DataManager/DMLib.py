@@ -57,7 +57,7 @@ class RemoteFunctions:
     def handle_already_running(self):
         self.DataManager.logger.error('DataManager already running!')
         
-    def receive_system_info(self, cpu_usage, memory_usage, disk_usage, temperature, voltage):
+    def receive_system_info(self, cpu_usage, memory_usage, disk_usage, temperature, voltage, roll, pitch, yaw):
         if not getattr(self.DataManager, 'notification_client', None):
             return
         
@@ -66,21 +66,21 @@ class RemoteFunctions:
         self.DataManager.shared_info_list[2] = disk_usage
         self.DataManager.shared_info_list[3] = temperature
         self.DataManager.shared_info_list[4] = voltage
+        self.DataManager.shared_info_list[5] = roll
+        self.DataManager.shared_info_list[6] = pitch
+        self.DataManager.shared_info_list[7] = yaw
         
         if voltage < 11.9 and voltage > 11.6 and time.time() - self.time_last_send > 300:
             self.time_last_send = time.time()
-            # self.DataManager.buzzer.buzz_battery_low()
             self.DataManager.notification_client.send_battery(voltage)
+            
         elif voltage < 11.6 and voltage > 11.3 and time.time() - self.time_last_send > 60:
             self.time_last_send = time.time()
-            # self.DataManager.buzzer.buzz_battery_low()
             self.DataManager.notification_client.send_battery(voltage)
+            
         elif voltage < 11.3 and time.time() - self.time_last_send > 5:
             self.time_last_send = time.time()
-            # self.DataManager.buzzer.buzz_battery_low()
             self.DataManager.notification_client.send_battery(voltage)
-        
-        # print(f"System info: {cpu_usage}, {memory_usage}, {disk_usage}, {temperature}, {voltage}")
 
 ###########################################################################
     

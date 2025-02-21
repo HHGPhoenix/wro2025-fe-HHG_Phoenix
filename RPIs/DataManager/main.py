@@ -67,9 +67,9 @@ class DataManager:
         self.data_transferer = None
         self.failsafe = None
         
-        self.rounds = 0
         self.current_edge = 0
-        self.last_angle = 0
+        self.last_yaw = 0
+        self.relative_angle = 0
 
         self.running = False
 
@@ -77,7 +77,7 @@ class DataManager:
         self.frame_list = self.mp_manager.list([None, None, None, None, None])
         self.interpolated_lidar_data = self.mp_manager.list([None])
         self.lidar_data_list = self.mp_manager.list()
-        self.shared_info_list = self.mp_manager.list([0, 0, 0, 0, 0])
+        self.shared_info_list = self.mp_manager.list([0, 0, 0, 0, 0, 0, 0, 0]) # 0 - CPU; 1 - Memory; 2 - Disk; 3 - Temperature; 4 - Voltage; 5 - Roll; 6 - Pitch; 7 - Yaw
         
         self.communicationestablisher = CommunicationEstablisher(self)
         

@@ -113,7 +113,7 @@ class AIController:
             cpu_temp = round(int(open('/sys/class/thermal/thermal_zone0/temp').read()) / 1000, 2)
             
             if self.motor_controller.voltage != 0:
-                self.client.send_message(f"SYSTEM_INFO#{cpu_usage}#{memory_usage}#{disk_usage}#{cpu_temp}#{self.motor_controller.voltage}")
+                self.client.send_message(f"SYSTEM_INFO#{cpu_usage}#{memory_usage}#{disk_usage}#{cpu_temp}#{self.motor_controller.voltage}#{self.motor_controller.roll}#{self.motor_controller.pitch}#{self.motor_controller.yaw}")
             stop_time = time.time()
             # if it took longer than 1 second to get the information, raise a warning
             if stop_time - start_time > 1:

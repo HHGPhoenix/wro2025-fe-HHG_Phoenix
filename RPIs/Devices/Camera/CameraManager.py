@@ -28,17 +28,17 @@ class Camera():
         self.picam.set_logging(Picamera2.ERROR)
         
         # Define the color ranges for green and red in HSV color space
-        self.lower_green = np.array([54, 139, 77])
-        self.upper_green = np.array([59, 170, 113])
+        self.lower_green = np.array([54, 115, 100])
+        self.upper_green = np.array([63, 170, 123])
 
         # self.lower_red1 = np.array([0, 105, 80])
         # self.upper_red1 = np.array([1, 200, 180])
         
-        self.lower_red1 = np.array([0, 142, 95])
-        self.upper_red1 = np.array([5, 207, 112])
+        self.lower_red1 = np.array([0, 160, 90])
+        self.upper_red1 = np.array([5, 222, 120])
 
-        self.lower_red2 = np.array([0, 142, 95])
-        self.upper_red2 = np.array([5, 207, 112])
+        self.lower_red2 = np.array([0, 160, 90])
+        self.upper_red2 = np.array([5, 222, 120])
         
         self.lower_black = np.array([15, 0, 0])
         self.upper_black = np.array([170, 55, 70])

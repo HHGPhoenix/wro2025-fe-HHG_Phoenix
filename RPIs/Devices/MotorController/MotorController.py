@@ -8,6 +8,9 @@ class MotorController:
         self.low_voltage = low_voltage
         self.low_voltage_value = low_voltage_value
         self.voltage = 0
+        self.pitch = 0
+        self.roll = 0
+        self.yaw = 0
         
         self.ser = serial.Serial('/dev/ttyUSB0', 921600)
         
@@ -31,7 +34,9 @@ class MotorController:
                         if "V: " in response:
                             self.voltage = self.map_voltage_value(float(response.split("V: ")[1]))
                             # print(f"Voltage: {self.voltage}")
-        finally:
+                        if "IMU: " in response:
+                            self.roll, self.pitch, self.yaw = [float(value[1:]) for value in response.split("IMU:")[1].split(" ")]
+        except:
             self.ser.write(("SPEED " + str(self.map_speed_value(0.5)) + "\n").encode())
 
     def map_voltage_value(self, value):

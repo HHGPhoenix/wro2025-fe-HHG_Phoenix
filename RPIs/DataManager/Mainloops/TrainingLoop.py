@@ -3,7 +3,6 @@ from uuid import uuid4
 import datetime
 from copy import deepcopy
 import numpy as np
-from RPIs.DataManager.Mainloops.Utils import update_angles_edges
 
 # from RPIs.Devices.Dummy.PSController.PSController import PSController
 from RPIs.Devices.PSController.PSController import PSController
@@ -70,8 +69,8 @@ def main_loop_training(self):
                     raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((100, 213, 3))
                     raw_frames.append(raw_frame)
                     
-                    all_bounding_boxes_red.append(self.frame_list[2] if type(self.frame_list[2]) == tuple else (0, 0, 0, 0))
-                    all_bounding_boxes_green.append(self.frame_list[3] if type(self.frame_list[3]) == tuple else (0, 0, 0, 0))
+                    all_bounding_boxes_red.append(self.frame_list[2] if type(self.frame_list[2]) == tuple and self.frame_list[2] != None else (0, 0, 0, 0))
+                    all_bounding_boxes_green.append(self.frame_list[3] if type(self.frame_list[3]) == tuple and self.frame_list[3] != None else (0, 0, 0, 0))
                 
                 elif not saved_after_recording:
                     np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), bounding_boxes_red=np.array(all_bounding_boxes_red), # , counters = np.array(counters)
@@ -90,6 +89,10 @@ def main_loop_training(self):
         pass
     
     finally:
-        np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), bounding_boxes_red=np.array(all_bounding_boxes_red), # , counters = np.array(counters)
-                    bounding_boxes_green=np.array(all_bounding_boxes_green), lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames)) # , simplified_frames=np.array(simplified_frames)
-
+        try:
+            np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), bounding_boxes_red=np.array(all_bounding_boxes_red), # , counters = np.array(counters)
+                        bounding_boxes_green=np.array(all_bounding_boxes_green), lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames)) # , simplified_frames=np.array(simplified_frames)
+        except:
+            print("Error saving data")
+            np.savez(f"RPIs/DataManager/Data/run_data_{file_uuid}_{date}.npz", controller_data=np.array(x_values), # , counters = np.array(counters)
+                        lidar_data=np.array(lidar_arrays), raw_frames=np.array(raw_frames))
