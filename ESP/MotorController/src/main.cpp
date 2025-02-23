@@ -1,59 +1,56 @@
 #include <Arduino.h>
-#include <limits.h> // For INT_MIN and INT_MAX
+#include <limits.h>
 #include <Wire.h>
-#include <MPU6050_6Axis_MotionApps20.h> // Using this library for raw sensor data
+#include <MPU6050_6Axis_MotionApps20.h>
 
-#define ENA 14
-#define IN1 12
-#define IN2 13
+#define ENA 5
+#define IN1 18
+#define IN2 19
 #define encoderA 15
 #define encoderB 2
+#define GyroCorrection -1.515
 
 volatile long encoderTicks = 0;
-int desiredSpeed = 0; // Desired speed in ticks per second
-int motorSpeed = 0;	  // Actual motor speed in PWM value
-int lastSpeed = 0;	  // Last measured speed
+volatile int lastEncoderA = LOW;
+volatile int lastEncoderB = LOW;
+
+int desiredSpeed = 0; // ticks per second (desired)
+int motorSpeed = 0;	  // PWM output value
+int lastSpeed = 0;
+
 unsigned long lastTime = 0;
 unsigned long lastTime_voltage = 0;
 unsigned long lastTime_angle = 0;
 
-// Variables for manual sensor fusion
+// Variables for sensor fusion
 float fusedRoll = 0.0;
 float fusedPitch = 0.0;
-float fusedYaw = 0.0; // Yaw is integrated from the gyroscope
+float fusedYaw = 0.0; // Integrated gyro yaw
 
 // PD controller gains
 float Kp = 0.3;
 float Kd = 0.25;
 float Ka = 1;
 
-MPU6050 mpu; // MPU6050 instance
+MPU6050 mpu;
 
-// --- Encoder ISR Variables ---
-volatile int lastEncoderA = LOW;
-volatile int lastEncoderB = LOW;
-
-void controlMotor(int currentSpeed);
-int computeSpeed();
-
+//
+// Encoder ISR (placed in IRAM for faster execution)
+//
 void IRAM_ATTR encoderISR()
 {
-	int newEncoderA = digitalRead(encoderA);
-	int newEncoderB = digitalRead(encoderB);
+	static const int HIGH_STATE = 1;
+	static const int LOW_STATE = 0;
 
-	if (newEncoderA != lastEncoderA)
+	int newA = digitalRead(encoderA);
+	int newB = digitalRead(encoderB);
+
+	if (newA != lastEncoderA)
 	{
-		if (newEncoderA == HIGH)
-		{
-			encoderTicks += (newEncoderB == LOW) ? 1 : -1;
-		}
-		else
-		{
-			encoderTicks += (newEncoderB == HIGH) ? 1 : -1;
-		}
+		encoderTicks += (newA == HIGH_STATE) ? ((newB == LOW_STATE) ? 1 : -1) : ((newB == HIGH_STATE) ? 1 : -1);
 	}
-	lastEncoderA = newEncoderA;
-	lastEncoderB = newEncoderB;
+	lastEncoderA = newA;
+	lastEncoderB = newB;
 }
 
 void setup()
@@ -69,118 +66,21 @@ void setup()
 	attachInterrupt(digitalPinToInterrupt(encoderA), encoderISR, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(encoderB), encoderISR, CHANGE);
 
-	analogWriteFreq(1000); // Set PWM frequency to 1kHz
+	analogWriteFrequency(1000);
 
 	Wire.begin();
-
 	mpu.initialize();
 	if (!mpu.testConnection())
 	{
-		Serial.println("MPU6050 connection failed");
+		Serial.println(F("MPU6050 connection failed"));
 		while (1)
 			;
 	}
 }
 
-void loop()
-{
-
-	String command = Serial.readStringUntil('\n');
-	if (command.startsWith("SPEED "))
-	{
-		desiredSpeed = command.substring(6).toInt();
-		Serial.print("Desired Speed: ");
-		Serial.println(desiredSpeed);
-	}
-	else if (command.startsWith("RST"))
-	{
-		// encoderTicks = 0;
-		fusedPitch = 0;
-		fusedRoll = 0;
-		fusedYaw = 0;
-	}
-	else if (command.startsWith("KP "))
-	{
-		Kp = command.substring(3).toFloat();
-		// Serial.print("Kp: ");
-		// Serial.println(Kp);
-	}
-	else if (command.startsWith("KD "))
-	{
-		Kd = command.substring(3).toFloat();
-		// Serial.print("Kd: ");
-		// Serial.println(Kd);
-	}
-	else if (command.startsWith("KA "))
-	{
-		Ka = command.substring(3).toFloat();
-		// Serial.print("Ka: ");
-		// Serial.println(Ka);
-	}
-
-	unsigned long currentTime = millis();
-
-	// --- Motor Control (update every 100 ms) ---
-	if (currentTime - lastTime >= 100)
-	{
-		int currentSpeed = computeSpeed();
-		Serial.print("CS: ");
-		Serial.println(currentSpeed);
-		controlMotor(currentSpeed);
-		lastTime = currentTime;
-	}
-
-	// --- Voltage Reading (update every 1000 ms) ---
-	if (currentTime - lastTime_voltage >= 1000)
-	{
-		Serial.print("V: ");
-		Serial.println(analogRead(A0));
-		lastTime_voltage = currentTime;
-	}
-
-	// --- Sensor Fusion & Yaw (Angle) Printing (update every 100 ms) ---
-	if (currentTime - lastTime_angle >= 100)
-	{
-		float dt = (currentTime - lastTime_angle) / 1000.0;
-
-		// Read MPU6050 raw data
-		int16_t ax, ay, az, gx, gy, gz;
-		mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-
-		// Convert raw data
-		float ax_f = ax / 16384.0;
-		float ay_f = ay / 16384.0;
-		float az_f = az / 16384.0;
-
-		float gyroX = gx / 131.0;
-		float gyroY = gy / 131.0;
-		float gyroZ = gz / 131.0 - 1.45;
-
-		float rollAcc = atan2(ay_f, az_f) * 180 / PI;
-		float pitchAcc = atan2(-ax_f, sqrt(ay_f * ay_f + az_f * az_f)) * 180 / PI;
-
-		// Complementary filter for roll and pitch
-		float alpha = 0.98;
-		fusedRoll = alpha * (fusedRoll + gyroX * dt) + (1 - alpha) * rollAcc;
-		fusedPitch = alpha * (fusedPitch + gyroY * dt) + (1 - alpha) * pitchAcc;
-
-		fusedYaw += gyroZ * dt;
-
-		// Print values
-		// Serial.print("Raw Gyro yaw: ");
-		// Serial.print(gyroZ);
-		Serial.print("IMU:");
-		Serial.print(" R");
-		Serial.print(fusedRoll);
-		Serial.print(" P");
-		Serial.print(fusedPitch);
-		Serial.print(" Y");
-		Serial.println(fusedYaw);
-
-		lastTime_angle = currentTime;
-	}
-}
-
+//
+// Reverted computeSpeed() using the original logic
+//
 int computeSpeed()
 {
 	static long lastEncoderTicks = 0;
@@ -229,6 +129,9 @@ int computeSpeed()
 	return static_cast<int>(speed / 10);
 }
 
+//
+// Motor control using a PD controller with an acceleration term
+//
 void controlMotor(int currentSpeed)
 {
 	if (currentSpeed == 0 && desiredSpeed == 0)
@@ -244,12 +147,11 @@ void controlMotor(int currentSpeed)
 	int derivative = error - lastError;
 	lastError = error;
 
-	// PD control with an acceleration term
 	int controlSignal = Kp * error + Kd * derivative + lastSpeed * Ka;
 	controlSignal = constrain(controlSignal, -255, 255);
 	motorSpeed = controlSignal;
+	lastSpeed = motorSpeed;
 
-	// Drive motor based on control signal
 	if (motorSpeed >= 0)
 	{
 		analogWrite(ENA, motorSpeed);
@@ -258,12 +160,94 @@ void controlMotor(int currentSpeed)
 	}
 	else
 	{
-		analogWrite(ENA, -motorSpeed); // Use absolute value for PWM
+		analogWrite(ENA, -motorSpeed);
 		digitalWrite(IN1, LOW);
 		digitalWrite(IN2, HIGH);
 	}
+}
 
-	lastSpeed = motorSpeed;
-	Serial.print("Out: ");
-	Serial.println(motorSpeed);
+void loop()
+{
+	unsigned long currentTime = millis();
+
+	// Process incoming serial commands (non-blocking)
+	if (Serial.available())
+	{
+		String command = Serial.readStringUntil('\n');
+		if (command.startsWith("SPEED "))
+		{
+			desiredSpeed = command.substring(6).toInt();
+			Serial.print(F("Desired Speed: "));
+			Serial.println(desiredSpeed);
+		}
+		else if (command.startsWith("RST"))
+		{
+			fusedPitch = fusedRoll = fusedYaw = 0;
+		}
+		else if (command.startsWith("KP "))
+		{
+			Kp = command.substring(3).toFloat();
+		}
+		else if (command.startsWith("KD "))
+		{
+			Kd = command.substring(3).toFloat();
+		}
+		else if (command.startsWith("KA "))
+		{
+			Ka = command.substring(3).toFloat();
+		}
+	}
+
+	// Motor control update every 100 ms
+	if (currentTime - lastTime >= 10)
+	{
+		int currentSpeed = computeSpeed();
+		controlMotor(currentSpeed);
+		lastTime = currentTime;
+	}
+
+	// Voltage reading update every 1000 ms
+	if (currentTime - lastTime_voltage >= 1000)
+	{
+		Serial.print(F("V: "));
+		Serial.println(analogRead(A0));
+		lastTime_voltage = currentTime;
+	}
+
+	// Sensor fusion update every 10 ms
+	if (currentTime - lastTime_angle >= 10)
+	{
+		float dt = (currentTime - lastTime_angle) * 0.001f;
+
+		int16_t ax, ay, az, gx, gy, gz;
+		mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+		const float accelScale = 1.0f / 16384.0f;
+		const float gyroScale = 1.0f / 131.0f;
+		const float radToDeg = 57.29578f; // 180/PI
+
+		float ax_f = ax * accelScale;
+		float ay_f = ay * accelScale;
+		float az_f = az * accelScale;
+		float gyroX = gx * gyroScale;
+		float gyroY = gy * gyroScale;
+		float gyroZ = gz * gyroScale + GyroCorrection;
+
+		float rollAcc = atan2(ay_f, az_f) * radToDeg;
+		float pitchAcc = atan2(-ax_f, sqrt(ay_f * ay_f + az_f * az_f)) * radToDeg;
+
+		const float alpha = 0.98f;
+		fusedRoll = alpha * (fusedRoll + gyroX * dt) + (1.0f - alpha) * rollAcc;
+		fusedPitch = alpha * (fusedPitch + gyroY * dt) + (1.0f - alpha) * pitchAcc;
+		fusedYaw += gyroZ * dt;
+
+		Serial.print(F("IMU: R"));
+		Serial.print(fusedRoll);
+		Serial.print(F(" P"));
+		Serial.print(fusedPitch);
+		Serial.print(F(" Y"));
+		Serial.println(fusedYaw);
+
+		lastTime_angle = currentTime;
+	}
 }

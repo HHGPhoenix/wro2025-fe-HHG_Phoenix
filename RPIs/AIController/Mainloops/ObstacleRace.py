@@ -2,6 +2,7 @@ import time
 import numpy as np
 import tensorflow as tf
 import multiprocessing as mp
+from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
 global USE_VISUAL_DATA
 USE_VISUAL_DATA = False
@@ -15,6 +16,8 @@ def main_loop_obstacle_race(self):
     
     with open("RPIs/AIController/model_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
+    
+    self.motor_controller.send_speed(0.7)
     
     while self.running:
         try:
@@ -57,7 +60,6 @@ def main_loop_obstacle_race(self):
             IO_list[1] = None
             IO_list[0] = inputs
             
-            self.motor_controller.send_speed(0.7)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0)

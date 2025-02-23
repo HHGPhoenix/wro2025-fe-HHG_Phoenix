@@ -31,6 +31,7 @@ def main_loop_training(self):
 
     try:
         while self.running:
+            # print(self.shared_info_list[7])
             # update_angles_edges(self)
             
             # Check for cross button press

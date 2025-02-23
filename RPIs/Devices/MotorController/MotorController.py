@@ -31,11 +31,12 @@ class MotorController:
                     response = self.ser.readline().decode()    
                     responses = response.split("\n")
                     for response in responses:
+                        # print(response)
                         if "V: " in response:
                             self.voltage = self.map_voltage_value(float(response.split("V: ")[1]))
                             # print(f"Voltage: {self.voltage}")
                         if "IMU: " in response:
-                            self.roll, self.pitch, self.yaw = [float(value[1:]) for value in response.split("IMU:")[1].split(" ")]
+                            self.roll, self.pitch, self.yaw = [float(value[1:]) for value in response.split("IMU: ")[1].split(" ")]
         except:
             self.ser.write(("SPEED " + str(self.map_speed_value(0.5)) + "\n").encode())
 
@@ -43,3 +44,6 @@ class MotorController:
         proportion = (value - self.low_voltage_value) / (self.high_voltage_value - self.low_voltage_value)
         scaled_value = proportion * (self.high_voltage - self.low_voltage)
         return round(self.low_voltage + scaled_value, 2)
+    
+    def reset(self):
+        self.ser.write("RST\n".encode())

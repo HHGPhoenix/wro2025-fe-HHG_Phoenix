@@ -2,6 +2,7 @@ import time
 import numpy as np
 import tensorflow as tf
 import multiprocessing as mp
+from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
 global USE_VISUAL_DATA
 USE_VISUAL_DATA = False
@@ -22,6 +23,8 @@ def main_loop_opening_race(self):
                 print(f"Waiting for data: {len(self.interpolated_lidar_data)}")
                 time.sleep(0.05)  # Reduced sleep interval
                 continue
+            
+            self.current_edge, self.relative_angle, self.last_yaw = get_angles_edges(self.motor_controller.yaw, self.last_yaw, self.current_edge)
             
             while IO_list[1] is None:
                 time.sleep(0.005)  # Reduced sleep interval

@@ -29,5 +29,10 @@ def get_angles_edges(yaw, last_yaw, current_edge, running_check=False):
         running = False
         
         return current_edge, relative_angle, last_yaw, running
+    
+    elif running_check:
+        running = True
+        
+        return current_edge, relative_angle, last_yaw, running
         
     return current_edge, relative_angle, last_yaw

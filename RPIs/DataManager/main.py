@@ -9,12 +9,10 @@ from RPIs.Devices.Failsafe.Failsafe import Failsafe
 from RPIs.RPI_COM.ComEstablisher.ComEstablisher import CommunicationEstablisher
 
 from RPIs.Devices.LIDAR.LIDAR import Lidar
-from RPIs.Devices.I2C.I2Chandler import I2Chandler
 from RPIs.Devices.Button.Button import Button
 from RPIs.Devices.I2C.DisplayOLED.DisplayManager import Display
 from RPIs.Devices.Utility.NotificationClient.NotificationClient import NotificationClient
 # from RPIs.Devices.Dummy.LIDAR.LIDAR import Lidar
-# from RPIs.Devices.Dummy.I2C.I2Chandler import I2Chandler
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
@@ -83,7 +81,7 @@ class DataManager:
         
         self.start_comm()
         
-        self.lidar, self.data_transferer, self.notification_client, self.failsafe, self.i2c_handler, self.display, self.button = self.initialize_components()
+        self.lidar, self.data_transferer, self.notification_client, self.failsafe, self.display, self.button = self.initialize_components()
         self.communicationestablisher.establish_communication()
         
         self.logger.info("DataManager initialized.")
@@ -136,12 +134,9 @@ class DataManager:
         failsafe = Failsafe(self)
         threading.Thread(target=target_with_nice_priority, args=(failsafe.mainloop, 0), daemon=True).start()
         
-        i2c_handler = I2Chandler()
-        i2c_handler.start_threads()
-        
         button = Button(18)
 
-        return lidar, data_transferer, notification_client, failsafe, i2c_handler, display, button
+        return lidar, data_transferer, notification_client, failsafe, display, button
     
 ###########################################################################
     
@@ -184,8 +179,6 @@ class DataManager:
         finally:
             self.client.send_message('STOP')
             # self.lidar.stop_sensor()
-            self.i2c_handler.stop_threads()     
-            # self.buzzer.stop()   
             
 ###########################################################################
 

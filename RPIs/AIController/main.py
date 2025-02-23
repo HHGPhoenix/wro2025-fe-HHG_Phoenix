@@ -52,6 +52,10 @@ class AIController:
         self.failsafe_mode = 0
         self.relative_angle = 0
         
+        self.current_edge = 0
+        self.last_yaw = 0
+        self.relative_angle = 0
+        
         self.running = False
         
         self.mp_manager = mp.Manager()
@@ -138,6 +142,7 @@ class AIController:
             self.logger.info('Starting AIController...')
             
             self.running = True
+            self.motor_controller.reset()
             
             if self.mode == 'OpeningRace':
                 main_loop_opening_race(self)
