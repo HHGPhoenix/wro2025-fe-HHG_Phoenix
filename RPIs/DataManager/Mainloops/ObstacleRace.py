@@ -17,6 +17,8 @@ def main_loop_obstacle_race(self):
         
         self.client.send_message(f"BLOCKS#{self.frame_list[2] if type(self.frame_list[2]) == tuple else (0, 0, 0, 0)}#{self.frame_list[3] if type(self.frame_list[3]) == tuple else (0, 0, 0, 0)}")
         
+        # print(f"red: {self.frame_list[2] if type(self.frame_list[2]) == tuple else (0, 0, 0, 0)}, green: {self.frame_list[3] if type(self.frame_list[3]) == tuple else (0, 0, 0, 0)}")
+        
         time.sleep(0.1)
     
     print("Obstacle ended.")
