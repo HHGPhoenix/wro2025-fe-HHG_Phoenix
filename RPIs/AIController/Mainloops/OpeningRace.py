@@ -48,7 +48,7 @@ def main_loop_opening_race(self):
             self.motor_controller.send_speed(0.75)
         
         except KeyboardInterrupt:
-            self.motor_controller.send_speed(0)
+            self.motor_controller.send_speed(0.5)
             self.running = False
 
 def run_model(shared_IO_list):

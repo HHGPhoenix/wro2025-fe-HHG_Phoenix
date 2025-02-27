@@ -25,13 +25,13 @@ def main_loop_training(self):
                             speed_sent = False
                         
                     else:
-                        # motor_speed = 0.70
-                        # if not speed_sent:
-                        #     self.motor_controller.send_speed(motor_speed)
-                        #     speed_sent = True
+                        motor_speed = 0.70
+                        if not speed_sent:
+                            self.motor_controller.send_speed(motor_speed)
+                            speed_sent = True
                         
-                        motor_speed = self.ry
-                        self.motor_controller.send_speed(motor_speed)
+                        # motor_speed = self.ry
+                        # self.motor_controller.send_speed(motor_speed)
                         
 
                 stop_time = time.time()

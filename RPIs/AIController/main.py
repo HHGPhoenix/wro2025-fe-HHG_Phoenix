@@ -101,6 +101,7 @@ class AIController:
         servo.setAngle(120)
         
         motor_controller = MotorController()
+        motor_controller.reset()
 
         transmit_information_thread = threading.Thread(target=self.transmit_information, daemon=True)
         transmit_information_thread.start()
