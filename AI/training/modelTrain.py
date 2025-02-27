@@ -1215,8 +1215,12 @@ class DataProcessor:
         if DEBUG:
             print(f"Train LIDAR data shape: {self.lidar_train.shape}")
             print(f"Train Controller data shape: {self.controller_train.shape}")
+            print(f"Train red blocks data shape: {self.red_blocks_train.shape}")
+            print(f"Train green blocks data shape: {self.green_blocks_train.shape}")
             print(f"Validation LIDAR data shape: {self.lidar_val.shape}")
             print(f"Validation Controller data shape: {self.controller_val.shape}")
+            print(f"Validation red blocks data shape: {self.red_blocks_val.shape}")
+            print(f"Validation green blocks data shape: {self.green_blocks_val.shape}")
             
         self.generate_checkpoint_filename()
         self.check_dir_preparedness()
@@ -1255,8 +1259,8 @@ class DataProcessor:
             # Initialize the model
             if self.use_visual_data:
                 self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1),
-                                                 red_blocks_input_shape=(self.red_blocks_train.shape[1], 1),
-                                                 green_blocks_input_shape=(self.green_blocks_train.shape[1], 1))
+                                                 red_blocks_input_shape=(self.red_blocks_train.shape[1], self.red_blocks_train.shape[2], 1),
+                                                 green_blocks_input_shape=(self.green_blocks_train.shape[1], self.green_blocks_train.shape[2], 1))
             else:
                 self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1))
         except TypeError as e:
@@ -1435,22 +1439,26 @@ class DataProcessor:
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
 
         # normalize block data with image width and height
-        red_blocks = red_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
-        green_blocks = green_blocks / np.array([raw_frames.shape[2], raw_frames.shape[1], raw_frames.shape[2], raw_frames.shape[1]], dtype=np.float32)
+        # red_blocks = [red_block / np.array([raw_frames.shape[1], raw_frames.shape[0], raw_frames.shape[1], raw_frames.shape[0]]) for two_red_blocks in red_blocks for red_block in two_red_blocks]
+        # green_blocks = [green_block / np.array([raw_frames.shape[1], raw_frames.shape[0], raw_frames.shape[1], raw_frames.shape[0]]) for two_green_blocks in green_blocks for green_block in two_green_blocks]
         
-        new_red_blocks = []
-        for red_block in red_blocks:
-            red_block = np.append(red_block, red_block[2] - red_block[0])
-            red_block = np.append(red_block, red_block[3] - red_block[1])
-            new_red_blocks.append(red_block)
-        red_blocks = np.array(new_red_blocks.copy())
+        for two_red_blocks in red_blocks:
+            for red_block in two_red_blocks:
+                red_block[0] /= raw_frames.shape[1]
+                red_block[1] /= raw_frames.shape[0]
+                red_block[2] /= raw_frames.shape[1]
+                red_block[3] /= raw_frames.shape[0]
+                
+        for two_green_blocks in green_blocks:
+            for green_block in two_green_blocks:
+                green_block[0] /= raw_frames.shape[1]
+                green_block[1] /= raw_frames.shape[0]
+                green_block[2] /= raw_frames.shape[1]
+                green_block[3] /= raw_frames.shape[0]
+                
         
-        new_green_blocks = []
-        for green_block in green_blocks:
-            green_block = np.append(green_block, green_block[2] - green_block[0])
-            green_block = np.append(green_block, green_block[3] - green_block[1])
-            new_green_blocks.append(green_block)
-        green_blocks = np.array(new_green_blocks.copy())
+        red_blocks = np.array(red_blocks)
+        green_blocks = np.array(green_blocks)
         
         data_shift = int(self.data_shift)
         if data_shift != 0:

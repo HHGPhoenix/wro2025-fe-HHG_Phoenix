@@ -117,16 +117,11 @@ class Camera():
         mask_green = cv2.dilate(mask_green, self.kernel, iterations=1)
         mask_red = cv2.dilate(mask_red, self.kernel, iterations=1)
     
-        # Find contours in the green mask
+        # Find contours in the masks
         contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-        # Find contours in the red mask
         contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         cv2.circle(frameraw, (640, 720), 10, (255, 0, 0), -1)
-    
-        green_counter_set = False
-        red_counter_set = False
     
         # Process each green contour
         green_boxes = []
@@ -137,23 +132,7 @@ class Camera():
                 cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
                 
-                green_boxes.append((x, y, x + w, y + h))
-                
-                if green_counter_set == False:
-                    self.green_counter.append(1)
-                    green_counter_set = True
-        else:
-            last_green_counter = self.green_counter[-1] if self.green_counter else 0
-            if last_green_counter - 1 / counter_frames > 0 and last_green_counter <= 1 and not green_counter_set:
-                self.green_counter.append(round(last_green_counter - 1 / counter_frames, 5))
-                green_counter_set = True
-                
-            elif not green_counter_set:
-                self.green_counter.append(0)
-                green_counter_set = True
-                
-        if len(self.green_counter) > 10:
-            self.green_counter.pop(0)
+                green_boxes.append((x + w // 2, y + h // 2, w, h))
     
         # Process each red contour
         red_boxes = []
@@ -164,44 +143,31 @@ class Camera():
                 cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
                 cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
                 
-                red_boxes.append((x, y, x + w, y + h))
-                
-                if red_counter_set == False:
-                    self.red_counter.append(1)
-                    red_counter_set = True
-        else:
-            last_red_counter = self.red_counter[-1] if self.red_counter else 0
-            if last_red_counter - 1 / counter_frames > 0 and last_red_counter <= 1 and not red_counter_set:
-                self.red_counter.append(round(last_red_counter - 1 / counter_frames, 5))
-                red_counter_set = True
-                
-            elif not red_counter_set:
-                self.red_counter.append(0)
-                red_counter_set = True
+                red_boxes.append((x + w // 2, y + h // 2, w, h))
                 
         if len(red_boxes) > 1:
             red_boxes = self.merge_boxes(red_boxes)
             red_boxes = red_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
             if red_boxes and len(red_boxes) > 0:
-                self.red_block = red_boxes[0]
+                self.red_blocks = (red_boxes[0], red_boxes[1])
             else:
-                self.red_block = None
+                self.red_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
         elif len(red_boxes) == 1:
-            self.red_block = red_boxes[0]
+            self.red_blocks = (red_boxes[0], (0, 0, 0, 0))
         else:
-            self.red_block = None
+            self.red_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
         
         if len(green_boxes) > 1:
             green_boxes = self.merge_boxes(green_boxes)
             green_boxes = green_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
             if green_boxes and len(green_boxes) > 0:
-                self.green_block = green_boxes[0]
+                self.green_blocks = (green_boxes[0], green_boxes[1])
             else:
-                self.green_block = None
+                self.green_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
         elif len(green_boxes) == 1:
-            self.green_block = green_boxes[0]
+            self.green_blocks = (green_boxes[0], (0, 0, 0, 0))
         else:
-            self.green_block = None
+            self.green_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
             
         return frameraw
     
@@ -234,39 +200,67 @@ class Camera():
     def merge_box(self, box1, box2):
         """
         Merge two boxes.
-
+    
         Args:
-            box1 (tuple): The first box to merge.
-            box2 (tuple): The second box to merge.
-
+            box1 (tuple): The first box in (x1, y1, w, h) format.
+            box2 (tuple): The second box in (x1, y1, w, h) format.
+    
         Returns:
-            tuple: The merged box.
+            tuple: The merged box in (x1, y1, w, h) format.
         """
-        x1 = min(box1[0], box2[0])
-        y1 = min(box1[1], box2[1])
-        x2 = max(box1[2], box2[2])
-        y2 = max(box1[3], box2[3])
-        return (x1, y1, x2, y2)
+        x1_1, y1_1, w1, h1 = box1
+        x1_2, y1_2, w2, h2 = box2
+        
+        x1_1 = x1_1 - w1 // 2
+        y1_1 = y1_1 - h1 // 2
+    
+        x2_1 = x1_1 + w1
+        y2_1 = y1_1 + h1
+        x2_2 = x1_2 + w2
+        y2_2 = y1_2 + h2
+    
+        x1 = min(x1_1, x1_2)
+        y1 = min(y1_1, y1_2)
+        x2 = max(x2_1, x2_2)
+        y2 = max(y2_1, y2_2)
+    
+        w = x2 - x1
+        h = y2 - y1
+    
+        return (x1, y1, w, h)
     
     def iou(self, box1, box2):
         """
         Calculate the intersection over union (IoU) of two boxes.
-
+    
         Args:
-            box1 (tuple): The first box.
-            box2 (tuple): The second box.
-
+            box1 (tuple): The first box in (x1, y1, w, h) format.
+            box2 (tuple): The second box in (x1, y1, w, h) format.
+    
         Returns:
             float: The IoU of the two boxes.
         """
-        x1 = max(box1[0], box2[0])
-        y1 = max(box1[1], box2[1])
-        x2 = min(box1[2], box2[2])
-        y2 = min(box1[3], box2[3])
+        x1_1, y1_1, w1, h1 = box1
+        x1_2, y1_2, w2, h2 = box2
+        
+        x1_1 = x1_1 - w1 // 2
+        y1_1 = y1_1 - h1 // 2
+    
+        x2_1 = x1_1 + w1
+        y2_1 = y1_1 + h1
+        x2_2 = x1_2 + w2
+        y2_2 = y1_2 + h2
+    
+        x1 = max(x1_1, x1_2)
+        y1 = max(y1_1, y1_2)
+        x2 = min(x2_1, x2_2)
+        y2 = min(y2_1, y2_2)
+    
         intersection = max(0, x2 - x1) * max(0, y2 - y1)
-        area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
-        area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+        area1 = w1 * h1
+        area2 = w2 * h2
         union = area1 + area2 - intersection
+    
         return intersection / union if union > 0 else 0
     
     # Compress the video frames for the webstream    

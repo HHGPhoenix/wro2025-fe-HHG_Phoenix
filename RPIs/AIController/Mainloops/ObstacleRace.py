@@ -39,23 +39,30 @@ def main_loop_obstacle_race(self):
             new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
             # new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
             
-            red_block = np.array(self.block_list[0])
-            green_block = np.array(self.block_list[1])
+            red_blocks = np.array(self.block_list[0])
+            green_blocks = np.array(self.block_list[1])
             
-            red_block = red_block / np.array([213, 100, 213, 100], dtype=np.float32)
-            green_block = green_block / np.array([213, 100, 213, 100], dtype=np.float32)
+            for red_block in red_blocks:
+                red_block[0] /= 213
+                red_block[1] /= 100
+                red_block[2] /= 213
+                red_block[3] /= 100
+                    
+            for green_block in green_blocks:
+                green_block[0] /= 213
+                green_block[1] /= 100
+                green_block[2] /= 213
+                green_block[3] /= 100
             
-            red_block = np.append(red_block, red_block[2] - red_block[0])
-            red_block = np.append(red_block, red_block[3] - red_block[1])
-            red_block = np.expand_dims(red_block, axis=0)
-            red_block = np.expand_dims(red_block, axis=-1)
+            red_blocks = np.array(red_blocks)
+            green_blocks = np.array(green_blocks)
             
-            green_block = np.append(green_block, green_block[2] - green_block[0])
-            green_block = np.append(green_block, green_block[3] - green_block[1])
-            green_block = np.expand_dims(green_block, axis=0)
-            green_block = np.expand_dims(green_block, axis=-1)
+            red_blocks = np.expand_dims(red_blocks, axis=0)
+            red_blocks = np.expand_dims(red_blocks, axis=-1)
+            green_blocks = np.expand_dims(green_blocks, axis=0)
+            green_blocks = np.expand_dims(green_blocks, axis=-1)
             
-            inputs = [new_lidar_array, red_block, green_block]
+            inputs = [new_lidar_array, red_blocks, green_blocks]
             
             IO_list[1] = None
             IO_list[0] = inputs

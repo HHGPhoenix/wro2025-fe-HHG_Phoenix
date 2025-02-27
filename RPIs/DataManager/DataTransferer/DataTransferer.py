@@ -54,8 +54,8 @@ class DataTransferer:
                 
                 self.frame_list[0] = frameraw.tobytes()
                 self.frame_list[1] = object_image.tobytes()
-                self.frame_list[2] = self.camera.red_block
-                self.frame_list[3] = self.camera.green_block
+                self.frame_list[2] = self.camera.red_blocks
+                self.frame_list[3] = self.camera.green_blocks
                 
                 stop_time = time.time()
                 elapsed_time = stop_time - start_time

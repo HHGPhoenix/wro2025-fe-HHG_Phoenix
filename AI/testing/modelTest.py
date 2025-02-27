@@ -9,9 +9,11 @@ import threading
 import time
 import platform
 import os
-from PIL import Image, ImageTk
+from PIL import Image
 import signal
 import json  
+import cv2
+import matplotlib.patches as patches
 print("\rImported libraries")
 
 USE_VISUALS = True  
@@ -386,9 +388,9 @@ class DataProcessing:
     
         # Determine base_model_path and load selected_feature_indexes
         if self.model_type == "tflite":
-            base_model_path = self.modelTestUI.model_path.strip(".tflite")
+            base_model_path = self.modelTestUI.model_path.replace(".tflite", "")
         else:
-            base_model_path = self.modelTestUI.model_path.strip(".h5")
+            base_model_path = self.modelTestUI.model_path.replace(".h5", "")
         with open(f"{base_model_path}_features.txt", "r") as f:
             selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
@@ -417,9 +419,11 @@ class DataProcessing:
             new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
     
             image_array = self.raw_image_data[i]
+            image_array = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
+            
             controller_value = self.controller_data[i]
-            red_block = self.red_block[i]
-            green_block = self.green_block[i]
+            red_blocks = self.red_block[i]
+            green_blocks = self.green_block[i]
             
             # Replace image_array with zeros if NO_PIC is True
             if NO_PIC:
@@ -428,25 +432,35 @@ class DataProcessing:
             # new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
             new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
             
-            red_block = red_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
-            green_block = green_block / np.array([image_array.shape[1], image_array.shape[0], image_array.shape[1], image_array.shape[0]])
+            red_blocks_to_draw = np.array(red_blocks.copy())
+            green_blocks_to_draw = np.array(green_blocks.copy())
             
-            red_block = np.append(red_block, red_block[2] - red_block[0])
-            red_block = np.append(red_block, red_block[3] - red_block[1])
+            for red_block in red_blocks:
+                red_block[0] /= image_array.shape[1]
+                red_block[1] /= image_array.shape[0]
+                red_block[2] /= image_array.shape[1]
+                red_block[3] /= image_array.shape[0]
+                    
+            for green_block in green_blocks:
+                green_block[0] /= image_array.shape[1]
+                green_block[1] /= image_array.shape[0]
+                green_block[2] /= image_array.shape[1]
+                green_block[3] /= image_array.shape[0]
             
-            green_block = np.append(green_block, green_block[2] - green_block[0])
-            green_block = np.append(green_block, green_block[3] - green_block[1])
+            red_blocks = np.array(red_blocks)
+            green_blocks = np.array(green_blocks)
+
             
-            red_block = np.expand_dims(red_block, axis=0)
-            red_block = np.expand_dims(red_block, axis=-1)
+            red_blocks = np.expand_dims(red_blocks, axis=0)
+            red_blocks = np.expand_dims(red_blocks, axis=-1)
+            green_blocks = np.expand_dims(green_blocks, axis=0)
+            green_blocks = np.expand_dims(green_blocks, axis=-1)
             
-            green_block = np.expand_dims(green_block, axis=0)
-            green_block = np.expand_dims(green_block, axis=-1)
             
-            print(f"red_block: {red_block}, green_block: {green_block}")
+            print(f"red_blocks shape: {red_blocks.shape}, green_blocks shape: {green_blocks.shape}")
             
             if USE_VISUALS:
-                model_input = [new_lidar_array, red_block, green_block]
+                model_input = [new_lidar_array, red_blocks, green_blocks]
             else:
                 model_input = [new_lidar_array]
     
@@ -467,7 +481,7 @@ class DataProcessing:
     
             self.data_visualizer.update_polar_plot_lidar(lidar_array, selected_feature_indexes)
             if USE_VISUALS:
-                self.data_visualizer.update_image_plot(image_array)
+                self.data_visualizer.update_image_plot(image_array, red_blocks_to_draw, green_blocks_to_draw)
     
             self.controller_values.append(controller_value)
             self.model_values.append(model_output)
@@ -636,7 +650,8 @@ class VisualizeData:
         # Update the plot size on window resize
         self.image_canvas.get_tk_widget().config(width=event.width, height=event.height)
     
-    def update_image_plot(self, image_array):
+    def update_image_plot(self, image_array, red_blocks=None, green_blocks=None):
+        print(f"red_blocks: {red_blocks}, green_blocks: {green_blocks}")
         # Clear the plot
         self.image_fig.clear()
     
@@ -652,6 +667,18 @@ class VisualizeData:
         # Set spine color to white
         for spine in self.image_axis.spines.values():
             spine.set_edgecolor('white')
+    
+        # Draw red blocks if any
+        if red_blocks is not None:
+            for block in red_blocks:
+                rect = patches.Rectangle((block[0] - block[2] // 2, block[1] - block[3] // 2), block[2], block[3], linewidth=1, edgecolor='r', facecolor='none')
+                self.image_axis.add_patch(rect)
+    
+        # Draw green blocks if any
+        if green_blocks is not None:
+            for block in green_blocks:
+                rect = patches.Rectangle((block[0] - block[2] // 2, block[1] - block[3] // 2), block[2], block[3], linewidth=1, edgecolor='g', facecolor='none')
+                self.image_axis.add_patch(rect)
     
         # Draw the plot
         self.image_fig.canvas.draw()
