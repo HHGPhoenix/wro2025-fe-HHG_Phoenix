@@ -438,20 +438,26 @@ class DataProcessing:
             
             print(f"image_array: {image_array.shape}")
             
+            new_red_blocks = []
             for red_block in red_blocks:
-                red_block[0] /= image_array.shape[1]
-                red_block[1] /= image_array.shape[0]
-                red_block[2] /= image_array.shape[1]
-                red_block[3] /= image_array.shape[0]
+                red_block = np.array(red_block, dtype=float)
+                red_block[0] = float(red_block[0]) / 213.0
+                red_block[1] = float(red_block[1]) / 100.0
+                red_block[2] = float(red_block[2]) / 213.0
+                red_block[3] = float(red_block[3]) / 100.0
+                new_red_blocks.append(red_block)
                     
+            new_green_blocks = []
             for green_block in green_blocks:
-                green_block[0] /= image_array.shape[1]
-                green_block[1] /= image_array.shape[0]
-                green_block[2] /= image_array.shape[1]
-                green_block[3] /= image_array.shape[0]
+                green_block = np.array(green_block, dtype=float)
+                green_block[0] = float(green_block[0]) / 213.0
+                green_block[1] = float(green_block[1]) / 100.0
+                green_block[2] = float(green_block[2]) / 213.0
+                green_block[3] = float(green_block[3]) / 100.0
+                new_green_blocks.append(green_block)
             
-            red_blocks = np.array(red_blocks)
-            green_blocks = np.array(green_blocks)
+            red_blocks = np.array(new_red_blocks)
+            green_blocks = np.array(new_green_blocks)
 
             
             red_blocks = np.expand_dims(red_blocks, axis=0)
@@ -459,9 +465,17 @@ class DataProcessing:
             green_blocks = np.expand_dims(green_blocks, axis=0)
             green_blocks = np.expand_dims(green_blocks, axis=-1)
             
+            red_blocks, red_blocks_1 = np.split(red_blocks, 2, axis=1)
+            green_blocks, green_blocks_1 = np.split(green_blocks, 2, axis=1)
+            
+            red_blocks = np.squeeze(red_blocks, axis=1)
+            green_blocks = np.squeeze(green_blocks, axis=1)
+            red_blocks_1 = np.squeeze(red_blocks_1, axis=1)
+            green_blocks_1 = np.squeeze(green_blocks_1, axis=1)
+            
             print(f"red_blocks: {red_blocks}, green_blocks: {green_blocks}")
             if USE_VISUALS:
-                model_input = [new_lidar_array, red_blocks, green_blocks]
+                model_input = [new_lidar_array, red_blocks, green_blocks, red_blocks_1, green_blocks_1]
             else:
                 model_input = [new_lidar_array]
     
@@ -474,6 +488,9 @@ class DataProcessing:
                 if USE_VISUALS:
                     self.model.set_tensor(input_indices[1], model_input[1].astype(np.float32))
                     self.model.set_tensor(input_indices[2], model_input[2].astype(np.float32))
+                    self.model.set_tensor(input_indices[3], model_input[3].astype(np.float32))
+                    self.model.set_tensor(input_indices[4], model_input[4].astype(np.float32))
+                    
                 self.model.invoke()
                 model_output = self.model.get_tensor(output_index)[0][0]
     

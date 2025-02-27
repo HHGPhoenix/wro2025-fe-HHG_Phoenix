@@ -1224,6 +1224,32 @@ class DataProcessor:
             
         self.generate_checkpoint_filename()
         self.check_dir_preparedness()
+        
+        self.red_blocks_val, self.red_blocks_val_2 = np.split(self.red_blocks_val, 2, axis=1)
+        self.green_blocks_val, self.green_blocks_val_2 = np.split(self.green_blocks_val, 2, axis=1)
+        
+        self.red_blocks_val = np.squeeze(self.red_blocks_val, axis=1)
+        self.red_blocks_val_2 = np.squeeze(self.red_blocks_val_2, axis=1)
+        self.green_blocks_val = np.squeeze(self.green_blocks_val, axis=1)
+        self.green_blocks_val_2 = np.squeeze(self.green_blocks_val_2, axis=1)
+        
+        self.red_blocks_train, self.red_blocks_train_2 = np.split(self.red_blocks_train, 2, axis=1)
+        self.green_blocks_train, self.green_blocks_train_2 = np.split(self.green_blocks_train, 2, axis=1)
+        self.red_blocks_train = np.squeeze(self.red_blocks_train, axis=1)
+        self.red_blocks_train_2 = np.squeeze(self.red_blocks_train_2, axis=1)
+        self.green_blocks_train = np.squeeze(self.green_blocks_train, axis=1)
+        self.green_blocks_train_2 = np.squeeze(self.green_blocks_train_2, axis=1)
+        
+        # # save the block arrays to txt files
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_val.txt", self.red_blocks_val)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_val.txt", self.green_blocks_val)
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_val_2.txt", self.red_blocks_val_2)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_val_2.txt", self.green_blocks_val_2)
+        
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_train.txt", self.red_blocks_train)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_train.txt", self.green_blocks_train)
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_train_2.txt", self.red_blocks_train_2)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_train_2.txt", self.green_blocks_train_2)
             
         try:
             # Remove the second entry in the last dimension
@@ -1259,8 +1285,10 @@ class DataProcessor:
             # Initialize the model
             if self.use_visual_data:
                 self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1),
-                                                 red_blocks_input_shape=(self.red_blocks_train.shape[1], self.red_blocks_train.shape[2], 1),
-                                                 green_blocks_input_shape=(self.green_blocks_train.shape[1], self.green_blocks_train.shape[2], 1))
+                                                 red_blocks_input_shape=(self.red_blocks_train.shape[1], 1),
+                                                 green_blocks_input_shape=(self.green_blocks_train.shape[1], 1),
+                                                 red_blocks_input_shape_2=(self.red_blocks_train_2.shape[1], 1),
+                                                 green_blocks_input_shape_2=(self.green_blocks_train_2.shape[1], 1))
             else:
                 self.model = self.model_function(lidar_input_shape=(lidar_input_shape, 1))
         except TypeError as e:
@@ -1281,11 +1309,16 @@ class DataProcessor:
         
         # reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
         
+
+        
         if self.use_visual_data:
             history = self.model.fit(
-                [self.lidar_train_selected, self.red_blocks_train, self.green_blocks_train],
+                [self.lidar_train_selected, self.red_blocks_train, self.green_blocks_train, self.red_blocks_train_2, self.green_blocks_train_2],
                 self.controller_train,
-                validation_data=([self.lidar_val_selected, self.red_blocks_val, self.green_blocks_val], self.controller_val),
+                validation_data=(
+                    [self.lidar_val_selected, self.red_blocks_val, self.green_blocks_val, self.red_blocks_val_2, self.green_blocks_val_2], 
+                    self.controller_val
+                ),
                 epochs=epochs,
                 callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
                 batch_size=batch_size
@@ -1437,28 +1470,33 @@ class DataProcessor:
     
         # Normalize and process data
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
-
-        # normalize block data with image width and height
-        # red_blocks = [red_block / np.array([raw_frames.shape[1], raw_frames.shape[0], raw_frames.shape[1], raw_frames.shape[0]]) for two_red_blocks in red_blocks for red_block in two_red_blocks]
-        # green_blocks = [green_block / np.array([raw_frames.shape[1], raw_frames.shape[0], raw_frames.shape[1], raw_frames.shape[0]]) for two_green_blocks in green_blocks for green_block in two_green_blocks]
         
+        new_red_blocks = []
         for two_red_blocks in red_blocks:
+            new_two_red_blocks = []
             for red_block in two_red_blocks:
-                red_block[0] /= raw_frames.shape[1]
-                red_block[1] /= raw_frames.shape[0]
-                red_block[2] /= raw_frames.shape[1]
-                red_block[3] /= raw_frames.shape[0]
+                red_block = np.array(red_block, dtype=float)
+                red_block[0] = float(red_block[0]) / 213.0
+                red_block[1] = float(red_block[1]) / 100.0
+                red_block[2] = float(red_block[2]) / 213.0
+                red_block[3] = float(red_block[3]) / 100.0
+                new_two_red_blocks.append(red_block)
+            new_red_blocks.append(new_two_red_blocks)
                 
+        new_green_blocks = []
         for two_green_blocks in green_blocks:
+            new_two_green_blocks = []
             for green_block in two_green_blocks:
-                green_block[0] /= raw_frames.shape[1]
-                green_block[1] /= raw_frames.shape[0]
-                green_block[2] /= raw_frames.shape[1]
-                green_block[3] /= raw_frames.shape[0]
-                
+                green_block = np.array(green_block, dtype=float)
+                green_block[0] = float(green_block[0]) / 213.0
+                green_block[1] = float(green_block[1]) / 100.0
+                green_block[2] = float(green_block[2]) / 213.0
+                green_block[3] = float(green_block[3]) / 100.0
+                new_two_green_blocks.append(green_block)
+            new_green_blocks.append(new_two_green_blocks)
         
-        red_blocks = np.array(red_blocks)
-        green_blocks = np.array(green_blocks)
+        red_blocks = np.array(new_red_blocks)
+        green_blocks = np.array(new_green_blocks)
         
         data_shift = int(self.data_shift)
         if data_shift != 0:
