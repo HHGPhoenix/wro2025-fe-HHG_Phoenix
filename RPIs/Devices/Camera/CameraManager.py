@@ -151,23 +151,23 @@ class Camera():
             if red_boxes and len(red_boxes) > 0:
                 self.red_blocks = (red_boxes[0], red_boxes[1])
             else:
-                self.red_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
+                self.red_blocks = [(0, 0, 0, 0), (0, 0, 0, 0)]
         elif len(red_boxes) == 1:
-            self.red_blocks = (red_boxes[0], (0, 0, 0, 0))
+            self.red_blocks = [red_boxes[0], (0, 0, 0, 0)]
         else:
-            self.red_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
+            self.red_blocks = [(0, 0, 0, 0), (0, 0, 0, 0)]
         
         if len(green_boxes) > 1:
             green_boxes = self.merge_boxes(green_boxes)
             green_boxes = green_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
             if green_boxes and len(green_boxes) > 0:
-                self.green_blocks = (green_boxes[0], green_boxes[1])
+                self.green_blocks = [green_boxes[0], green_boxes[1]]
             else:
-                self.green_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
+                self.green_blocks = [(0, 0, 0, 0), (0, 0, 0, 0)]
         elif len(green_boxes) == 1:
-            self.green_blocks = (green_boxes[0], (0, 0, 0, 0))
+            self.green_blocks = [green_boxes[0], (0, 0, 0, 0)]
         else:
-            self.green_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
+            self.green_blocks = [(0, 0, 0, 0), (0, 0, 0, 0)]
             
         return frameraw
     

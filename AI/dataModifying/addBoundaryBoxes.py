@@ -17,13 +17,13 @@ def add_boundary_boxes(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
     lower_green = np.array([54, 139, 77])
-    upper_green = np.array([59, 170, 113])
+    upper_green = np.array([59, 170, 125])
 
     lower_red1 = np.array([0, 142, 95])
-    upper_red1 = np.array([5, 207, 112])
+    upper_red1 = np.array([5, 207, 140])
 
     lower_red2 = np.array([0, 142, 95])
-    upper_red2 = np.array([5, 207, 112])
+    upper_red2 = np.array([5, 207, 140])
 
     # Create masks
     mask_green = cv2.inRange(image, lower_green, upper_green)

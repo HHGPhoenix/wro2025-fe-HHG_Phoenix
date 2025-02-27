@@ -435,6 +435,9 @@ class DataProcessing:
             red_blocks_to_draw = np.array(red_blocks.copy())
             green_blocks_to_draw = np.array(green_blocks.copy())
             
+            
+            print(f"image_array: {image_array.shape}")
+            
             for red_block in red_blocks:
                 red_block[0] /= image_array.shape[1]
                 red_block[1] /= image_array.shape[0]
@@ -456,9 +459,7 @@ class DataProcessing:
             green_blocks = np.expand_dims(green_blocks, axis=0)
             green_blocks = np.expand_dims(green_blocks, axis=-1)
             
-            
-            print(f"red_blocks shape: {red_blocks.shape}, green_blocks shape: {green_blocks.shape}")
-            
+            print(f"red_blocks: {red_blocks}, green_blocks: {green_blocks}")
             if USE_VISUALS:
                 model_input = [new_lidar_array, red_blocks, green_blocks]
             else:
