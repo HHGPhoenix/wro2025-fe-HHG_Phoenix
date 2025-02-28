@@ -123,7 +123,7 @@ class AIController:
             # if it took longer than 1 second to get the information, raise a warning
             if stop_time - start_time > 1:
                 self.logger.warning(f"Transmitting information took {stop_time - start_time} seconds.")
-            time.sleep(max(0, 1 - (stop_time - start_time)))
+            time.sleep(max(0, 0.1 - (stop_time - start_time)))
     
     ###########################################################################
     
