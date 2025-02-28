@@ -140,7 +140,10 @@ class Camera():
                 
         if len(red_boxes) > 1:
             red_boxes = self.merge_boxes(red_boxes)
-            red_boxes = red_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
+            # print(f"merged_red_boxes: {red_boxes}")
+            # Fix: sort the list and assign the result back to red_boxes
+            red_boxes.sort(key=lambda x: x[2] * x[3], reverse=True)
+            # print(f"sorted_red_boxes: {red_boxes}")
             if red_boxes and len(red_boxes) > 0:
                 self.red_blocks = (red_boxes[0], red_boxes[1])
             else:
@@ -152,7 +155,7 @@ class Camera():
         
         if len(green_boxes) > 1:
             green_boxes = self.merge_boxes(green_boxes)
-            green_boxes = green_boxes.sort(key=lambda x: (x[2] - x[0]) * (x[3] - x[1]), reverse=True)
+            green_boxes.sort(key=lambda x: x[2] * x[3], reverse=True)
             if green_boxes and len(green_boxes) > 0:
                 self.green_blocks = (green_boxes[0], green_boxes[1])
             else:
@@ -161,6 +164,8 @@ class Camera():
             self.green_blocks = (green_boxes[0], (0, 0, 0, 0))
         else:
             self.green_blocks = ((0, 0, 0, 0), (0, 0, 0, 0))
+            
+        # print(f"red_blocks: {self.red_blocks}, green_blocks: {self.green_blocks}")
             
         return frameraw
     

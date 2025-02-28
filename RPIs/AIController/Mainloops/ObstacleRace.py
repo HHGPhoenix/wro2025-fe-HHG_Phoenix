@@ -66,14 +66,10 @@ def main_loop_obstacle_race(self):
             red_blocks = np.array(new_red_blocks)
             green_blocks = np.array(new_green_blocks)
             
-            print(f"red_blocks: {red_blocks}, green_blocks: {green_blocks}")
-            
             red_blocks = np.expand_dims(red_blocks, axis=0)
             red_blocks = np.expand_dims(red_blocks, axis=-1)
             green_blocks = np.expand_dims(green_blocks, axis=0)
             green_blocks = np.expand_dims(green_blocks, axis=-1)
-            
-            print(f"red_blocks: {red_blocks}, green_blocks: {green_blocks}")
             
             inputs = [new_lidar_array, red_blocks, green_blocks]
             

@@ -129,9 +129,9 @@ class AIController:
     
     def start(self):
         try:
-            for i in range(3):
-                time.sleep(1)
-                self.logger.info(f"Waiting ... {i}")
+            # for i in range(3):
+            #     time.sleep(1)
+            #     self.logger.info(f"Waiting ... {i}")
 
             if self.running:
                 self.logger.error('AIController already running!')
