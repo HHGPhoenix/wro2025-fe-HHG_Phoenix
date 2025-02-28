@@ -1,4 +1,4 @@
-print("Importing nessesary modules...")
+print("Importing necessary modules...")
 import customtkinter as ctk
 from CTkListbox import *
 import tkinter as tk
@@ -1240,16 +1240,16 @@ class DataProcessor:
         self.green_blocks_train = np.squeeze(self.green_blocks_train, axis=1)
         self.green_blocks_train_2 = np.squeeze(self.green_blocks_train_2, axis=1)
         
-        # # save the block arrays to txt files
-        # np.savetxt(f"{self.model_base_filename}_red_blocks_val.txt", self.red_blocks_val)
-        # np.savetxt(f"{self.model_base_filename}_green_blocks_val.txt", self.green_blocks_val)
-        # np.savetxt(f"{self.model_base_filename}_red_blocks_val_2.txt", self.red_blocks_val_2)
-        # np.savetxt(f"{self.model_base_filename}_green_blocks_val_2.txt", self.green_blocks_val_2)
+        # save the block arrays to txt files
+        np.savetxt(f"{self.model_base_filename}_red_blocks_val.txt", self.red_blocks_val)
+        np.savetxt(f"{self.model_base_filename}_green_blocks_val.txt", self.green_blocks_val)
+        np.savetxt(f"{self.model_base_filename}_red_blocks_val_2.txt", self.red_blocks_val_2)
+        np.savetxt(f"{self.model_base_filename}_green_blocks_val_2.txt", self.green_blocks_val_2)
         
-        # np.savetxt(f"{self.model_base_filename}_red_blocks_train.txt", self.red_blocks_train)
-        # np.savetxt(f"{self.model_base_filename}_green_blocks_train.txt", self.green_blocks_train)
-        # np.savetxt(f"{self.model_base_filename}_red_blocks_train_2.txt", self.red_blocks_train_2)
-        # np.savetxt(f"{self.model_base_filename}_green_blocks_train_2.txt", self.green_blocks_train_2)
+        np.savetxt(f"{self.model_base_filename}_red_blocks_train.txt", self.red_blocks_train)
+        np.savetxt(f"{self.model_base_filename}_green_blocks_train.txt", self.green_blocks_train)
+        np.savetxt(f"{self.model_base_filename}_red_blocks_train_2.txt", self.red_blocks_train_2)
+        np.savetxt(f"{self.model_base_filename}_green_blocks_train_2.txt", self.green_blocks_train_2)
             
         try:
             # Remove the second entry in the last dimension
@@ -1307,7 +1307,13 @@ class DataProcessor:
         
         stop_training_callback = StopTrainingCallback(self)
         
-        # reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001)
+        reduce_lr = ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.2,  # Reduce by 80%
+            patience=5,   # Wait 5 epochs with no improvement
+            min_lr=1e-6,  # Don't go below this learning rate
+            verbose=1     # Print message when reducing learning rate
+        )
         
 
         
@@ -1320,7 +1326,7 @@ class DataProcessor:
                     self.controller_val
                 ),
                 epochs=epochs,
-                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback],
+                callbacks=[early_stopping, model_checkpoint, data_callback, stop_training_callback, reduce_lr],
                 batch_size=batch_size
             )
         else:

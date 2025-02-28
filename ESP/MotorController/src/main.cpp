@@ -29,7 +29,7 @@ float fusedYaw = 0.0; // Integrated gyro yaw
 
 // PD controller gains
 float Kp = 0.3;
-float Kd = 0.25;
+float Kd = 0.5;
 float Ka = 1;
 
 MPU6050 mpu;
@@ -112,14 +112,14 @@ int computeSpeed()
 
 	long long speed = (static_cast<long long>(deltaTicks) * 1000L) / deltaTime;
 
-	Serial.print("Ticks: ");
-	Serial.print(ticks);
-	Serial.print("  DeltaTicks: ");
-	Serial.print(deltaTicks);
-	Serial.print("  DeltaTime: ");
-	Serial.print(deltaTime);
-	Serial.print("  Speed: ");
-	Serial.println(speed);
+	// Serial.print("Ticks: ");
+	// Serial.print(ticks);
+	// Serial.print("  DeltaTicks: ");
+	// Serial.print(deltaTicks);
+	// Serial.print("  DeltaTime: ");
+	// Serial.print(deltaTime);
+	// Serial.print("  Speed: ");
+	// Serial.println(speed);
 
 	if (speed < INT_MIN || speed > INT_MAX)
 	{
@@ -151,6 +151,9 @@ void controlMotor(int currentSpeed)
 	controlSignal = constrain(controlSignal, -255, 255);
 	motorSpeed = controlSignal;
 	lastSpeed = motorSpeed;
+
+	// Serial.print(F("Out: "));
+	// Serial.println(motorSpeed);
 
 	if (motorSpeed >= 0)
 	{
@@ -199,9 +202,11 @@ void loop()
 	}
 
 	// Motor control update every 100 ms
-	if (currentTime - lastTime >= 10)
+	if (currentTime - lastTime >= 50)
 	{
 		int currentSpeed = computeSpeed();
+		// Serial.print(F("CS: "));
+		// Serial.println(currentSpeed);
 		controlMotor(currentSpeed);
 		lastTime = currentTime;
 	}
