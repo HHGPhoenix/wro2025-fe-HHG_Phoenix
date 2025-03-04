@@ -1,2 +1,0 @@
-- add mark for where best model is in graph
-- save which batch size and number of trained epochs to model

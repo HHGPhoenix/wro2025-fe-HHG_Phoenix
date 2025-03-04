@@ -15,3 +15,4 @@ model_preset_configuration.json
 .config/settingsModelTrain.json
 .config/cnnModelTest.json
 model_config.py
+sync_handler_log.txt
