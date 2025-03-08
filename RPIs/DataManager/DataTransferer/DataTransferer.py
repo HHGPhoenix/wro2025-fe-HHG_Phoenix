@@ -15,7 +15,6 @@ class DataTransferer:
         self.lidar = lidar
         self.lidar_data_list = lidar_data_list
         self.interpolated_lidar_data = interpolated_lidar_data
-
         self.camera = None
         self.lidar_data_was_available = False
 
@@ -23,16 +22,12 @@ class DataTransferer:
         self.camera_thread = threading.Thread(target=self.process_cam_frames)
         self.camera_thread.daemon = False
         self.camera_thread.start()
-        
         print("Camera thread started")
 
         self.lidar_thread = threading.Thread(target=self.process_lidar_data)
         self.lidar_thread.daemon = False
         self.lidar_thread.start()
-        
         print("Lidar thread started")
-
-        #stop those
 
     def stop(self):
         self.camera_thread.join()
@@ -62,9 +57,6 @@ class DataTransferer:
                 if elapsed_time > 0.1:
                     print(f"Processing camera frames took longer than 100ms: {elapsed_time}")
                 time.sleep(max(0.1 - elapsed_time, 0))
-        
-        except KeyboardInterrupt:
-            pass
         except BrokenPipeError:
             pass
         except EOFError:
@@ -152,8 +144,6 @@ class DataTransferer:
 
                 if wait_time < 0:
                     print(f"Processing LIDAR data took longer than 100ms: {elapsed_time}")
-        except KeyboardInterrupt:
-            pass
         except BrokenPipeError:
             pass
         except EOFError:

@@ -36,8 +36,6 @@ class Servo:
         # Correctly calculate the duty cycle based on the pulse width
         dutyCycle = (pulseWidthMicroseconds / 10000) * 100
         
-        # print(f"!###! duty_cycle: {dutyCycle:.4f} !###!", end=' ')
-        # print(f"dutyCycle = (self.minPulse + (({self.maxPulse} - {self.minPulse}) * ({angle} - {self.minAngle}) / ({self.maxAngle} - {self.minAngle}))) / 20000 * 100")
         self.pwm.change_duty_cycle(duty_cycle=dutyCycle)
         
 

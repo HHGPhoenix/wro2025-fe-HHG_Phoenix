@@ -1,6 +1,5 @@
 import time
 import threading
-import numpy as np
 
 COM_LOCK = threading.Lock()
 COM_HANDLE_ACTIVE = False
@@ -84,7 +83,6 @@ class RemoteFunctions:
         self.AIController.interpolated_lidar_data = interpolated_lidar_data
         
     def set_blocks(self, red_block, green_block):
-        # print(f"red_block {red_block}, green_block {green_block}")
         self.AIController.block_list[0] = red_block
         self.AIController.block_list[1] = green_block
         

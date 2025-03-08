@@ -150,10 +150,6 @@ class DataManager:
     
     def start(self):
         try:
-            # for i in range(3):
-            #     time.sleep(1)
-            #     self.logger.info(f"Waiting ... {i}")
-
             self.logger.info('Starting AIController...')
             self.client.send_message('START')
             
@@ -182,7 +178,6 @@ class DataManager:
             self.client.send_message('STOP')
             time.sleep(0.1)
             self.client.send_message('STOP')
-            # self.lidar.stop_sensor()
             
 ###########################################################################
 

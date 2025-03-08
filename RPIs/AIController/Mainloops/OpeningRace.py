@@ -4,9 +4,6 @@ import tensorflow as tf
 import multiprocessing as mp
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
-global USE_VISUAL_DATA
-USE_VISUAL_DATA = False
-
 def main_loop_opening_race(self):
     self.logger.info("Starting main loop for opening race...")
 
@@ -30,15 +27,15 @@ def main_loop_opening_race(self):
                 time.sleep(0.005)  # Reduced sleep interval
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
+            self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
 
+            # Prepare the lidar data
             lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)
             new_lidar_array = lidar_array[:, 1:]
             new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
-            
             new_lidar_array = np.expand_dims(new_lidar_array, axis=0).astype(np.float32)
-            
-            print(f"New lidar array: {new_lidar_array.shape}")
+            # print(f"New lidar array: {new_lidar_array.shape}")
             
             inputs = new_lidar_array
             
@@ -56,6 +53,7 @@ def run_model(shared_IO_list):
     interpreter.allocate_tensors()
     
     input_details = interpreter.get_input_details()
+    print(f"Input details: {input_details}")
     output_details = interpreter.get_output_details()
     
     while True:
@@ -64,12 +62,7 @@ def run_model(shared_IO_list):
             shared_IO_list[0] = None
             
             lidar_data = np.array(lidar_data).astype(np.float32)
-            
-            print(f"Input data: {lidar_data.shape}")
-            
-            # Reshape lidar_data to match the expected input dimensions
-            expected_shape = input_details[0]['shape']
-            lidar_data = lidar_data.reshape(expected_shape)
+            # print(f"Input data: {lidar_data.shape}")
             
             interpreter.set_tensor(input_details[0]['index'], lidar_data)
             

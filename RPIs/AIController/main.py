@@ -1,10 +1,7 @@
 import time
 import threading
-import cv2
 import multiprocessing as mp
 import os
-import signal
-import requests
 import psutil
 from RPIs.RPI_COM.messageReceiverServer import MessageReceiver
 from RPIs.RPI_COM.sendMessage import Messenger
@@ -21,8 +18,6 @@ from RPIs.AIController.Mainloops.TrainingLoop import main_loop_training
 from RPIs.Devices.Servo.Servo import Servo
 from RPIs.Devices.I2C.DisplayOLED.DisplayManager import Display
 from RPIs.Devices.MotorController.MotorController import MotorController
-
-# import tensorflow as tf
 
 ###########################################################################
 
@@ -129,9 +124,7 @@ class AIController:
     
     def start(self):
         try:
-            # for i in range(3):
-            #     time.sleep(1)
-            #     self.logger.info(f"Waiting ... {i}")
+            self.display.write_centered_text("Starting", clear_display=True)
 
             if self.running:
                 self.logger.error('AIController already running!')
@@ -170,7 +163,7 @@ if __name__ == "__main__":
         ai_controller = AIController()  
         
         while not ai_controller.stop_with_interrupt:
-            time.sleep(0.5)
+            time.sleep(0.1)
             
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt")

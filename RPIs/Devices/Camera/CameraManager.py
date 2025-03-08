@@ -51,40 +51,6 @@ class Camera():
         frameraw = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         framehsv = cv2.cvtColor(frameraw, cv2.COLOR_BGR2HSV)        
         return frameraw, framehsv
-    
-    def simplify_image(self, framehsv, black_color=[255, 255, 255], shade_of_red=[0, 0, 255], shade_of_green=[0, 255, 0]):
-        """
-        Simplify the image by coloring red and green areas with specified shades.
-
-        Args:
-            framehsv (np.ndarray): The image in HSV color space.
-            shade_of_red (list): The RGB values of the shade of red to color the red areas.
-            shade_of_green (list): The RGB values of the shade of green to color the green areas.
-
-        Returns:
-            np.ndarray: The simplified image with red and green areas colored with the specified shades.
-        """
-        
-        # Masks for green and red pixels
-        mask_green = cv2.inRange(framehsv, self.lower_green, self.upper_green)
-        mask_red1 = cv2.inRange(framehsv, self.lower_red1, self.upper_red1)
-        mask_red2 = cv2.inRange(framehsv, self.lower_red2, self.upper_red2)
-        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-
-        mask_black = cv2.inRange(framehsv, self.lower_black, self.upper_black)
-
-        # Initialize a blank white image
-        height, width = framehsv.shape[:2]
-        simplified_image = np.ones((height, width, 3), np.uint8) * 0  # White background
-
-        # Apply specified shades to red and green areas
-        simplified_image[mask_green > 0] = shade_of_green
-        simplified_image[mask_red > 0] = shade_of_red
-
-        # Apply black color to non-red and non-green areas
-        simplified_image[mask_black > 0] = black_color  # Black color for non-red and non-green areas
-
-        return simplified_image
 
     def draw_blocks(self, frameraw, framehsv, counter_frames=30):
         """

@@ -12,10 +12,6 @@ class Failsafe:
         while self.data_manager.running:
             red_block = self.data_manager.frame_list[2][0]
             green_block = self.data_manager.frame_list[3][0]
-            # if red_block == None:
-            #     red_block = (0, 0, 0, 0)
-            # if green_block == None:
-            #     green_block = (0, 0, 0, 0)
             
             red_block_area = (red_block[2] - red_block[0]) * (red_block[3] - red_block[1])
             green_block_area = (green_block[2] - green_block[0]) * (green_block[3] - green_block[1])

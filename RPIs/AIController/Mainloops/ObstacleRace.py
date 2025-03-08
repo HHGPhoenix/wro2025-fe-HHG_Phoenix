@@ -4,9 +4,6 @@ import tensorflow as tf
 import multiprocessing as mp
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
-global USE_VISUAL_DATA
-USE_VISUAL_DATA = False
-
 def main_loop_obstacle_race(self):
     self.logger.info("Starting main loop for obstacle race...")
 
@@ -30,21 +27,21 @@ def main_loop_obstacle_race(self):
                 time.sleep(0.005)
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
+            self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
                 
+            # Prepare the lidar data
             lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)
             new_lidar_array = lidar_array[:, 1:]
             new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
-            
             new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
-            # new_lidar_array = np.expand_dims(new_lidar_array, axis=-1)
             
+            # Prepare the blocks
             red_blocks = np.array(self.block_list[0])
             green_blocks = np.array(self.block_list[1])
-            
-            
             print(f"red_blocks: {red_blocks}, green_blocks: {green_blocks}")
             
+            # Normalize the blocks
             new_red_blocks = []
             for red_block in red_blocks:
                 red_block = np.array(red_block, dtype=np.float32)
@@ -63,9 +60,11 @@ def main_loop_obstacle_race(self):
                 green_block[3] /= 100
                 new_green_blocks.append(green_block)
             
+            # Convert the blocks to numpy arrays
             red_blocks = np.array(new_red_blocks)
             green_blocks = np.array(new_green_blocks)
             
+            # Add the batch and channel dimensions
             red_blocks = np.expand_dims(red_blocks, axis=0)
             red_blocks = np.expand_dims(red_blocks, axis=-1)
             green_blocks = np.expand_dims(green_blocks, axis=0)
@@ -82,31 +81,29 @@ def main_loop_obstacle_race(self):
             self.running = False
 
 def run_model(shared_IO_list):
+    # Load the model
     model = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
     model.allocate_tensors()
 
+    # Get the input and output details
     input_details = model.get_input_details()
     print(f"Input details: {input_details}")
     output_details = model.get_output_details()
 
     while True:
         if shared_IO_list[0] is not None:
-            lidar_data, red_block, green_block = shared_IO_list[0]
             lidar_data = np.array(lidar_data, dtype=np.float32)
             red_block = np.array(red_block, dtype=np.float32)
             green_block = np.array(green_block, dtype=np.float32)
             shared_IO_list[0] = None
             
+            # Split the red and green blocks
             red_block, red_block_2 = np.split(red_block, 2, axis=1)
             green_block, green_block_2 = np.split(green_block, 2, axis=1)
-            
             red_block = np.squeeze(red_block, axis=1)
             green_block = np.squeeze(green_block, axis=1)
             red_block_2 = np.squeeze(red_block_2, axis=1)
             green_block_2 = np.squeeze(green_block_2, axis=1)
-            
-            
-            # print(f"red_block: {red_block.flatten()}, green_block: {green_block.flatten()}")
 
             # Set the tensors
             model.set_tensor(input_details[0]['index'], lidar_data)

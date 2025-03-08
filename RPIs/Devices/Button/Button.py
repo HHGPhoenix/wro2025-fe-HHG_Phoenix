@@ -23,6 +23,8 @@ class Button:
                     if event:
                         if event.event_type == event.Type.RISING_EDGE:
                             print("Button released")
+                            return
+
                         elif event.event_type == event.Type.FALLING_EDGE:
                             print("Button pressed")
                             return
