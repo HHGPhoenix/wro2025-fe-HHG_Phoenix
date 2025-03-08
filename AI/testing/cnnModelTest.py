@@ -29,6 +29,7 @@ class CNNModelTester(ctk.CTk):
         self.label_map = {0: "background", 1: "red_block", 2: "green_block"}
         self.image_files = []
         self.current_image_index = 0
+        self.model_input_shape = (224, 224, 3)  # Add this line
         self.load_config()
         self.setup_gui()
 
@@ -139,10 +140,14 @@ class CNNModelTester(ctk.CTk):
             print(f"Failed to load image {image_path}")
             return
 
+        # Resize to match model's expected input dimensions
+        input_image_resized = cv2.resize(input_image, (224, 224))
         input_image_rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+        input_image_rgb_resized = cv2.cvtColor(input_image_resized, cv2.COLOR_BGR2RGB)
 
         if self.model or self.tflite_model:
-            input_image_norm = np.expand_dims(input_image, axis=0) / 255.0
+            # Use resized image for prediction
+            input_image_norm = np.expand_dims(input_image_resized, axis=0) / 255.0
 
             if self.model:
                 predictions = self.model.predict(input_image_norm)
@@ -162,15 +167,16 @@ class CNNModelTester(ctk.CTk):
                 class_label = np.argmax(class_probs)
                 class_name = self.label_map[class_label]
 
+                # Scale bounding box to the original image dimensions
                 x1, y1, x2, y2 = bounding_boxes
                 x1, y1, x2, y2 = int(x1 * input_image.shape[1]), int(y1 * input_image.shape[0]), int(x2 * input_image.shape[1]), int(y2 * input_image.shape[0])
 
                 if class_name == 'red_block':
-                    color = (255, 0, 0)
+                    color = (255, 0, 0)  # RGB
                 elif class_name == 'green_block':
-                    color = (0, 255, 0)
+                    color = (0, 255, 0)  # RGB
                 else:
-                    color = (0, 0, 255)
+                    color = (0, 0, 255)  # RGB
 
                 cv2.rectangle(input_image_rgb, (x1, y1), (x2, y2), color, 2)
 
@@ -211,9 +217,11 @@ class CNNModelTester(ctk.CTk):
                 print(f"Failed to load image {image_path}")
                 index += 1
                 continue
-    
-            input_image_norm = np.expand_dims(input_image, axis=0) / 255.0
-    
+
+            # Resize to match model's expected input dimensions
+            input_image_resized = cv2.resize(input_image, (224, 224))
+            input_image_norm = np.expand_dims(input_image_resized, axis=0) / 255.0
+
             if self.model:
                 predictions = self.model.predict(input_image_norm)
             elif self.tflite_model:
@@ -223,14 +231,14 @@ class CNNModelTester(ctk.CTk):
                 stop_time = time.time()
                 print(f"Inference time: {stop_time - start_time}")
                 predictions = [self.tflite_model.get_tensor(output['index']) for output in self.output_details]
-    
+
             print(f"Predictions: {predictions}")
-    
+
             if len(predictions) != 2:
                 print(f"Unexpected model output: {predictions}")
                 index += 1
                 continue
-    
+
             if self.model:
                 bounding_boxes = predictions[0][0]
                 class_probs = predictions[1][0]
