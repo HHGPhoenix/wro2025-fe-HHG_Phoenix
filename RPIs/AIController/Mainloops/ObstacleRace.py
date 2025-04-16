@@ -27,7 +27,7 @@ def main_loop_obstacle_race(self):
                 time.sleep(0.005)
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
-            self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
+            # self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
                 
             # Prepare the lidar data
             lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)
@@ -92,9 +92,9 @@ def run_model(shared_IO_list):
 
     while True:
         if shared_IO_list[0] is not None:
-            lidar_data = np.array(lidar_data, dtype=np.float32)
-            red_block = np.array(red_block, dtype=np.float32)
-            green_block = np.array(green_block, dtype=np.float32)
+            lidar_data = np.array(shared_IO_list[0][0], dtype=np.float32)
+            red_block = np.array(shared_IO_list[0][1], dtype=np.float32)
+            green_block = np.array(shared_IO_list[0][2], dtype=np.float32)
             shared_IO_list[0] = None
             
             # Split the red and green blocks

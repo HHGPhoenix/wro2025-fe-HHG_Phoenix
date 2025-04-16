@@ -3,15 +3,19 @@ from uuid import uuid4
 import datetime
 from copy import deepcopy
 import numpy as np
+import threading
 
 # from RPIs.Devices.Dummy.PSController.PSController import PSController
-from RPIs.Devices.PSController.PSController import PSController
+from RPIs.Devices.PSController.PSController import PSController, start_controller_in_thread
 
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")
-    ps_controller = PSController()
-    ps_controller.calibrate_analog_sticks()
+    ps_controller = PSController(interface="/dev/input/js0")
+    controller_thread = threading.Thread(target=start_controller_in_thread, args=(ps_controller,))
+    controller_thread.daemon = True
+    controller_thread.start()
+    # ps_controller.calibrate_analog_sticks()
     
     file_uuid = str(uuid4())
     date = datetime.date.today()
@@ -55,6 +59,7 @@ def main_loop_training(self):
                 # print(lidar_data)
                 x, y, rx, ry = ps_controller.get_analog_stick_values()
 
+                print(f"X: {x}, Y: {y}, RX: {rx}, RY: {ry}")
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
                 

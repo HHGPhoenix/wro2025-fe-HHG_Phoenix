@@ -41,11 +41,11 @@ class RemoteFunctions:
         while not self.DataManager.initialized:
             time.sleep(0.1)
 
-        if self.DataManager.running:
-            self.DataManager.error('DataManager already running!')
-            self.DataManager.client.send_message("ALREADY_RUNNING")
-            COM_HANDLE_ACTIVE = False
-            return
+        # if self.DataManager.running:
+        #     self.DataManager.error('DataManager already running!')
+            # self.DataManager.client.send_message("ALREADY_RUNNING")
+            # COM_HANDLE_ACTIVE = False
+            # return
 
         self.DataManager.client.send_message('BEAT')
         COM_HANDLE_ACTIVE = False

@@ -11,3 +11,5 @@ class CommunicationEstablisher():
         while self.received_message == None:
             self.pi.client.send_message("HEART")
             time.sleep(0.1)
+            print(f"self.received_message: {self.received_message}")
+        print("Spamming stopped.")
