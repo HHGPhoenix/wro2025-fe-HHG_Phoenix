@@ -39,12 +39,15 @@ class DataTransferer:
         print("Processing camera frames", self.camera)
         try:
             while True:
-                start_time = time.time()
+                # start_time = time.time()
                 frameraw, framehsv = self.camera.capture_array()
+                frameraw = frameraw[120:, :]
+                framehsv = framehsv[120:, :]
                 
-                frameraw = self.camera.compress_frame(frameraw)
-                framehsv = self.camera.compress_frame(framehsv)
-                object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy(), counter_frames=30)
+                frameraw = self.camera.compress_frame(frameraw, new_height=480)
+                framehsv = self.camera.compress_frame(framehsv, new_height=480)
+                # print(f"frameraw shape: {frameraw.shape}, framehsv shape: {framehsv.shape}")
+                object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
                 # print(f"red_block {self.camera.red_block}, green_block {self.camera.green_block}")
                 
                 self.frame_list[0] = frameraw.tobytes()
@@ -52,11 +55,11 @@ class DataTransferer:
                 self.frame_list[2] = self.camera.red_blocks
                 self.frame_list[3] = self.camera.green_blocks
                 
-                stop_time = time.time()
-                elapsed_time = stop_time - start_time
-                if elapsed_time > 0.1:
-                    print(f"Processing camera frames took longer than 100ms: {elapsed_time}")
-                time.sleep(max(0.1 - elapsed_time, 0))
+                # stop_time = time.time()
+                # elapsed_time = stop_time - start_time
+                # if elapsed_time > 0.05:
+                #     print(f"Processing camera frames took longer than 100ms: {elapsed_time}")
+                # time.sleep(max(0.05 - elapsed_time, 0))
         except BrokenPipeError:
             pass
         except EOFError:

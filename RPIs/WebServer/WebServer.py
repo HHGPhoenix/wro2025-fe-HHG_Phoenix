@@ -196,7 +196,7 @@ class WebServer:
     def generate_raw_frame(self):
         frameraw_bytes = self.shared_frames_list[0]
         if frameraw_bytes:
-            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((100, 213, 3))
+            frame = np.frombuffer(frameraw_bytes, dtype=np.uint8).reshape((480, 1024, 3))
             return frame
                 
     # def generate_simplified_frame(self):
@@ -208,7 +208,7 @@ class WebServer:
     def generate_object_frame(self):
         object_image_bytes = self.shared_frames_list[1]
         if object_image_bytes:
-            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((100, 213, 3))
+            frame = np.frombuffer(object_image_bytes, dtype=np.uint8).reshape((480, 1024, 3))
             return frame
         
     ###########################################################################
@@ -231,14 +231,11 @@ class WebServer:
         except Exception as e:
             print(f"An error occurred: {e}")
         finally: 
-            print("Video closed! 💀")
+            # print("Video closed! 💀")
+            return
 
 ###########################################################################
 
 def compress_image(image):
-    # height, width = image.shape[:2]
-    # if height > 120 or width > 213:
-    #     image = cv2.resize(image, (213, 120), interpolation=cv2.INTER_AREA)
-
     _, encoded_image = cv2.imencode('.jpg', image)
     return encoded_image.tobytes()
