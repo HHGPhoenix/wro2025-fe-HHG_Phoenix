@@ -17,17 +17,17 @@ def main_loop_opening_race(self):
     while self.running:
         try:
             if not self.interpolated_lidar_data:
-                print(f"Waiting for data: {len(self.interpolated_lidar_data)}")
+                print(f"Waiting for lidar data")
                 time.sleep(0.05)  # Reduced sleep interval
                 continue
             
-            self.current_edge, self.relative_angle, self.last_yaw = get_angles_edges(self.motor_controller.yaw, self.last_yaw, self.current_edge)
+            # self.current_edge, self.relative_angle, self.last_yaw = get_angles_edges(self.motor_controller.yaw, self.last_yaw, self.current_edge)
             
             while IO_list[1] is None:
                 time.sleep(0.005)  # Reduced sleep interval
             
             self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
-            self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
+            # self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
 
             # Prepare the lidar data
             lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)
@@ -35,6 +35,7 @@ def main_loop_opening_race(self):
             new_lidar_array = new_lidar_array.reshape(new_lidar_array.shape[0], -1)
             new_lidar_array = new_lidar_array[selected_feature_indexes]
             new_lidar_array = np.expand_dims(new_lidar_array, axis=0).astype(np.float32)
+            new_lidar_array = np.expand_dims(new_lidar_array, axis=0)
             # print(f"New lidar array: {new_lidar_array.shape}")
             
             inputs = new_lidar_array
@@ -42,7 +43,7 @@ def main_loop_opening_race(self):
             IO_list[1] = None
             IO_list[0] = inputs
             
-            self.motor_controller.send_speed(0.75)
+            self.motor_controller.send_speed(0.7)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0.5)
@@ -57,6 +58,7 @@ def run_model(shared_IO_list):
     output_details = interpreter.get_output_details()
     
     while True:
+        start_time = time.time()
         if shared_IO_list[0] is not None:
             lidar_data = shared_IO_list[0][0]
             shared_IO_list[0] = None
@@ -74,3 +76,6 @@ def run_model(shared_IO_list):
             output_data = interpreter.get_tensor(output_details[0]['index'])
             print(f"Result: {output_data}")
             shared_IO_list[1] = output_data
+        
+        end_time = time.time()
+        # time.sleep(max(0, 0.1 - (end_time - start_time)))

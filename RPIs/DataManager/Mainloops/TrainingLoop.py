@@ -59,7 +59,7 @@ def main_loop_training(self):
                 # print(lidar_data)
                 x, y, rx, ry = ps_controller.get_analog_stick_values()
 
-                print(f"X: {x}, Y: {y}, RX: {rx}, RY: {ry}")
+                # print(f"X: {x}, Y: {y}, RX: {rx}, RY: {ry}")
                 lidar_data_str = f"LIDAR_DATA#{lidar_data}"
                 analog_sticks_str = f"ANALOG_STICKS#{x}#{y}#{rx}#{ry}"
                 

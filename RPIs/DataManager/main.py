@@ -100,9 +100,9 @@ class DataManager:
         self.remotefunctions = RemoteFunctions(self)
 
         if not START_LOCAL_SERVER:
-            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='192.168.1.3')
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='10.10.1.5')
             threading.Thread(target=self.receiver.start_server, daemon=True).start()
-            self.client = Messenger('192.168.1.2', port=22222)
+            self.client = Messenger('10.10.1.2', port=22222)
         else:
             self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions)
             threading.Thread(target=self.receiver.start_server, daemon=True).start()
@@ -185,8 +185,8 @@ if __name__ == "__main__":
     data_manager = None
     try:
         data_manager = DataManager()
-        # if data_manager.mode != 'Training':
-        #     data_manager.button.wait_for_press()
+        if data_manager.mode != 'Training':
+            data_manager.button.wait_for_press()
         data_manager.start()
         
     except Exception as e:
