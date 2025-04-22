@@ -5,6 +5,8 @@ import multiprocessing as mp
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
 def main_loop_obstacle_race(self):
+    image_dimensions = (1024, 480)
+    
     self.logger.info("Starting main loop for obstacle race...")
 
     IO_list = self.mp_manager.list([None, [[0.5]]])
@@ -45,19 +47,19 @@ def main_loop_obstacle_race(self):
             new_red_blocks = []
             for red_block in red_blocks:
                 red_block = np.array(red_block, dtype=np.float32)
-                red_block[0] /= 213
-                red_block[1] /= 100
-                red_block[2] /= 213
-                red_block[3] /= 100
+                red_block[0] /= image_dimensions[0]
+                red_block[1] /= image_dimensions[1]
+                red_block[2] /= image_dimensions[0]
+                red_block[3] /= image_dimensions[1]
                 new_red_blocks.append(red_block)
                     
             new_green_blocks = []
             for green_block in green_blocks:
                 green_block = np.array(green_block, dtype=np.float32)
-                green_block[0] /= 213
-                green_block[1] /= 100
-                green_block[2] /= 213
-                green_block[3] /= 100
+                green_block[0] /= image_dimensions[0]
+                green_block[1] /= image_dimensions[1]
+                green_block[2] /= image_dimensions[0]
+                green_block[3] /= image_dimensions[1]
                 new_green_blocks.append(green_block)
             
             # Convert the blocks to numpy arrays

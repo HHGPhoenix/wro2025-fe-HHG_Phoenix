@@ -52,7 +52,7 @@ class Camera():
         framehsv = cv2.cvtColor(frameraw, cv2.COLOR_BGR2HSV)        
         return frameraw, framehsv
 
-    def draw_blocks(self, frameraw, framehsv, counter_frames=30):
+    def draw_blocks(self, frameraw, framehsv):
         """
         Draw rectangles around green and red blocks in the camera stream.
     
@@ -79,8 +79,6 @@ class Camera():
         # Find contours in the masks
         contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        cv2.circle(frameraw, (640, 720), 10, (255, 0, 0), -1)
     
         # Process each green contour
         green_boxes = []
@@ -89,7 +87,7 @@ class Camera():
             if w > 5 and h > 10:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
-                cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
+                # cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
                 
                 green_boxes.append((x + w // 2, y + h // 2, w, h))
     
@@ -100,7 +98,7 @@ class Camera():
             if w > 5 and h > 10:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
                 cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
-                cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
+                # cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)
                 
                 red_boxes.append((x + w // 2, y + h // 2, w, h))
                 
@@ -251,6 +249,5 @@ class Camera():
             raise ValueError(f"Unexpected number of dimensions in frame: {dimensions}")
         new_width = int(new_height * width / height)
         frame = cv2.resize(frame, (new_width, new_height))
-        frame = frame[20:, :]
         
         return frame
