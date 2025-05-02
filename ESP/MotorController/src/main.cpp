@@ -8,7 +8,7 @@
 #define IN2 19
 #define encoderA 15
 #define encoderB 2
-#define GyroCorrection -1.515
+#define GyroCorrection -1.5165
 
 volatile long encoderTicks = 0;
 volatile int lastEncoderA = LOW;
@@ -21,6 +21,7 @@ int lastSpeed = 0;
 unsigned long lastTime = 0;
 unsigned long lastTime_voltage = 0;
 unsigned long lastTime_angle = 0;
+unsigned long lastTime_angle_print = 0;
 
 // Variables for sensor fusion
 float fusedRoll = 0.0;
@@ -66,9 +67,9 @@ void setup()
 	attachInterrupt(digitalPinToInterrupt(encoderA), encoderISR, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(encoderB), encoderISR, CHANGE);
 
-	analogWriteFrequency(1000);
 
 	Wire.begin();
+	Wire.setClock(400000); // Set I2C clock to 400kHz
 	mpu.initialize();
 	if (!mpu.testConnection())
 	{
@@ -246,12 +247,16 @@ void loop()
 		fusedPitch = alpha * (fusedPitch + gyroY * dt) + (1.0f - alpha) * pitchAcc;
 		fusedYaw += gyroZ * dt;
 
-		Serial.print(F("IMU: R"));
-		Serial.print(fusedRoll);
-		Serial.print(F(" P"));
-		Serial.print(fusedPitch);
-		Serial.print(F(" Y"));
-		Serial.println(fusedYaw);
+		if (currentTime - lastTime_angle_print >= 100)
+		{
+			Serial.print(F("IMU: R"));
+			Serial.print(fusedRoll);
+			Serial.print(F(" P"));
+			Serial.print(fusedPitch);
+			Serial.print(F(" Y"));
+			Serial.println(fusedYaw);
+			lastTime_angle_print = currentTime;
+		}
 
 		lastTime_angle = currentTime;
 	}
