@@ -8,7 +8,7 @@
 #define IN2 19
 #define encoderA 15
 #define encoderB 2
-#define GyroCorrection -1.5165
+#define GyroCorrection -1.57
 
 volatile long encoderTicks = 0;
 volatile int lastEncoderA = LOW;
@@ -66,7 +66,6 @@ void setup()
 
 	attachInterrupt(digitalPinToInterrupt(encoderA), encoderISR, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(encoderB), encoderISR, CHANGE);
-
 
 	Wire.begin();
 	Wire.setClock(400000); // Set I2C clock to 400kHz
@@ -221,7 +220,7 @@ void loop()
 	}
 
 	// Sensor fusion update every 10 ms
-	if (currentTime - lastTime_angle >= 10)
+	if (currentTime - lastTime_angle >= 25)
 	{
 		float dt = (currentTime - lastTime_angle) * 0.001f;
 
