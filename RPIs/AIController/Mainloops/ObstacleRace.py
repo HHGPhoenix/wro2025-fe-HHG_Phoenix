@@ -16,7 +16,7 @@ def main_loop_obstacle_race(self):
     with open("RPIs/AIController/obstacle_model_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
-    self.motor_controller.send_speed(0.7)
+    self.motor_controller.send_speed(0.65)
     
     while self.running:
         try:
