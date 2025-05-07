@@ -16,13 +16,16 @@ class Failsafe:
             red_block_area = (red_block[2] - red_block[0]) * (red_block[3] - red_block[1])
             green_block_area = (green_block[2] - green_block[0]) * (green_block[3] - green_block[1])
             
-            if ((red_block[2] >= 170 and red_block_area >= 1000) or red_block[2] >= 190) or ((green_block[0] <= 43 and green_block_area >= 1000) or green_block[0] <= 23):
+            print(f"Red block: {red_block}")
+            
+            if ((red_block != (0, 0, 0, 0) and ((red_block[1] >= 280 and red_block_area >= 1500) or (red_block[0] >= 800 and red_block_area > 1500))) or 
+                (green_block != (0, 0, 0, 0) and ((green_block[1] >= 280 and green_block_area >= 1500) or (green_block[0] <= 480 and green_block_area > 1500)))):
                 self.data_manager.client.send_message("FAILSAFE#1")
-                # self.data_manager.logger.info("Failsafe activated.")
+                self.data_manager.logger.info("Failsafe activated.")
                 self.failsafe_time = time.time()
             
             elif time.time() - self.failsafe_time > 0.5:
                 self.data_manager.client.send_message("FAILSAFE#0")
-                # self.data_manager.logger.info("Failsafe deactivated.")
+                self.data_manager.logger.info("Failsafe deactivated.")
                 
             time.sleep(0.1)

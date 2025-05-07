@@ -1,9 +1,18 @@
 import time
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
+from RPIs.Devices.Failsafe.Failsafe import Failsafe
+import threading
 
 def main_loop_obstacle_race(self):
     edge_cooldown = 0
     self.logger.info("Starting main loop for obstacle race...")
+    
+    # start failsafe thread
+    failsafe = Failsafe(self)
+    failsafe_thread = threading.Thread(target=failsafe.mainloop)
+    failsafe_thread.daemon = True
+    failsafe_thread.start()
+    self.logger.info("Failsafe thread started")
     
     while self.running:
         if len(self.interpolated_lidar_data) == 0:

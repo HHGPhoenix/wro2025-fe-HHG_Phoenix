@@ -31,7 +31,7 @@ def get_angles_edges(yaw, last_yaw, current_edge, running_check=False, edge_cool
     else:
         relative_angle = yaw - current_edge * 90
     
-    print(f"Current edge: {current_edge}, Relative angle: {relative_angle}")
+    # print(f"Current edge: {current_edge}, Relative angle: {relative_angle}")
     
     if running_check and current_edge >= 13:
         running = False

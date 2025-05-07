@@ -53,6 +53,8 @@ class Camera():
         return frameraw, framehsv
 
     def draw_blocks(self, frameraw, framehsv):
+        min_width = 20
+        min_height = 30
         """
         Draw rectangles around green and red blocks in the camera stream.
     
@@ -84,7 +86,7 @@ class Camera():
         green_boxes = []
         for contour in contours_green:
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 5 and h > 10:  # Only consider boxes larger than 50x50
+            if w > min_width and h > min_height:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 cv2.putText(frameraw, 'Green Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
                 # cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 255, 0), 2)
@@ -95,7 +97,7 @@ class Camera():
         red_boxes = []
         for contour in contours_red:
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 5 and h > 10:  # Only consider boxes larger than 50x50
+            if w > min_width and h > min_height:  # Only consider boxes larger than 50x50
                 cv2.rectangle(frameraw, (x, y), (x+w, y+h), (0, 0, 255), 2)
                 cv2.putText(frameraw, 'Red Object', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2)
                 # cv2.line(frameraw, (640, 720), (int(x+w/2), int(y+h/2)), (0, 0, 255), 2)

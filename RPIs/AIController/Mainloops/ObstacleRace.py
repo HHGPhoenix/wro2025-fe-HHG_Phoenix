@@ -3,9 +3,13 @@ import numpy as np
 import tensorflow as tf
 import multiprocessing as mp
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
+from RPIs.AIController.Mainloops.Utils import check_for_failsafe
 
 def main_loop_obstacle_race(self):
     image_dimensions = (1024, 480)
+    steer_servo = True
+    control_speed = True
+    speed_sent = False
     
     self.logger.info("Starting main loop for obstacle race...")
 
@@ -16,8 +20,6 @@ def main_loop_obstacle_race(self):
     with open("RPIs/AIController/obstacle_model_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
-    self.motor_controller.send_speed(0.7)
-    
     while self.running:
         try:
             if not self.interpolated_lidar_data or self.block_list[0] is None or self.block_list[1] is None:
@@ -27,9 +29,22 @@ def main_loop_obstacle_race(self):
             
             while IO_list[1] is None:
                 time.sleep(0.005)
+                
+            steer_servo, control_speed = check_for_failsafe(self)
             
-            self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
-            # self.display.write_centered_text(f"Result: {IO_list[1][0][0]}", clear_display=True)
+            if steer_servo:
+                self.servo.setAngle(self.servo.mapToServoAngle(IO_list[1][0][0]))
+            # else:
+            # update angles and edges
+            self.current_edge, self.relative_angle, self.last_yaw, _ = get_angles_edges(self.motor_controller.yaw, self.last_yaw, self.current_edge, False)
+            
+            print(self.relative_angle)
+            
+            if control_speed and not speed_sent:
+                speed_sent = True
+                self.motor_controller.send_speed(0.65)
+            else:
+                speed_sent = False
                 
             # Prepare the lidar data
             lidar_array = np.array(self.interpolated_lidar_data)[:, :2] / np.array([360, 5000], dtype=np.float32)

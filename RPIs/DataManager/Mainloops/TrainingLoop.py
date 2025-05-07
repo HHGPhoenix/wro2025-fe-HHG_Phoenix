@@ -8,9 +8,20 @@ import threading
 # from RPIs.Devices.Dummy.PSController.PSController import PSController
 from RPIs.Devices.PSController.PSController import PSController, start_controller_in_thread
 
+from RPIs.Devices.Failsafe.Failsafe import Failsafe
+
+
 
 def main_loop_training(self):
     self.logger.info("Starting main loop for training...")
+    
+    # start failsafe thread
+    failsafe = Failsafe(self)
+    failsafe_thread = threading.Thread(target=failsafe.mainloop)
+    failsafe_thread.daemon = True
+    failsafe_thread.start()
+    self.logger.info("Failsafe thread started")
+    
     ps_controller = PSController(interface="/dev/input/js0")
     controller_thread = threading.Thread(target=start_controller_in_thread, args=(ps_controller,))
     controller_thread.daemon = True
