@@ -100,7 +100,7 @@ class FramePlayer(ctk.CTk):
         
         self.frames.clear()
         for frame in byte_frames:
-            frame = np.frombuffer(frame, dtype=np.uint8).reshape((100, 213, 3))
+            frame = np.frombuffer(frame, dtype=np.uint8).reshape((480, 1024, 3))
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             self.frames.append(rgb_frame)
 

@@ -5,7 +5,7 @@ from copy import deepcopy
 import random
 
 class PSController:
-    def __init__(self):
+    def __init__(self, interface):
         self.cross = 0
 
     def calibrate_analog_sticks(self):
