@@ -1,0 +1,14 @@
+[Unit]
+Description=RPIs AIController Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/path/to/your/main/directory
+ExecStart=/usr/bin/python3.9 -m RPIs.AIController.main 
+Restart=always
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
