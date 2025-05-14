@@ -11,7 +11,7 @@ def main_loop_opening_race(self):
     model_process = mp.Process(target=run_model, args=(IO_list,))
     model_process.start()
     
-    with open("RPIs/AIController/model_features.txt", "r") as f:
+    with open("RPIs/AIController/best_model_no_blocks_32b_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
     while self.running:
@@ -50,7 +50,7 @@ def main_loop_opening_race(self):
             self.running = False
 
 def run_model(shared_IO_list):
-    interpreter = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
+    interpreter = tf.lite.Interpreter(model_path='RPIs/AIController/best_model_no_blocks_32b.tflite')
     interpreter.allocate_tensors()
     
     input_details = interpreter.get_input_details()
