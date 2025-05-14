@@ -134,7 +134,7 @@ class DataManager:
         failsafe = Failsafe(self)
         threading.Thread(target=target_with_nice_priority, args=(failsafe.mainloop, 0), daemon=True).start()
         
-        button = Button(18)
+        button = Button(18, self)
 
         return lidar, data_transferer, notification_client, failsafe, display, button
     
@@ -154,6 +154,8 @@ class DataManager:
             self.client.send_message('START')
             
             self.running = True
+            
+            self.button.start_stop_thread()
             
             if self.mode == 'OpeningRace':
                 main_loop_opening_race(self)
@@ -185,8 +187,9 @@ if __name__ == "__main__":
     data_manager = None
     try:
         data_manager = DataManager()
-        # if data_manager.mode != 'Training':
-        #     data_manager.button.wait_for_press()
+        if data_manager.mode != 'Training':
+            data_manager.button.wait_for_press()
+        time.sleep(1)
         data_manager.start()
         
     except Exception as e:
