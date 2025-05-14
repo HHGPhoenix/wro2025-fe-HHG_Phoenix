@@ -3,9 +3,9 @@ Description=RPIs AIController Service
 After=network.target
 
 [Service]
-Type=simple
+Type=root
 User=pi
-WorkingDirectory=/path/to/your/main/directory
+WorkingDirectory=/home/pi/wro_new
 ExecStart=/usr/bin/python3.9 -m RPIs.AIController.main 
 Restart=always
 Environment=PYTHONUNBUFFERED=1
