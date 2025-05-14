@@ -2,7 +2,7 @@ import serial
 import threading
 
 class MotorController:
-    def __init__(self, high_voltage=12.6, high_voltage_value=760, low_voltage=11.1, low_voltage_value=650):
+    def __init__(self, high_voltage=12.6, high_voltage_value=3399, low_voltage=11.1, low_voltage_value=2864):
         self.high_voltage = high_voltage
         self.high_voltage_value = high_voltage_value
         self.low_voltage = low_voltage
