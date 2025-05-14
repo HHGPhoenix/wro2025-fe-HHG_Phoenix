@@ -165,6 +165,8 @@ if __name__ == "__main__":
         while not ai_controller.stop_with_interrupt:
             time.sleep(0.1)
             
+        ai_controller.servo.stop()
+            
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt")
         
