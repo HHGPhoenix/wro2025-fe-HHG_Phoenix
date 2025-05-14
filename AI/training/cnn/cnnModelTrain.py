@@ -11,7 +11,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Input,
 from tensorflow.keras.optimizers import Adam # type: ignore
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping # type: ignore
 from tensorflow.keras.regularizers import l2 # type: ignore
-from tensorflow.keras.layers.experimental.preprocessing import Rescaling, RandomFlip, RandomRotation, RandomZoom, RandomContrast # type: ignore
+from tensorflow.keras.layers import Rescaling, RandomFlip, RandomRotation, RandomZoom, RandomContrast # type: ignore
 from tensorflow.keras.utils import Sequence # type: ignore
 from sklearn.model_selection import train_test_split # type: ignore
 from tensorflow.keras import backend as K # type: ignore

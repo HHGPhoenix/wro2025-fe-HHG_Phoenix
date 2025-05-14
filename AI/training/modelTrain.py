@@ -35,8 +35,6 @@ print("Done.")
 global DEBUG, TRAIN_VAL_SPLIT_RANDOM_STATE, USE_FEATURE_SELECTION, NUM_FEATURES
 
 DEBUG = True
-# USE_FEATURE_SELECTION = True
-# NUM_FEATURES = 50
 
 ############################################################################################################
 
@@ -45,7 +43,7 @@ class modelTrainUI(ctk.CTk):
         super().__init__()
         self.title("Model Training")
         self.geometry("+50+50")
-        self.minsize(height=1050, width=1500)
+        self.minsize(height=1200, width=1700)
         
         # set to always dark mode
         ctk.set_appearance_mode("dark")
@@ -74,7 +72,7 @@ class modelTrainUI(ctk.CTk):
         self.keep_config_var = tk.BooleanVar()
         self.keep_config_var_global = tk.BooleanVar()
         
-        self.save_as_h5 = tk.BooleanVar(value=True)
+        self.save_as_keras = tk.BooleanVar(value=True)
         self.save_as_tflite = tk.BooleanVar(value=False)
         self.save_with_model_config = tk.BooleanVar(value=True)
         
@@ -215,7 +213,7 @@ class modelTrainUI(ctk.CTk):
             "selected_model_configuration_path": self.selected_model_configuration_path,
             "selected_model_configuration_path_basename": self.selected_model_configuration_path_basename,
             "model_name": self.model_name.get(),
-            "save_as_h5": self.save_as_h5.get(),
+            "save_as_keras": self.save_as_keras.get(),
             "save_as_tflite": self.save_as_tflite.get(),
             "save_with_model_config": self.save_with_model_config.get(),
             "model_dir": self.model_dir
@@ -235,7 +233,7 @@ class modelTrainUI(ctk.CTk):
                 self.selected_model_configuration_path = file_content.get("selected_model_configuration_path")
                 self.selected_model_configuration_path_basename = file_content.get("selected_model_configuration_path_basename")
                 self.model_name.set(file_content.get("model_name"))
-                self.save_as_h5.set(file_content.get("save_as_h5"))
+                self.save_as_keras.set(file_content.get("save_as_keras"))
                 self.save_as_tflite.set(file_content.get("save_as_tflite"))
                 self.save_with_model_config.set(file_content.get("save_with_model_config"))
                 self.model_dir = file_content.get("model_dir")
@@ -401,8 +399,8 @@ class modelTrainUI(ctk.CTk):
         self.save_as_label = ctk.CTkLabel(self.format_settings_frame, text="Save the:", font=("Arial", 15))
         self.save_as_label.grid(row=0, column=0, padx=(15, 15), pady=(5, 0), sticky='we', columnspan=3)
         
-        self.save_as_h5_switch = ctk.CTkSwitch(self.format_settings_frame, text=".h5 Model", variable=self.save_as_h5, font=("Arial", 13), command=self.handle_save_model_configuration)
-        self.save_as_h5_switch.grid(row=1, column=0, padx=(5, 5), pady=(5, 5), sticky='we')
+        self.save_as_keras_switch = ctk.CTkSwitch(self.format_settings_frame, text=".keras Model", variable=self.save_as_keras, font=("Arial", 13), command=self.handle_save_model_configuration)
+        self.save_as_keras_switch.grid(row=1, column=0, padx=(5, 5), pady=(5, 5), sticky='we')
         
         self.save_as_tflite_switch = ctk.CTkSwitch(self.format_settings_frame, text=".tflite Model", variable=self.save_as_tflite, font=("Arial", 13), command=self.handle_save_model_configuration)
         self.save_as_tflite_switch.grid(row=1, column=1, padx=(5, 5), pady=(5, 5), sticky='we')
@@ -737,7 +735,7 @@ class modelTrainUI(ctk.CTk):
         use_feature_selection = self.use_feature_selection.get()
         feature_selection_num_features = int(self.num_features.get())
         
-        save_a_h5_model = self.save_as_h5.get()
+        save_a_keras_model = self.save_as_keras.get()
         save_a_tflite_model = self.save_as_tflite.get()
         save_with_model_config = self.save_with_model_config.get()
         
@@ -747,7 +745,7 @@ class modelTrainUI(ctk.CTk):
                                                     model_name_entry_content, 
                                                     epochs, batch_size, patience, 
                                                     epochs_graphed, data_shift, name, model_dir, 
-                                                    save_a_h5_model, save_a_tflite_model, 
+                                                    save_a_keras_model, save_a_tflite_model, 
                                                     save_with_model_config, use_visual_data,
                                                     use_feature_selection, feature_selection_num_features)
         
@@ -1162,7 +1160,7 @@ class DataProcessor:
         self.selected_training_data_path = None
         self.selected_model_configuration_path = None
 
-    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_h5_model, save_a_tflite_model, save_with_model_config, use_visual_data, use_feature_selection, feature_selection_num_features):
+    def pass_training_options(self, data_visualizer, model_name, epochs, batch_size, patience, epochs_graphed, data_shift, custom_model_name, model_dir, save_a_keras_model, save_a_tflite_model, save_with_model_config, use_visual_data, use_feature_selection, feature_selection_num_features):
         self.data_visualizer = data_visualizer
         self.model_name = model_name
         self.epochs = epochs
@@ -1179,7 +1177,7 @@ class DataProcessor:
             
         self.model_dir = model_dir
             
-        self.save_a_h5_model = save_a_h5_model
+        self.save_a_keras_model = save_a_keras_model
         self.save_a_tflite_model = save_a_tflite_model
         self.save_with_model_config = save_with_model_config
         self.use_visual_data = use_visual_data
@@ -1241,15 +1239,15 @@ class DataProcessor:
         self.green_blocks_train_2 = np.squeeze(self.green_blocks_train_2, axis=1)
         
         # save the block arrays to txt files
-        np.savetxt(f"{self.model_base_filename}_red_blocks_val.txt", self.red_blocks_val)
-        np.savetxt(f"{self.model_base_filename}_green_blocks_val.txt", self.green_blocks_val)
-        np.savetxt(f"{self.model_base_filename}_red_blocks_val_2.txt", self.red_blocks_val_2)
-        np.savetxt(f"{self.model_base_filename}_green_blocks_val_2.txt", self.green_blocks_val_2)
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_val.txt", self.red_blocks_val)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_val.txt", self.green_blocks_val)
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_val_2.txt", self.red_blocks_val_2)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_val_2.txt", self.green_blocks_val_2)
         
-        np.savetxt(f"{self.model_base_filename}_red_blocks_train.txt", self.red_blocks_train)
-        np.savetxt(f"{self.model_base_filename}_green_blocks_train.txt", self.green_blocks_train)
-        np.savetxt(f"{self.model_base_filename}_red_blocks_train_2.txt", self.red_blocks_train_2)
-        np.savetxt(f"{self.model_base_filename}_green_blocks_train_2.txt", self.green_blocks_train_2)
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_train.txt", self.red_blocks_train)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_train.txt", self.green_blocks_train)
+        # np.savetxt(f"{self.model_base_filename}_red_blocks_train_2.txt", self.red_blocks_train_2)
+        # np.savetxt(f"{self.model_base_filename}_green_blocks_train_2.txt", self.green_blocks_train_2)
             
         try:
             # Remove the second entry in the last dimension
@@ -1299,9 +1297,9 @@ class DataProcessor:
         
         early_stopping = EarlyStopping(monitor='val_loss', patience=patience)
         
-        self.h5_model_path = f"{self.model_base_filename}.h5"
+        self.keras_model_path = f"{self.model_base_filename}.keras"
         
-        model_checkpoint = ModelCheckpoint(self.h5_model_path, monitor='val_loss', save_best_only=True)
+        model_checkpoint = ModelCheckpoint(self.keras_model_path, monitor='val_loss', save_best_only=True)
         
         data_callback = TrainingDataCallback(self.modelTrainUI, self.data_visualizer, self, epochs_graphed=self.epochs_graphed)
         
@@ -1343,10 +1341,10 @@ class DataProcessor:
             print(f"Converting model {self.model_name} to tflite")
             self.tflite_model_path = f"{self.model_base_filename}.tflite"
             
-            self.convert_to_tflite_model(f"{self.model_base_filename}.h5", self.tflite_model_path)
+            self.convert_to_tflite_model(f"{self.model_base_filename}.keras", self.tflite_model_path)
         
-        if not self.save_a_h5_model:
-            os.remove(self.h5_model_path)
+        if not self.save_a_keras_model:
+            os.remove(self.keras_model_path)
             
         if self.save_with_model_config:
             model_config_path = f"{self.model_base_filename}_config.py"
@@ -1358,14 +1356,14 @@ class DataProcessor:
         
     def check_dir_preparedness(self):
         while self.model_base_path and os.path.exists(self.model_base_path):
-            if os.path.exists(f"{self.model_base_filename}.h5") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py") or os.path.exists(f"{self.model_base_filename}_features.txt"):
+            if os.path.exists(f"{self.model_base_filename}.keras") or os.path.exists(f"{self.model_base_filename}.tflite") or os.path.exists(f"{self.model_base_filename}_config.py") or os.path.exists(f"{self.model_base_filename}_features.txt"):
                 answer = messagebox.askyesno("Warning", "The model directory already exists in the main folder. The contents are going to be replaced, otherwise a reselection of the main folder is needed")
             else:
                 answer = True
                 
             if answer:
-                if os.path.exists(f"{self.model_base_filename}.h5"):
-                    os.remove(f"{self.model_base_filename}.h5")
+                if os.path.exists(f"{self.model_base_filename}.keras"):
+                    os.remove(f"{self.model_base_filename}.keras")
                 if os.path.exists(f"{self.model_base_filename}.tflite"):
                     os.remove(f"{self.model_base_filename}.tflite")
                 if os.path.exists(f"{self.model_base_filename}_config.py"):
@@ -1393,17 +1391,44 @@ class DataProcessor:
             self.model_base_filename = os.path.join(self.model_base_path, f"best_model_{self.model_name}")
         
     def convert_to_tflite_model(self, model_path, output_path):
-        model = tf.keras.models.load_model(model_path)
-        converter = tf.lite.TFLiteConverter.from_keras_model(model)
-        # Set the converter settings to handle TensorList ops
-        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
-        converter._experimental_lower_tensor_list_ops = False
-        
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        
-        tflite_model = converter.convert()
-        with open(output_path, 'wb') as f:
-            f.write(tflite_model)
+        try:
+            print(f"Loading model from {model_path}")
+            model = tf.keras.models.load_model(model_path)
+            
+            print("Creating TFLite converter...")
+            converter = tf.lite.TFLiteConverter.from_keras_model(model)
+            
+            print("Configuring converter settings...")
+            
+            # Enable experimental converter for better handling of RNN layers
+            converter.experimental_new_converter = True
+            
+            # Include both TFLITE_BUILTINS and SELECT_TF_OPS to handle CUDA RNN ops
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,
+                tf.lite.OpsSet.SELECT_TF_OPS  # This is needed for complex ops like CudnnRNN
+            ]
+            
+            # Allow custom operations for better compatibility
+            converter.allow_custom_ops = True
+            
+            # Use optimization but keep float operations for RNNs
+            converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            
+            # Optional: Use float16 for smaller model size
+            # converter.target_spec.supported_types = [tf.float16]
+            
+            print("Converting model to TFLite format...")
+            tflite_model = converter.convert()
+            
+            print(f"Saving TFLite model to {output_path}")
+            with open(output_path, 'wb') as f:
+                f.write(tflite_model)
+            print("TFLite conversion completed successfully!")
+            
+        except Exception as e:
+            print(f"Error during TFLite conversion: {str(e)}")
+            raise
         
     def load_training_data_wrapper(self, folder_path, data_shift, split_random_state):
         with self.modelTrainUI.load_training_data_lock:

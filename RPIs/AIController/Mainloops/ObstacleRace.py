@@ -1,6 +1,6 @@
 import time
 import numpy as np
-import tensorflow as tf
+from ai_edge_litert.interpreter import Interpreter
 import multiprocessing as mp
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
@@ -13,7 +13,7 @@ def main_loop_obstacle_race(self):
     model_process = mp.Process(target=run_model, args=(IO_list,))
     model_process.start()
     
-    with open("RPIs/AIController/obstacle_model_features.txt", "r") as f:
+    with open("RPIs/AIController/model_test_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
     self.motor_controller.send_speed(0.65)
@@ -84,7 +84,7 @@ def main_loop_obstacle_race(self):
 
 def run_model(shared_IO_list):
     # Load the model
-    model = tf.lite.Interpreter(model_path='RPIs/AIController/obstacle_model.tflite')
+    model = Interpreter(model_path='RPIs/AIController/model_test.tflite')
     model.allocate_tensors()
 
     # Get the input and output details
