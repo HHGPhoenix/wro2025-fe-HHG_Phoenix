@@ -77,9 +77,9 @@ class AIController:
         
         # Start the server
         if not START_LOCAL_SERVER:
-            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/AIControllerMappings.json', 22222, handler_instance=self.remote_functions, ip='10.10.1.2')
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/AIControllerMappings.json', 22222, handler_instance=self.remote_functions, ip='192.168.1.2')
             threading.Thread(target=self.receiver.start_server, daemon=True).start()
-            self.client = Messenger('10.10.1.5', port=11111)
+            self.client = Messenger('192.168.1.5', port=11111)
 
         else:
             self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/AIControllerMappings.json', 22222, handler_instance=self.remote_functions)

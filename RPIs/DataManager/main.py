@@ -100,9 +100,9 @@ class DataManager:
         self.remotefunctions = RemoteFunctions(self)
 
         if not START_LOCAL_SERVER:
-            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='10.10.1.5')
+            self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions, ip='192.168.1.5')
             threading.Thread(target=self.receiver.start_server, daemon=True).start()
-            self.client = Messenger('10.10.1.2', port=22222)
+            self.client = Messenger('192.168.1.2', port=22222)
         else:
             self.receiver = MessageReceiver(r'RPIs/RPI_COM/Mappings/DataManagerMappings.json', 11111, handler_instance=self.remotefunctions)
             threading.Thread(target=self.receiver.start_server, daemon=True).start()

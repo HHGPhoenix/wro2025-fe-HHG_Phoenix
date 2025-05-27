@@ -43,7 +43,7 @@ def main_loop_opening_race(self):
             IO_list[1] = None
             IO_list[0] = inputs
             
-            self.motor_controller.send_speed(0.7)
+            self.motor_controller.send_speed(0.65)
         
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0.5)
