@@ -16,7 +16,7 @@ import cv2
 import matplotlib.patches as patches
 print("\rImported libraries")
 
-USE_VISUALS = True  
+USE_VISUALS = False  
 NO_PIC = False
 
 ############################################################################################################
@@ -618,11 +618,11 @@ class VisualizeData:
     
         # Plot the data as individual points
         if other_points:
-            angles, distances, _ = zip(*other_points)
+            angles, distances, _, _ = zip(*other_points)
             self.lidar_axis.scatter(np.deg2rad([-a for a in angles]), distances, color='#39FF14', s=10)
         
         if selected_points:
-            selected_angles, selected_distances, _ = zip(*selected_points)
+            selected_angles, selected_distances, _, _ = zip(*selected_points)
             self.lidar_axis.scatter(np.deg2rad([-a for a in selected_angles]), selected_distances, color='red', s=10)
     
         # Set the background color of the axes

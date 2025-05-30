@@ -45,7 +45,7 @@ class modelTrainUI(ctk.CTk):
         super().__init__()
         self.title("Model Training")
         self.geometry("+50+50")
-        self.minsize(height=1050, width=1500)
+        self.minsize(height=1250, width=1700)
         
         # set to always dark mode
         ctk.set_appearance_mode("dark")
@@ -1393,17 +1393,88 @@ class DataProcessor:
             self.model_base_filename = os.path.join(self.model_base_path, f"best_model_{self.model_name}")
         
     def convert_to_tflite_model(self, model_path, output_path):
-        model = tf.keras.models.load_model(model_path)
-        converter = tf.lite.TFLiteConverter.from_keras_model(model)
-        # Set the converter settings to handle TensorList ops
-        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
-        converter._experimental_lower_tensor_list_ops = False
-        
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        
-        tflite_model = converter.convert()
-        with open(output_path, 'wb') as f:
-            f.write(tflite_model)
+        try:
+            print(f"Starting TFLite conversion for {model_path}")
+            model = tf.keras.models.load_model(model_path)
+            
+            # First attempt: standard conversion with SELECT_TF_OPS
+            try:
+                converter = tf.lite.TFLiteConverter.from_keras_model(model)
+                # converter.target_spec.supported_ops = [
+                #     tf.lite.OpsSet.TFLITE_BUILTINS,
+                #     tf.lite.OpsSet.SELECT_TF_OPS
+                # ]
+                # converter.optimizations = [tf.lite.Optimize.DEFAULT]
+                # # Allow more flexible types to avoid type inference issues
+                # converter.target_spec.supported_types = [tf.float32]
+                # # Disable using custom operations
+                # converter.allow_custom_ops = True
+                
+                print("Attempting TFLite conversion with initial settings...")
+                tflite_model = converter.convert()
+                with open(output_path, 'wb') as f:
+                    f.write(tflite_model)
+                print(f"TFLite conversion successful, saved to {output_path}")
+                return True
+                
+            except Exception as e:
+                print(f"First conversion attempt failed: {str(e)}")
+                
+                # Second attempt: Try with experimental flags
+                try:
+                    print("Trying alternative conversion approach...")
+                    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+                    converter.optimizations = []  # Disable optimizations for compatibility
+                    converter.target_spec.supported_ops = [
+                        tf.lite.OpsSet.TFLITE_BUILTINS,
+                        tf.lite.OpsSet.SELECT_TF_OPS
+                    ]
+                    # Use experimental options
+                    converter.experimental_new_converter = True
+                    converter.experimental_new_quantizer = False
+                    
+                    tflite_model = converter.convert()
+                    with open(output_path, 'wb') as f:
+                        f.write(tflite_model)
+                    print(f"TFLite conversion successful with alternative approach, saved to {output_path}")
+                    return True
+                    
+                except Exception as e2:
+                    print(f"Second conversion attempt failed: {str(e2)}")
+                    
+                    # Third attempt: Try with saved model approach
+                    try:
+                        print("Attempting conversion via saved model...")
+                        # Save as SavedModel format first
+                        temp_saved_model_dir = f"{os.path.splitext(output_path)[0]}_saved_model"
+                        tf.saved_model.save(model, temp_saved_model_dir)
+                        
+                        # Convert from saved model
+                        converter = tf.lite.TFLiteConverter.from_saved_model(temp_saved_model_dir)
+                        converter.target_spec.supported_ops = [
+                            tf.lite.OpsSet.TFLITE_BUILTINS,
+                            tf.lite.OpsSet.SELECT_TF_OPS
+                        ]
+                        tflite_model = converter.convert()
+                        with open(output_path, 'wb') as f:
+                            f.write(tflite_model)
+                        print(f"TFLite conversion successful via SavedModel, saved to {output_path}")
+                        
+                        # Clean up temp directory
+                        import shutil
+                        shutil.rmtree(temp_saved_model_dir, ignore_errors=True)
+                        return True
+                        
+                    except Exception as e3:
+                        print(f"All TFLite conversion attempts failed.")
+                        print(f"Error 1: {str(e)}")
+                        print(f"Error 2: {str(e2)}")
+                        print(f"Error 3: {str(e3)}")
+                        return False
+                    
+        except Exception as e:
+            print(f"Error loading model for TFLite conversion: {str(e)}")
+            return False
         
     def load_training_data_wrapper(self, folder_path, data_shift, split_random_state):
         with self.modelTrainUI.load_training_data_lock:
