@@ -1459,7 +1459,7 @@ class DataProcessor:
                                 red_blocks = np.concatenate((red_blocks, np_arrays['bounding_boxes_red']), axis=0)
                                 green_blocks = np.concatenate((green_blocks, np_arrays['bounding_boxes_green']), axis=0)
                                 raw_frames = np.concatenate((raw_frames, np_arrays['raw_frames']), axis=0)
-
+                                
                             file_count += 1
                         np_arrays = None
         except KeyError as e:
@@ -1478,6 +1478,7 @@ class DataProcessor:
             return
         else:
             self.modelTrainUI.found_training_data = True
+            print(f"Successfully found and loaded {file_count} data files")
     
         # Normalize and process data
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
