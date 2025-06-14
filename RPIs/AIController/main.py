@@ -52,6 +52,7 @@ class AIController:
         self.relative_angle = 0
         
         self.running = False
+        self.wait_for_parking = False
         
         self.mp_manager = mp.Manager()
         self.block_list = self.mp_manager.list([None, None])

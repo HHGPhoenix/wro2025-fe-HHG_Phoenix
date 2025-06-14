@@ -9,5 +9,7 @@
     "STOP": "raise_keyboard_interrupt",
     "BLOCKS": "set_blocks",
     "FAILSAFE": "failsafe",
-    "RELATIVE_ANGLE": "set_relative_angle"
+    "RELATIVE_ANGLE": "set_relative_angle",
+    "SET_WAIT_FOR_PARKING": "set_wait_for_parking",
+    "GET_OUT_OF_PARKING_SPOT": "get_out_of_parking_spot"
 }

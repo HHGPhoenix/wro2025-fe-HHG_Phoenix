@@ -16,6 +16,7 @@ from RPIs.Devices.Utility.NotificationClient.NotificationClient import Notificat
 
 from RPIs.DataManager.DataTransferer.DataTransferer import DataTransferer
 from RPIs.WebServer.WebServer import WebServer
+from RPIs.Devices.Utility.Parking.ParkingUtils import ParkingUtils
 
 from RPIs.DataManager.Mainloops.TrainingLoop import main_loop_training
 from RPIs.DataManager.Mainloops.OpeningRace import main_loop_opening_race
@@ -70,6 +71,7 @@ class DataManager:
         self.relative_angle = 0
 
         self.running = False
+        self.wait_for_parking = False
 
         self.mp_manager = mp.Manager()
         self.frame_list = self.mp_manager.list([None, None, None, None, None])
@@ -81,7 +83,7 @@ class DataManager:
         
         self.start_comm()
         
-        self.lidar, self.data_transferer, self.notification_client, self.failsafe, self.display, self.button = self.initialize_components()
+        self.lidar, self.data_transferer, self.notification_client, self.failsafe, self.display, self.button, self.parking_utils = self.initialize_components()
         self.communicationestablisher.establish_communication()
         
         self.logger.info("DataManager initialized.")
@@ -135,35 +137,52 @@ class DataManager:
         threading.Thread(target=target_with_nice_priority, args=(failsafe.mainloop, 0), daemon=True).start()
         
         button = Button(18, self)
+        parking_utils = ParkingUtils(parking_spot_distance=35, left_lidar_points=(0, 10), right_lidar_points=(10, 20), center_lidar_points=(20, 30))
 
-        return lidar, data_transferer, notification_client, failsafe, display, button
+        return lidar, data_transferer, notification_client, failsafe, display, button, parking_utils
     
 ###########################################################################
     
     def choose_mode(self):
         with open ("RPIs/DataManager/mode.txt", "r") as file:
             mode = file.read().strip()
-            
             print(f"Mode: {mode}")
-                    
+            
         return mode
     
     def start(self):
         try:
-            self.logger.info('Starting AIController...')
-            self.client.send_message('START')
-            
             self.running = True
-            
             self.button.start_stop_thread()
             
             if self.mode == 'OpeningRace':
+                self.logger.info('Starting AIController...')
+                self.client.send_message('START')
                 main_loop_opening_race(self)
                 
             elif self.mode == 'ObstacleRace':
+                self.parked, self.direction = self.parking_utils.determine_if_parked_and_direction()
+                
+                if self.parked:
+                    self.wait_for_parking = True
+                    self.logger.info(f'Parked: {self.parked}, Direction: {self.direction}')
+                    self.client.send_message(f'SET_WAIT_FOR_PARKING')
+                    
+                    if self.direction == 'clockwise':
+                        self.client.send_message(f'GET_OUT_OF_PARKING_SPOT#{-45}#{0.65}#{0.0}')
+                    else:
+                        self.client.send_message(f'GET_OUT_OF_PARKING_SPOT#{45}#{0.65}#{1.0}')
+
+                while self.wait_for_parking:
+                    time.sleep(0.1)
+                
+                self.logger.info('Starting AIController...')
+                self.client.send_message('START')
                 main_loop_obstacle_race(self)
                 
             elif self.mode == 'Training':
+                self.logger.info('Starting AIController...')
+                self.client.send_message('START')
                 main_loop_training(self)
                 
             else:

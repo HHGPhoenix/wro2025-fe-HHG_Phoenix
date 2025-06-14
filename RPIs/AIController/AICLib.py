@@ -93,3 +93,21 @@ class RemoteFunctions:
         self.AIController.relative_angle = angle
         
 ###########################################################################
+
+    def set_wait_for_parking(self):
+        self.AIController.wait_for_parking = True
+        self.AIController.logger.info(f'Wait for parking set to: {True}')
+
+    def get_out_of_parking_spot(self, stop_angle, speed, steering_angle):
+        self.AIController.logger.info(f'Exiting parking spot with stop angle: {stop_angle}, speed: {speed}, steering angle: {steering_angle}')
+        self.AIController.servo.setAngle(steering_angle)
+        self.AIController.motor_controller.send_speed(speed)
+        
+        while self.AIController.motor_controller.yaw < stop_angle:
+            time.sleep(0.1)
+            
+        self.AIController.motor_controller.send_speed(0.5)
+        self.AIController.logger.info('Exited parking spot successfully')
+        self.AIController.client.send_message('EXITED_PARKING_SPOT')
+
+###########################################################################

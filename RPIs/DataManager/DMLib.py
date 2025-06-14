@@ -83,3 +83,8 @@ class RemoteFunctions:
 
 ###########################################################################
     
+    def release_wait_for_parking(self):
+        self.DataManager.wait_for_parking = False
+        self.DataManager.logger.info("Released wait for parking.")
+    
+###########################################################################

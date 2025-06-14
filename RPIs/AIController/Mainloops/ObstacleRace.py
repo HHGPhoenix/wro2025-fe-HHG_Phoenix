@@ -18,6 +18,9 @@ def main_loop_obstacle_race(self):
     
     self.motor_controller.send_speed(0.65)
     
+    while self.wait_for_parking:
+        time.sleep(0.1)
+    
     while self.running:
         try:
             if not self.interpolated_lidar_data or self.block_list[0] is None or self.block_list[1] is None:

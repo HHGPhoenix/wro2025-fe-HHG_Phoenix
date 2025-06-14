@@ -8,5 +8,6 @@
     "HEART": "send_heartbeat",
     "BEAT": "receive_heartbeat",
     "ALREADY_RUNNING": "handle_already_running",
-    "SYSTEM_INFO": "receive_system_info"
+    "SYSTEM_INFO": "receive_system_info",
+    "RELEASE_WAIT_FOR_PARKING": "release_wait_for_parking"
 }
