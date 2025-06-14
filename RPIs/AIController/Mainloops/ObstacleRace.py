@@ -6,6 +6,7 @@ from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
 def main_loop_obstacle_race(self):
     image_dimensions = (1024, 480)
+    model_runs = 0
     
     self.logger.info("Starting main loop for obstacle race...")
 
@@ -15,8 +16,6 @@ def main_loop_obstacle_race(self):
     
     with open("RPIs/AIController/best_model_blocks_256b_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
-    
-    self.motor_controller.send_speed(0.65)
     
     while self.wait_for_parking:
         time.sleep(0.1)
@@ -80,7 +79,12 @@ def main_loop_obstacle_race(self):
             IO_list[1] = None
             IO_list[0] = inputs
             
-        
+            if model_runs == 10:
+                self.motor_controller.send_speed(0.65)
+                model_runs += 1
+            elif model_runs < 10:
+                model_runs += 1
+
         except KeyboardInterrupt:
             self.motor_controller.send_speed(0)
             self.running = False
