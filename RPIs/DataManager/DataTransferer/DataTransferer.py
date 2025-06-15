@@ -44,8 +44,8 @@ class DataTransferer:
                 frameraw = frameraw[120:, :]
                 framehsv = framehsv[120:, :]
                 
-                frameraw = self.camera.compress_frame(frameraw, new_height=480)
-                framehsv = self.camera.compress_frame(framehsv, new_height=480)
+                frameraw = self.camera.compress_frame(frameraw, new_height=100)
+                framehsv = self.camera.compress_frame(framehsv, new_height=100)
                 # print(f"frameraw shape: {frameraw.shape}, framehsv shape: {framehsv.shape}")
                 object_image = self.camera.draw_blocks(frameraw.copy(), framehsv.copy())
                 # print(f"red_block {self.camera.red_block}, green_block {self.camera.green_block}")
