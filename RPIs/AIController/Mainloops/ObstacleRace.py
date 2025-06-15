@@ -17,9 +17,6 @@ def main_loop_obstacle_race(self):
     with open("RPIs/AIController/model_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
-    while self.wait_for_parking:
-        time.sleep(0.1)
-    
     while self.running:
         try:
             if not self.interpolated_lidar_data or self.block_list[0] is None or self.block_list[1] is None:

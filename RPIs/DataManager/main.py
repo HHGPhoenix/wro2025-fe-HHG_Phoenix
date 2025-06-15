@@ -137,7 +137,7 @@ class DataManager:
         threading.Thread(target=target_with_nice_priority, args=(failsafe.mainloop, 0), daemon=True).start()
         
         button = Button(18, self)
-        parking_utils = ParkingUtils(parking_spot_distance=35, left_lidar_points=(0, 10), right_lidar_points=(10, 20), center_lidar_points=(20, 30))
+        parking_utils = ParkingUtils(parking_spot_distance=350, left_lidar_points=(90, 95), right_lidar_points=(265, 270), front_lidar_points=(0, 10))
 
         return lidar, data_transferer, notification_client, failsafe, display, button, parking_utils
     
@@ -161,7 +161,12 @@ class DataManager:
                 main_loop_opening_race(self)
                 
             elif self.mode == 'ObstacleRace':
-                self.parked, self.direction = self.parking_utils.determine_if_parked_and_direction()
+                while len(self.interpolated_lidar_data) == 0:
+                    self.logger.info('Waiting for LIDAR data...')
+                    time.sleep(0.1)
+                
+                print(self.interpolated_lidar_data[-1])
+                self.parked, self.direction = self.parking_utils.determine_if_parked_and_direction(self.interpolated_lidar_data[-1])
                 
                 if self.parked:
                     self.wait_for_parking = True
@@ -169,11 +174,12 @@ class DataManager:
                     self.client.send_message(f'SET_WAIT_FOR_PARKING')
                     
                     if self.direction == 'clockwise':
-                        self.client.send_message(f'GET_OUT_OF_PARKING_SPOT#{-45}#{0.65}#{0.0}')
+                        self.client.send_message(f'GET_OUT_OF_PARKING_SPOT#{45}#{0.60}#{0.0}')
                     else:
-                        self.client.send_message(f'GET_OUT_OF_PARKING_SPOT#{45}#{0.65}#{1.0}')
+                        self.client.send_message(f'GET_OUT_OF_PARKING_SPOT#{45}#{0.60}#{1.0}')
 
                 while self.wait_for_parking:
+                    self.logger.info(f'angle: {self.shared_info_list[7]}')
                     time.sleep(0.1)
                 
                 self.logger.info('Starting AIController...')

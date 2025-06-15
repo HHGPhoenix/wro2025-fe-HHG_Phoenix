@@ -6,9 +6,21 @@ class ParkingUtils:
         self.front_lidar_points = front_lidar_points
 
 
-    def determine_if_parked_and_direction(self):
-        left_average = self.get_average_for_lidar_points(self.left_lidar_points)
-        right_average = self.get_average_for_lidar_points(self.right_lidar_points)
+    def determine_if_parked_and_direction(self, lidar_data):
+        left_lidar_point_list = []
+        right_lidar_point_list = []
+        for lidar_point in lidar_data:
+            if lidar_point[0] in range(self.left_lidar_points[0], self.left_lidar_points[1]):
+                left_lidar_point_list.append(lidar_point)
+            elif lidar_point[0] in range(self.right_lidar_points[0], self.right_lidar_points[1]):
+                right_lidar_point_list.append(lidar_point)
+                
+        left_average = self.get_average_for_lidar_points(left_lidar_point_list)
+        print(left_lidar_point_list)
+        right_average = self.get_average_for_lidar_points(right_lidar_point_list)
+        print(right_lidar_point_list)
+        
+        print(f"Left Average: {left_average}, Right Average: {right_average}")
 
         # Simple logic to determine if parked
         if left_average + right_average < self.parking_spot_distance:
@@ -25,6 +37,9 @@ class ParkingUtils:
         if not lidar_points:
             return 0
         
-        total = sum(lidar_points)
+        total = 0
+        for point in lidar_points:
+            total += point[1]
+
         average = total / len(lidar_points)
         return average
