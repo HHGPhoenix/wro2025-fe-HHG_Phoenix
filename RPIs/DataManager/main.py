@@ -206,8 +206,8 @@ if __name__ == "__main__":
     data_manager = None
     try:
         data_manager = DataManager()
-        if data_manager.mode != 'Training':
-            data_manager.button.wait_for_press()
+        # if data_manager.mode != 'Training':
+        #     data_manager.button.wait_for_press()
         time.sleep(1)
         data_manager.start()
         

@@ -5,7 +5,7 @@ import multiprocessing as mp
 from RPIs.Devices.Utility.Angle.angle_functions import get_angles_edges
 
 def main_loop_obstacle_race(self):
-    image_dimensions = (1024, 480)
+    image_dimensions = (213, 100)
     model_runs = 0
     
     self.logger.info("Starting main loop for obstacle race...")
@@ -14,7 +14,7 @@ def main_loop_obstacle_race(self):
     model_process = mp.Process(target=run_model, args=(IO_list,))
     model_process.start()
     
-    with open("RPIs/AIController/best_model_blocks_256b_features.txt", "r") as f:
+    with open("RPIs/AIController/model_features.txt", "r") as f:
         selected_feature_indexes = [int(feature) for feature in f.read().splitlines()]
     
     while self.wait_for_parking:
@@ -91,7 +91,7 @@ def main_loop_obstacle_race(self):
 
 def run_model(shared_IO_list):
     # Load the model
-    model = tf.lite.Interpreter(model_path='RPIs/AIController/best_model_blocks_256b.tflite')
+    model = tf.lite.Interpreter(model_path='RPIs/AIController/model.tflite')
     model.allocate_tensors()
 
     # Get the input and output details

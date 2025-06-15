@@ -72,7 +72,7 @@ def main_loop_training(self):
                     x_values.append(x)
                     lidar_arrays.append(lidar_data)
                     
-                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((480, 1024, 3))
+                    raw_frame = np.frombuffer(self.frame_list[0], dtype=np.uint8).reshape((100, 213, 3))
                     raw_frames.append(raw_frame)
                     
                     all_bounding_boxes_red.append(self.frame_list[2] if type(self.frame_list[2]) == tuple and self.frame_list[2] != None else (0, 0, 0, 0))
