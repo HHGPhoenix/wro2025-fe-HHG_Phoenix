@@ -1436,25 +1436,30 @@ class DataProcessor:
         try:
             for root, dirs, files in os.walk(folder_path):
                 for file in files:
-                    if file.startswith("run_data_"):
+                    if file.endswith('.npz'):
                         file_path = os.path.join(root, file)
                         np_arrays = np.load(file_path, allow_pickle=True)
                         print(np_arrays)
                         if 'lidar_data' in np_arrays and 'controller_data' in np_arrays and 'bounding_boxes_red' in np_arrays and 'bounding_boxes_green' in np_arrays and 'raw_frames' in np_arrays:
+                            current_lidar_data = np_arrays['lidar_data'].astype(np.float32)
+                            
+                            # Remove intensity column if it exists (keep only first 2 columns: angle, distance, and one other)
+                            if current_lidar_data.shape[-1] > 2:
+                                current_lidar_data = current_lidar_data[:, :, :2]
+                            
                             if file_count == 0:
-                                lidar_data = np_arrays['lidar_data'].astype(np.float32)
+                                lidar_data = current_lidar_data
                                 controller_data = np_arrays['controller_data']
                                 red_blocks = np_arrays['bounding_boxes_red']
                                 green_blocks = np_arrays['bounding_boxes_green']
                                 raw_frames = np_arrays['raw_frames']
-
                             else:
-                                lidar_data = np.concatenate((lidar_data, np_arrays['lidar_data'].astype(np.float32)), axis=0)
+                                lidar_data = np.concatenate((lidar_data, current_lidar_data), axis=0)
                                 controller_data = np.concatenate((controller_data, np_arrays['controller_data']), axis=0)
                                 red_blocks = np.concatenate((red_blocks, np_arrays['bounding_boxes_red']), axis=0)
                                 green_blocks = np.concatenate((green_blocks, np_arrays['bounding_boxes_green']), axis=0)
                                 raw_frames = np.concatenate((raw_frames, np_arrays['raw_frames']), axis=0)
-
+                                
                             file_count += 1
                         np_arrays = None
         except KeyError as e:
@@ -1473,6 +1478,7 @@ class DataProcessor:
             return
         else:
             self.modelTrainUI.found_training_data = True
+            print(f"Successfully found and loaded {file_count} data files")
     
         # Normalize and process data
         lidar_data = lidar_data[:, :, :2] / np.array([360, 5000], dtype=np.float32)
